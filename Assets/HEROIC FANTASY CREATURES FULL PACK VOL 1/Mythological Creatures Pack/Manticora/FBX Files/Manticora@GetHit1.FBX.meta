@@ -1,0 +1,264 @@
+fileFormatVersion: 2
+guid: e05bb3b7b3645054f97d654738095d32
+ModelImporter:
+  serializedVersion: 23
+  fileIDToRecycleName:
+    100000: CHIMERA_
+    100002: CHIMERA_ Head
+    100004: CHIMERA_ L Calf
+    100006: CHIMERA_ L Clavicle
+    100008: CHIMERA_ L Finger0
+    100010: CHIMERA_ L Finger01
+    100012: CHIMERA_ L Finger1
+    100014: CHIMERA_ L Finger11
+    100016: CHIMERA_ L Finger2
+    100018: CHIMERA_ L Finger21
+    100020: CHIMERA_ L Finger3
+    100022: CHIMERA_ L Finger31
+    100024: CHIMERA_ L Foot
+    100026: CHIMERA_ L Forearm
+    100028: CHIMERA_ L Hand
+    100030: CHIMERA_ L HorseLink
+    100032: CHIMERA_ L Thigh
+    100034: CHIMERA_ L Toe0
+    100036: CHIMERA_ L Toe01
+    100038: CHIMERA_ L Toe1
+    100040: CHIMERA_ L Toe11
+    100042: CHIMERA_ L Toe2
+    100044: CHIMERA_ L Toe21
+    100046: CHIMERA_ L Toe3
+    100048: CHIMERA_ L Toe31
+    100050: CHIMERA_ L UpperArm
+    100052: CHIMERA_ Neck
+    100054: CHIMERA_ Neck1
+    100056: CHIMERA_ Neck2
+    100058: CHIMERA_ Pelvis
+    100060: CHIMERA_ Queue de cheval 1
+    100062: CHIMERA_ R Calf
+    100064: CHIMERA_ R Clavicle
+    100066: CHIMERA_ R Finger0
+    100068: CHIMERA_ R Finger01
+    100070: CHIMERA_ R Finger1
+    100072: CHIMERA_ R Finger11
+    100074: CHIMERA_ R Finger2
+    100076: CHIMERA_ R Finger21
+    100078: CHIMERA_ R Finger3
+    100080: CHIMERA_ R Finger31
+    100082: CHIMERA_ R Foot
+    100084: CHIMERA_ R Forearm
+    100086: CHIMERA_ R Hand
+    100088: CHIMERA_ R HorseLink
+    100090: CHIMERA_ R Thigh
+    100092: CHIMERA_ R Toe0
+    100094: CHIMERA_ R Toe01
+    100096: CHIMERA_ R Toe1
+    100098: CHIMERA_ R Toe11
+    100100: CHIMERA_ R Toe2
+    100102: CHIMERA_ R Toe21
+    100104: CHIMERA_ R Toe3
+    100106: CHIMERA_ R Toe31
+    100108: CHIMERA_ R UpperArm
+    100110: CHIMERA_ Spine
+    100112: CHIMERA_ Spine1
+    100114: CHIMERA_ Spine2
+    100116: CHIMERA_ Tail
+    100118: CHIMERA_ Tail1
+    100120: CHIMERA_ Tail2
+    100122: CHIMERA_ Tail3
+    100124: CHIMERA_ Tail4
+    100126: CHIMERA_ Tail5
+    100128: //RootNode
+    100130: nub
+    100132: root
+    400000: CHIMERA_
+    400002: CHIMERA_ Head
+    400004: CHIMERA_ L Calf
+    400006: CHIMERA_ L Clavicle
+    400008: CHIMERA_ L Finger0
+    400010: CHIMERA_ L Finger01
+    400012: CHIMERA_ L Finger1
+    400014: CHIMERA_ L Finger11
+    400016: CHIMERA_ L Finger2
+    400018: CHIMERA_ L Finger21
+    400020: CHIMERA_ L Finger3
+    400022: CHIMERA_ L Finger31
+    400024: CHIMERA_ L Foot
+    400026: CHIMERA_ L Forearm
+    400028: CHIMERA_ L Hand
+    400030: CHIMERA_ L HorseLink
+    400032: CHIMERA_ L Thigh
+    400034: CHIMERA_ L Toe0
+    400036: CHIMERA_ L Toe01
+    400038: CHIMERA_ L Toe1
+    400040: CHIMERA_ L Toe11
+    400042: CHIMERA_ L Toe2
+    400044: CHIMERA_ L Toe21
+    400046: CHIMERA_ L Toe3
+    400048: CHIMERA_ L Toe31
+    400050: CHIMERA_ L UpperArm
+    400052: CHIMERA_ Neck
+    400054: CHIMERA_ Neck1
+    400056: CHIMERA_ Neck2
+    400058: CHIMERA_ Pelvis
+    400060: CHIMERA_ Queue de cheval 1
+    400062: CHIMERA_ R Calf
+    400064: CHIMERA_ R Clavicle
+    400066: CHIMERA_ R Finger0
+    400068: CHIMERA_ R Finger01
+    400070: CHIMERA_ R Finger1
+    400072: CHIMERA_ R Finger11
+    400074: CHIMERA_ R Finger2
+    400076: CHIMERA_ R Finger21
+    400078: CHIMERA_ R Finger3
+    400080: CHIMERA_ R Finger31
+    400082: CHIMERA_ R Foot
+    400084: CHIMERA_ R Forearm
+    400086: CHIMERA_ R Hand
+    400088: CHIMERA_ R HorseLink
+    400090: CHIMERA_ R Thigh
+    400092: CHIMERA_ R Toe0
+    400094: CHIMERA_ R Toe01
+    400096: CHIMERA_ R Toe1
+    400098: CHIMERA_ R Toe11
+    400100: CHIMERA_ R Toe2
+    400102: CHIMERA_ R Toe21
+    400104: CHIMERA_ R Toe3
+    400106: CHIMERA_ R Toe31
+    400108: CHIMERA_ R UpperArm
+    400110: CHIMERA_ Spine
+    400112: CHIMERA_ Spine1
+    400114: CHIMERA_ Spine2
+    400116: CHIMERA_ Tail
+    400118: CHIMERA_ Tail1
+    400120: CHIMERA_ Tail2
+    400122: CHIMERA_ Tail3
+    400124: CHIMERA_ Tail4
+    400126: CHIMERA_ Tail5
+    400128: //RootNode
+    400130: nub
+    400132: root
+    7400000: GetHit1
+    9500000: //RootNode
+  externalObjects: {}
+  materials:
+    importMaterials: 1
+    materialName: 0
+    materialSearch: 1
+    materialLocation: 1
+  animations:
+    legacyGenerateAnimations: 4
+    bakeSimulation: 0
+    resampleCurves: 1
+    optimizeGameObjects: 0
+    motionNodeName: 
+    rigImportErrors: 
+    rigImportWarnings: 
+    animationImportErrors: 
+    animationImportWarnings: 
+    animationRetargetingWarnings: 
+    animationDoRetargetingWarnings: 0
+    importAnimatedCustomProperties: 0
+    importConstraints: 0
+    animationCompression: 0
+    animationRotationError: 0.5
+    animationPositionError: 0.5
+    animationScaleError: 0.5
+    animationWrapMode: 0
+    extraExposedTransformPaths: []
+    extraUserProperties: []
+    clipAnimations:
+    - serializedVersion: 16
+      name: GetHit1
+      takeName: Take 001
+      firstFrame: 0
+      lastFrame: 20
+      wrapMode: 0
+      orientationOffsetY: 0
+      level: 0
+      cycleOffset: 0
+      loop: 0
+      hasAdditiveReferencePose: 0
+      loopTime: 1
+      loopBlend: 0
+      loopBlendOrientation: 1
+      loopBlendPositionY: 1
+      loopBlendPositionXZ: 1
+      keepOriginalOrientation: 1
+      keepOriginalPositionY: 1
+      keepOriginalPositionXZ: 1
+      heightFromFeet: 0
+      mirror: 0
+      bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
+      curves: []
+      events: []
+      transformMask: []
+      maskType: 3
+      maskSource: {instanceID: 0}
+      additiveReferencePoseFrame: 0
+    isReadable: 1
+  meshes:
+    lODScreenPercentages: []
+    globalScale: 1
+    meshCompression: 0
+    addColliders: 0
+    useSRGBMaterialColor: 1
+    importVisibility: 1
+    importBlendShapes: 1
+    importCameras: 1
+    importLights: 1
+    swapUVChannels: 0
+    generateSecondaryUV: 0
+    useFileUnits: 1
+    optimizeMeshForGPU: 1
+    keepQuads: 0
+    weldVertices: 1
+    preserveHierarchy: 0
+    indexFormat: 0
+    secondaryUVAngleDistortion: 8
+    secondaryUVAreaDistortion: 15.000001
+    secondaryUVHardAngle: 88
+    secondaryUVPackMargin: 4
+    useFileScale: 1
+    previousCalculatedGlobalScale: 0.01
+    hasPreviousCalculatedGlobalScale: 1
+  tangentSpace:
+    normalSmoothAngle: 60
+    normalImportMode: 0
+    tangentImportMode: 3
+    normalCalculationMode: 4
+    legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: 0
+    blendShapeNormalImportMode: 1
+    normalSmoothingSource: 0
+  importAnimation: 1
+  copyAvatar: 1
+  humanDescription:
+    serializedVersion: 2
+    human: []
+    skeleton: []
+    armTwist: 0.5
+    foreArmTwist: 0.5
+    upperLegTwist: 0.5
+    legTwist: 0.5
+    armStretch: 0.05
+    legStretch: 0.05
+    feetSpacing: 0
+    rootMotionBoneName: root
+    hasTranslationDoF: 0
+    hasExtraRoot: 0
+    skeletonHasParents: 1
+  lastHumanDescriptionAvatarSource: {fileID: 9000000, guid: d4e14722b8ee5a346a6f672825e4c3a7,
+    type: 3}
+  animationType: 2
+  humanoidOversampling: 1
+  additionalBone: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 5730
+  packageName: HEROIC FANTASY CREATURES FULL PACK Volume 1
+  packageVersion: 2.5
+  assetPath: Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Mythological Creatures
+    Pack/Manticora/FBX Files/Manticora@GetHit1.FBX
+  uploadId: 868080

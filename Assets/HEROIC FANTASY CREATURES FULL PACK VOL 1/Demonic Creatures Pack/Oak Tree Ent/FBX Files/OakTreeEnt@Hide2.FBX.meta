@@ -1,0 +1,304 @@
+fileFormatVersion: 2
+guid: bc07ae48cfabaf847ae3a266cac9e698
+ModelImporter:
+  serializedVersion: 23
+  fileIDToRecycleName:
+    100000: OAK_TEE_ENT_
+    100002: OAK_TEE_ENT_ Head
+    100004: OAK_TEE_ENT_ L Calf
+    100006: OAK_TEE_ENT_ L Clavicle
+    100008: OAK_TEE_ENT_ L Finger0
+    100010: OAK_TEE_ENT_ L Finger01
+    100012: OAK_TEE_ENT_ L Finger02
+    100014: OAK_TEE_ENT_ L Finger1
+    100016: OAK_TEE_ENT_ L Finger11
+    100018: OAK_TEE_ENT_ L Finger12
+    100020: OAK_TEE_ENT_ L Finger2
+    100022: OAK_TEE_ENT_ L Finger21
+    100024: OAK_TEE_ENT_ L Finger22
+    100026: OAK_TEE_ENT_ L Foot
+    100028: OAK_TEE_ENT_ L Forearm
+    100030: OAK_TEE_ENT_ L Hand
+    100032: OAK_TEE_ENT_ L Thigh
+    100034: OAK_TEE_ENT_ L Toe0
+    100036: OAK_TEE_ENT_ L Toe01
+    100038: OAK_TEE_ENT_ L Toe02
+    100040: OAK_TEE_ENT_ L Toe1
+    100042: OAK_TEE_ENT_ L Toe11
+    100044: OAK_TEE_ENT_ L Toe12
+    100046: OAK_TEE_ENT_ L Toe2
+    100048: OAK_TEE_ENT_ L Toe21
+    100050: OAK_TEE_ENT_ L Toe22
+    100052: OAK_TEE_ENT_ L UpperArm
+    100054: OAK_TEE_ENT_ Neck
+    100056: OAK_TEE_ENT_ Pelvis
+    100058: OAK_TEE_ENT_ R Calf
+    100060: OAK_TEE_ENT_ R Clavicle
+    100062: OAK_TEE_ENT_ R Finger0
+    100064: OAK_TEE_ENT_ R Finger01
+    100066: OAK_TEE_ENT_ R Finger02
+    100068: OAK_TEE_ENT_ R Finger1
+    100070: OAK_TEE_ENT_ R Finger11
+    100072: OAK_TEE_ENT_ R Finger12
+    100074: OAK_TEE_ENT_ R Finger2
+    100076: OAK_TEE_ENT_ R Finger21
+    100078: OAK_TEE_ENT_ R Finger22
+    100080: OAK_TEE_ENT_ R Foot
+    100082: OAK_TEE_ENT_ R Forearm
+    100084: OAK_TEE_ENT_ R Hand
+    100086: OAK_TEE_ENT_ R Thigh
+    100088: OAK_TEE_ENT_ R Toe0
+    100090: OAK_TEE_ENT_ R Toe01
+    100092: OAK_TEE_ENT_ R Toe02
+    100094: OAK_TEE_ENT_ R Toe1
+    100096: OAK_TEE_ENT_ R Toe11
+    100098: OAK_TEE_ENT_ R Toe12
+    100100: OAK_TEE_ENT_ R Toe2
+    100102: OAK_TEE_ENT_ R Toe21
+    100104: OAK_TEE_ENT_ R Toe22
+    100106: OAK_TEE_ENT_ R UpperArm
+    100108: OAK_TEE_ENT_ Spine
+    100110: OAK_TEE_ENT_ Spine1
+    100112: OAK_TREE_ENT_EYE_L
+    100114: OAK_TREE_ENT_EYE_L_ROOT
+    100116: OAK_TREE_ENT_EYE_R
+    100118: OAK_TREE_ENT_EYE_R_nub
+    100120: OAK_TREE_ENT_EYE_R_nub 1
+    100122: OAK_TREE_ENT_EYE_R_ROOT
+    100124: OAK_TREE_ENT_EYEBROW_L_1
+    100126: OAK_TREE_ENT_EYEBROW_L_2
+    100128: OAK_TREE_ENT_EYEBROW_L_3
+    100130: OAK_TREE_ENT_EYEBROW_R_1
+    100132: OAK_TREE_ENT_EYEBROW_R_2
+    100134: OAK_TREE_ENT_EYEBROW_R_3
+    100136: OAK_TREE_ENT_EYELID_LOWER_L
+    100138: OAK_TREE_ENT_EYELID_LOWER_R
+    100140: OAK_TREE_ENT_EYELID_UPPER_L
+    100142: OAK_TREE_ENT_EYELID_UPPER_R
+    100144: OAK_TREE_ENT_LIP_LOWER_L_1
+    100146: OAK_TREE_ENT_LIP_LOWER_L_2
+    100148: OAK_TREE_ENT_LIP_LOWER_R_1
+    100150: OAK_TREE_ENT_LIP_LOWER_R_2
+    100152: OAK_TREE_ENT_LIP_UPPER_L_1
+    100154: OAK_TREE_ENT_LIP_UPPER_L_2
+    100156: OAK_TREE_ENT_LIP_UPPER_R_1
+    100158: OAK_TREE_ENT_LIP_UPPER_R_2
+    100160: OAK_TREE_ENT_NOSE_1
+    100162: OAK_TREE_ENT_NOSE_2
+    100164: //RootNode
+    100166: OAK_TREE_ENT_EYE_L_nub
+    100168: ROCK_MOSS_PARENT
+    100170: RockMossDistanceReference
+    100172: root
+    400000: OAK_TEE_ENT_
+    400002: OAK_TEE_ENT_ Head
+    400004: OAK_TEE_ENT_ L Calf
+    400006: OAK_TEE_ENT_ L Clavicle
+    400008: OAK_TEE_ENT_ L Finger0
+    400010: OAK_TEE_ENT_ L Finger01
+    400012: OAK_TEE_ENT_ L Finger02
+    400014: OAK_TEE_ENT_ L Finger1
+    400016: OAK_TEE_ENT_ L Finger11
+    400018: OAK_TEE_ENT_ L Finger12
+    400020: OAK_TEE_ENT_ L Finger2
+    400022: OAK_TEE_ENT_ L Finger21
+    400024: OAK_TEE_ENT_ L Finger22
+    400026: OAK_TEE_ENT_ L Foot
+    400028: OAK_TEE_ENT_ L Forearm
+    400030: OAK_TEE_ENT_ L Hand
+    400032: OAK_TEE_ENT_ L Thigh
+    400034: OAK_TEE_ENT_ L Toe0
+    400036: OAK_TEE_ENT_ L Toe01
+    400038: OAK_TEE_ENT_ L Toe02
+    400040: OAK_TEE_ENT_ L Toe1
+    400042: OAK_TEE_ENT_ L Toe11
+    400044: OAK_TEE_ENT_ L Toe12
+    400046: OAK_TEE_ENT_ L Toe2
+    400048: OAK_TEE_ENT_ L Toe21
+    400050: OAK_TEE_ENT_ L Toe22
+    400052: OAK_TEE_ENT_ L UpperArm
+    400054: OAK_TEE_ENT_ Neck
+    400056: OAK_TEE_ENT_ Pelvis
+    400058: OAK_TEE_ENT_ R Calf
+    400060: OAK_TEE_ENT_ R Clavicle
+    400062: OAK_TEE_ENT_ R Finger0
+    400064: OAK_TEE_ENT_ R Finger01
+    400066: OAK_TEE_ENT_ R Finger02
+    400068: OAK_TEE_ENT_ R Finger1
+    400070: OAK_TEE_ENT_ R Finger11
+    400072: OAK_TEE_ENT_ R Finger12
+    400074: OAK_TEE_ENT_ R Finger2
+    400076: OAK_TEE_ENT_ R Finger21
+    400078: OAK_TEE_ENT_ R Finger22
+    400080: OAK_TEE_ENT_ R Foot
+    400082: OAK_TEE_ENT_ R Forearm
+    400084: OAK_TEE_ENT_ R Hand
+    400086: OAK_TEE_ENT_ R Thigh
+    400088: OAK_TEE_ENT_ R Toe0
+    400090: OAK_TEE_ENT_ R Toe01
+    400092: OAK_TEE_ENT_ R Toe02
+    400094: OAK_TEE_ENT_ R Toe1
+    400096: OAK_TEE_ENT_ R Toe11
+    400098: OAK_TEE_ENT_ R Toe12
+    400100: OAK_TEE_ENT_ R Toe2
+    400102: OAK_TEE_ENT_ R Toe21
+    400104: OAK_TEE_ENT_ R Toe22
+    400106: OAK_TEE_ENT_ R UpperArm
+    400108: OAK_TEE_ENT_ Spine
+    400110: OAK_TEE_ENT_ Spine1
+    400112: OAK_TREE_ENT_EYE_L
+    400114: OAK_TREE_ENT_EYE_L_ROOT
+    400116: OAK_TREE_ENT_EYE_R
+    400118: OAK_TREE_ENT_EYE_R_nub
+    400120: OAK_TREE_ENT_EYE_R_nub 1
+    400122: OAK_TREE_ENT_EYE_R_ROOT
+    400124: OAK_TREE_ENT_EYEBROW_L_1
+    400126: OAK_TREE_ENT_EYEBROW_L_2
+    400128: OAK_TREE_ENT_EYEBROW_L_3
+    400130: OAK_TREE_ENT_EYEBROW_R_1
+    400132: OAK_TREE_ENT_EYEBROW_R_2
+    400134: OAK_TREE_ENT_EYEBROW_R_3
+    400136: OAK_TREE_ENT_EYELID_LOWER_L
+    400138: OAK_TREE_ENT_EYELID_LOWER_R
+    400140: OAK_TREE_ENT_EYELID_UPPER_L
+    400142: OAK_TREE_ENT_EYELID_UPPER_R
+    400144: OAK_TREE_ENT_LIP_LOWER_L_1
+    400146: OAK_TREE_ENT_LIP_LOWER_L_2
+    400148: OAK_TREE_ENT_LIP_LOWER_R_1
+    400150: OAK_TREE_ENT_LIP_LOWER_R_2
+    400152: OAK_TREE_ENT_LIP_UPPER_L_1
+    400154: OAK_TREE_ENT_LIP_UPPER_L_2
+    400156: OAK_TREE_ENT_LIP_UPPER_R_1
+    400158: OAK_TREE_ENT_LIP_UPPER_R_2
+    400160: OAK_TREE_ENT_NOSE_1
+    400162: OAK_TREE_ENT_NOSE_2
+    400164: //RootNode
+    400166: OAK_TREE_ENT_EYE_L_nub
+    400168: ROCK_MOSS_PARENT
+    400170: RockMossDistanceReference
+    400172: root
+    7400000: Hide2
+    9500000: //RootNode
+  externalObjects: {}
+  materials:
+    importMaterials: 1
+    materialName: 0
+    materialSearch: 1
+    materialLocation: 1
+  animations:
+    legacyGenerateAnimations: 4
+    bakeSimulation: 0
+    resampleCurves: 1
+    optimizeGameObjects: 0
+    motionNodeName: 
+    rigImportErrors: 
+    rigImportWarnings: 
+    animationImportErrors: 
+    animationImportWarnings: 
+    animationRetargetingWarnings: 
+    animationDoRetargetingWarnings: 0
+    importAnimatedCustomProperties: 0
+    importConstraints: 0
+    animationCompression: 0
+    animationRotationError: 0.5
+    animationPositionError: 0.5
+    animationScaleError: 0.5
+    animationWrapMode: 0
+    extraExposedTransformPaths: []
+    extraUserProperties: []
+    clipAnimations:
+    - serializedVersion: 16
+      name: Hide2
+      takeName: Take 001
+      firstFrame: 0
+      lastFrame: 10
+      wrapMode: 0
+      orientationOffsetY: 0
+      level: 0
+      cycleOffset: 0
+      loop: 0
+      hasAdditiveReferencePose: 0
+      loopTime: 1
+      loopBlend: 0
+      loopBlendOrientation: 1
+      loopBlendPositionY: 1
+      loopBlendPositionXZ: 1
+      keepOriginalOrientation: 1
+      keepOriginalPositionY: 1
+      keepOriginalPositionXZ: 1
+      heightFromFeet: 0
+      mirror: 0
+      bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
+      curves: []
+      events: []
+      transformMask: []
+      maskType: 3
+      maskSource: {instanceID: 0}
+      additiveReferencePoseFrame: 0
+    isReadable: 1
+  meshes:
+    lODScreenPercentages: []
+    globalScale: 1
+    meshCompression: 0
+    addColliders: 0
+    useSRGBMaterialColor: 1
+    importVisibility: 1
+    importBlendShapes: 1
+    importCameras: 1
+    importLights: 1
+    swapUVChannels: 0
+    generateSecondaryUV: 0
+    useFileUnits: 1
+    optimizeMeshForGPU: 1
+    keepQuads: 0
+    weldVertices: 1
+    preserveHierarchy: 0
+    indexFormat: 0
+    secondaryUVAngleDistortion: 8
+    secondaryUVAreaDistortion: 15.000001
+    secondaryUVHardAngle: 88
+    secondaryUVPackMargin: 4
+    useFileScale: 1
+    previousCalculatedGlobalScale: 0.01
+    hasPreviousCalculatedGlobalScale: 1
+  tangentSpace:
+    normalSmoothAngle: 60
+    normalImportMode: 0
+    tangentImportMode: 3
+    normalCalculationMode: 4
+    legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: 0
+    blendShapeNormalImportMode: 1
+    normalSmoothingSource: 0
+  importAnimation: 1
+  copyAvatar: 1
+  humanDescription:
+    serializedVersion: 2
+    human: []
+    skeleton: []
+    armTwist: 0.5
+    foreArmTwist: 0.5
+    upperLegTwist: 0.5
+    legTwist: 0.5
+    armStretch: 0.05
+    legStretch: 0.05
+    feetSpacing: 0
+    rootMotionBoneName: root
+    hasTranslationDoF: 0
+    hasExtraRoot: 0
+    skeletonHasParents: 1
+  lastHumanDescriptionAvatarSource: {fileID: 9000000, guid: 9fdc926626472a649945aa7eeaa44418,
+    type: 3}
+  animationType: 2
+  humanoidOversampling: 1
+  additionalBone: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 5730
+  packageName: HEROIC FANTASY CREATURES FULL PACK Volume 1
+  packageVersion: 2.5
+  assetPath: Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Demonic Creatures Pack/Oak
+    Tree Ent/FBX Files/OakTreeEnt@Hide2.FBX
+  uploadId: 868080

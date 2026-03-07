@@ -1,0 +1,292 @@
+fileFormatVersion: 2
+guid: c30e4596b5eb34a40bf586269211b5f7
+ModelImporter:
+  serializedVersion: 23
+  fileIDToRecycleName:
+    100000: Dummy001
+    100002: Dummy002
+    100004: //RootNode
+    100006: GRIFFON_
+    100008: GRIFFON_ Head
+    100010: GRIFFON_ L Calf
+    100012: GRIFFON_ L Clavicle
+    100014: GRIFFON_ L Finger0
+    100016: GRIFFON_ L Finger01
+    100018: GRIFFON_ L Finger02
+    100020: GRIFFON_ L Finger1
+    100022: GRIFFON_ L Finger11
+    100024: GRIFFON_ L Finger12
+    100026: GRIFFON_ L Finger2
+    100028: GRIFFON_ L Finger21
+    100030: GRIFFON_ L Finger22
+    100032: GRIFFON_ L Finger3
+    100034: GRIFFON_ L Finger31
+    100036: GRIFFON_ L Finger32
+    100038: GRIFFON_ L Foot
+    100040: GRIFFON_ L Forearm
+    100042: GRIFFON_ L Hand
+    100044: GRIFFON_ L HorseLink
+    100046: GRIFFON_ L Thigh
+    100048: GRIFFON_ L Toe0
+    100050: GRIFFON_ L UpperArm
+    100052: GRIFFON_ Neck
+    100054: GRIFFON_ Neck1
+    100056: GRIFFON_ Neck2
+    100058: GRIFFON_ Pelvis
+    100060: GRIFFON_ Queue de cheval 1
+    100062: GRIFFON_ R Calf
+    100064: GRIFFON_ R Clavicle
+    100066: GRIFFON_ R Finger0
+    100068: GRIFFON_ R Finger01
+    100070: GRIFFON_ R Finger02
+    100072: GRIFFON_ R Finger1
+    100074: GRIFFON_ R Finger11
+    100076: GRIFFON_ R Finger12
+    100078: GRIFFON_ R Finger2
+    100080: GRIFFON_ R Finger21
+    100082: GRIFFON_ R Finger22
+    100084: GRIFFON_ R Finger3
+    100086: GRIFFON_ R Finger31
+    100088: GRIFFON_ R Finger32
+    100090: GRIFFON_ R Foot
+    100092: GRIFFON_ R Forearm
+    100094: GRIFFON_ R Hand
+    100096: GRIFFON_ R HorseLink
+    100098: GRIFFON_ R Thigh
+    100100: GRIFFON_ R Toe0
+    100102: GRIFFON_ R UpperArm
+    100104: GRIFFON_ Spine
+    100106: GRIFFON_ Spine1
+    100108: GRIFFON_ Spine2
+    100110: GRIFFON_ Tail
+    100112: GRIFFON_ Tail1
+    100114: GRIFFON_ Tail2
+    100116: GRIFFON_ Tail3
+    100118: GRIFFON_ Tail4
+    100120: GRIFFON_ Tail5
+    100122: GRIFFON_ Tail6
+    100124: GRIFFON_ Tail7
+    100126: GRIFFON_ Tail8
+    100128: GRIFFON_Feather_01_L
+    100130: GRIFFON_Feather_01_R
+    100132: GRIFFON_Feather_02_L
+    100134: GRIFFON_Feather_02_R
+    100136: GRIFFON_Feather_03_L
+    100138: GRIFFON_Feather_03_R
+    100140: GRIFFON_Feather_04_L
+    100142: GRIFFON_Feather_04_R
+    100144: GRIFFON_Feather_05_L
+    100146: GRIFFON_Feather_05_R
+    100148: GRIFFON_Feather_06_L
+    100150: GRIFFON_Feather_06_R
+    100152: GRIFFON_Feather_07_L
+    100154: GRIFFON_Feather_07_R
+    100156: GRIFFON_Feather_08_L
+    100158: GRIFFON_Feather_08_R
+    100160: GRIFFON_Feather_09_L
+    100162: GRIFFON_Feather_09_R
+    100164: GRIFFON_Feather_10_L
+    100166: GRIFFON_Feather_10_R
+    100168: GRIFFON_Feather_11_L
+    100170: GRIFFON_Feather_11_R
+    100172: GRIFFON_Feather_12_L
+    100174: GRIFFON_Feather_12_R
+    100176: GRIFFON_WingHand_L
+    100178: GRIFFON_WingHand_R
+    100180: GRIFFON_WingLowerArm_L
+    100182: GRIFFON_WingLowerArm_R
+    100184: GRIFFON_WingUpperArm_L
+    100186: GRIFFON_WingUpperArm_R
+    100188: root
+    400000: Dummy001
+    400002: Dummy002
+    400004: //RootNode
+    400006: GRIFFON_
+    400008: GRIFFON_ Head
+    400010: GRIFFON_ L Calf
+    400012: GRIFFON_ L Clavicle
+    400014: GRIFFON_ L Finger0
+    400016: GRIFFON_ L Finger01
+    400018: GRIFFON_ L Finger02
+    400020: GRIFFON_ L Finger1
+    400022: GRIFFON_ L Finger11
+    400024: GRIFFON_ L Finger12
+    400026: GRIFFON_ L Finger2
+    400028: GRIFFON_ L Finger21
+    400030: GRIFFON_ L Finger22
+    400032: GRIFFON_ L Finger3
+    400034: GRIFFON_ L Finger31
+    400036: GRIFFON_ L Finger32
+    400038: GRIFFON_ L Foot
+    400040: GRIFFON_ L Forearm
+    400042: GRIFFON_ L Hand
+    400044: GRIFFON_ L HorseLink
+    400046: GRIFFON_ L Thigh
+    400048: GRIFFON_ L Toe0
+    400050: GRIFFON_ L UpperArm
+    400052: GRIFFON_ Neck
+    400054: GRIFFON_ Neck1
+    400056: GRIFFON_ Neck2
+    400058: GRIFFON_ Pelvis
+    400060: GRIFFON_ Queue de cheval 1
+    400062: GRIFFON_ R Calf
+    400064: GRIFFON_ R Clavicle
+    400066: GRIFFON_ R Finger0
+    400068: GRIFFON_ R Finger01
+    400070: GRIFFON_ R Finger02
+    400072: GRIFFON_ R Finger1
+    400074: GRIFFON_ R Finger11
+    400076: GRIFFON_ R Finger12
+    400078: GRIFFON_ R Finger2
+    400080: GRIFFON_ R Finger21
+    400082: GRIFFON_ R Finger22
+    400084: GRIFFON_ R Finger3
+    400086: GRIFFON_ R Finger31
+    400088: GRIFFON_ R Finger32
+    400090: GRIFFON_ R Foot
+    400092: GRIFFON_ R Forearm
+    400094: GRIFFON_ R Hand
+    400096: GRIFFON_ R HorseLink
+    400098: GRIFFON_ R Thigh
+    400100: GRIFFON_ R Toe0
+    400102: GRIFFON_ R UpperArm
+    400104: GRIFFON_ Spine
+    400106: GRIFFON_ Spine1
+    400108: GRIFFON_ Spine2
+    400110: GRIFFON_ Tail
+    400112: GRIFFON_ Tail1
+    400114: GRIFFON_ Tail2
+    400116: GRIFFON_ Tail3
+    400118: GRIFFON_ Tail4
+    400120: GRIFFON_ Tail5
+    400122: GRIFFON_ Tail6
+    400124: GRIFFON_ Tail7
+    400126: GRIFFON_ Tail8
+    400128: GRIFFON_Feather_01_L
+    400130: GRIFFON_Feather_01_R
+    400132: GRIFFON_Feather_02_L
+    400134: GRIFFON_Feather_02_R
+    400136: GRIFFON_Feather_03_L
+    400138: GRIFFON_Feather_03_R
+    400140: GRIFFON_Feather_04_L
+    400142: GRIFFON_Feather_04_R
+    400144: GRIFFON_Feather_05_L
+    400146: GRIFFON_Feather_05_R
+    400148: GRIFFON_Feather_06_L
+    400150: GRIFFON_Feather_06_R
+    400152: GRIFFON_Feather_07_L
+    400154: GRIFFON_Feather_07_R
+    400156: GRIFFON_Feather_08_L
+    400158: GRIFFON_Feather_08_R
+    400160: GRIFFON_Feather_09_L
+    400162: GRIFFON_Feather_09_R
+    400164: GRIFFON_Feather_10_L
+    400166: GRIFFON_Feather_10_R
+    400168: GRIFFON_Feather_11_L
+    400170: GRIFFON_Feather_11_R
+    400172: GRIFFON_Feather_12_L
+    400174: GRIFFON_Feather_12_R
+    400176: GRIFFON_WingHand_L
+    400178: GRIFFON_WingHand_R
+    400180: GRIFFON_WingLowerArm_L
+    400182: GRIFFON_WingLowerArm_R
+    400184: GRIFFON_WingUpperArm_L
+    400186: GRIFFON_WingUpperArm_R
+    400188: root
+    7400000: Take 001
+    9500000: //RootNode
+  externalObjects: {}
+  materials:
+    importMaterials: 1
+    materialName: 0
+    materialSearch: 1
+    materialLocation: 1
+  animations:
+    legacyGenerateAnimations: 4
+    bakeSimulation: 0
+    resampleCurves: 1
+    optimizeGameObjects: 0
+    motionNodeName: 
+    rigImportErrors: 
+    rigImportWarnings: 
+    animationImportErrors: 
+    animationImportWarnings: 
+    animationRetargetingWarnings: 
+    animationDoRetargetingWarnings: 0
+    importAnimatedCustomProperties: 0
+    importConstraints: 0
+    animationCompression: 0
+    animationRotationError: 0.5
+    animationPositionError: 0.5
+    animationScaleError: 0.5
+    animationWrapMode: 0
+    extraExposedTransformPaths: []
+    extraUserProperties: []
+    clipAnimations: []
+    isReadable: 1
+  meshes:
+    lODScreenPercentages: []
+    globalScale: 1
+    meshCompression: 0
+    addColliders: 0
+    useSRGBMaterialColor: 1
+    importVisibility: 1
+    importBlendShapes: 1
+    importCameras: 1
+    importLights: 1
+    swapUVChannels: 0
+    generateSecondaryUV: 0
+    useFileUnits: 1
+    optimizeMeshForGPU: 1
+    keepQuads: 0
+    weldVertices: 1
+    preserveHierarchy: 0
+    indexFormat: 0
+    secondaryUVAngleDistortion: 8
+    secondaryUVAreaDistortion: 15.000001
+    secondaryUVHardAngle: 88
+    secondaryUVPackMargin: 4
+    useFileScale: 1
+    previousCalculatedGlobalScale: 1
+    hasPreviousCalculatedGlobalScale: 1
+  tangentSpace:
+    normalSmoothAngle: 60
+    normalImportMode: 0
+    tangentImportMode: 3
+    normalCalculationMode: 4
+    legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: 0
+    blendShapeNormalImportMode: 1
+    normalSmoothingSource: 0
+  importAnimation: 1
+  copyAvatar: 1
+  humanDescription:
+    serializedVersion: 2
+    human: []
+    skeleton: []
+    armTwist: 0.5
+    foreArmTwist: 0.5
+    upperLegTwist: 0.5
+    legTwist: 0.5
+    armStretch: 0.05
+    legStretch: 0.05
+    feetSpacing: 0
+    rootMotionBoneName: root
+    hasTranslationDoF: 0
+    hasExtraRoot: 0
+    skeletonHasParents: 1
+  lastHumanDescriptionAvatarSource: {fileID: 9000000, guid: d1a87d43d91f8e5488e413df430d7047,
+    type: 3}
+  animationType: 2
+  humanoidOversampling: 1
+  additionalBone: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 5730
+  packageName: HEROIC FANTASY CREATURES FULL PACK Volume 1
+  packageVersion: 2.5
+  assetPath: Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Mythological Creatures
+    Pack/Griffin/FBX files/Griffin@GetHit1.FBX
+  uploadId: 868080

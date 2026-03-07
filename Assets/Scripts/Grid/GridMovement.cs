@@ -23,6 +23,7 @@ public class GridMovement : NetworkBehaviour
     public bool IsMoving => isMovingBetweenCells || (currentPath != null && pathIndex < currentPath.Count);
     public Vector2Int CurrentCell => currentCell;
     public bool HasPath => currentPath != null && pathIndex < currentPath.Count;
+    public Vector2Int? TargetCell => targetCell;
 
     public event Action OnPathBlocked;
     public event Action OnReachedDestination;
@@ -35,11 +36,27 @@ public class GridMovement : NetworkBehaviour
     public override void OnStartServer()
     {
         grid = GridSystem.Instance;
-        if (grid == null) return;
+        if (grid == null)
+        {
+            Debug.LogError($"[GridMovement] GridSystem.Instance is NULL on {gameObject.name}! Unit will not move.");
+            return;
+        }
 
         currentCell = grid.WorldToCell(transform.position);
         transform.position = grid.CellToWorld(currentCell);
-        grid.TryOccupyCell(currentCell, gameObject);
+        bool occupied = grid.TryOccupyCell(currentCell, gameObject);
+        Debug.Log($"[GridMovement] {gameObject.name} started at cell {currentCell}, occupy={occupied}, worldPos={transform.position}");
+
+        DisableRootMotion();
+    }
+
+    private void DisableRootMotion()
+    {
+        var animators = GetComponentsInChildren<Animator>();
+        foreach (var anim in animators)
+        {
+            anim.applyRootMotion = false;
+        }
     }
 
     private void Update()
@@ -86,7 +103,11 @@ public class GridMovement : NetworkBehaviour
     [Server]
     public void SetDestinationToEnemyCastle()
     {
-        if (unit == null || grid == null) return;
+        if (unit == null || grid == null)
+        {
+            Debug.LogWarning($"[GridMovement] SetDestinationToEnemyCastle aborted: unit={unit != null}, grid={grid != null}");
+            return;
+        }
 
         int enemyTeam = TeamManager.Instance != null
             ? TeamManager.Instance.GetEnemyTeamId(unit.TeamId)
@@ -97,10 +118,17 @@ public class GridMovement : NetworkBehaviour
         {
             if (c.TeamId == enemyTeam)
             {
+                Vector2Int castleCell = grid.WorldToCell(c.transform.position);
+                if (targetCell.HasValue && targetCell.Value == castleCell)
+                    return;
+
+                Debug.Log($"[GridMovement] {gameObject.name} heading to enemy castle at {c.transform.position} (cell {castleCell})");
                 SetDestinationWorld(c.transform.position);
                 return;
             }
         }
+        if (Time.frameCount % 300 == 0)
+            Debug.LogWarning($"[GridMovement] No enemy castle found for team {unit.TeamId} (enemy team {enemyTeam}). Found {castles.Length} castles total.");
     }
 
     [Server]
@@ -130,12 +158,16 @@ public class GridMovement : NetworkBehaviour
     {
         if (!targetCell.HasValue || grid == null) return;
 
+        if (isMovingBetweenCells)
+            return;
+
         var result = GridPathfinding.FindPath(currentCell, targetCell.Value, grid, gameObject);
 
         if (result.HasPath)
         {
             currentPath = result.Path;
-            pathIndex = 1; // Skip starting cell
+            pathIndex = 1;
+            Debug.Log($"[GridMovement] {gameObject.name} path found: {result.Path.Count} cells, complete={result.IsComplete}, from {currentCell} to {targetCell.Value}");
 
             if (!result.IsComplete)
                 OnPathBlocked?.Invoke();
@@ -143,6 +175,7 @@ public class GridMovement : NetworkBehaviour
         else
         {
             currentPath = null;
+            Debug.LogWarning($"[GridMovement] {gameObject.name} NO path from {currentCell} to {targetCell.Value}");
             OnPathBlocked?.Invoke();
         }
     }
@@ -187,11 +220,11 @@ public class GridMovement : NetworkBehaviour
         if (moveProgress >= 1f)
         {
             Vector2Int previousCell = currentCell;
-            Vector2Int nextCell = currentPath[pathIndex];
+            Vector2Int arrivedCell = grid.WorldToCell(moveTo);
 
             grid.ReleaseCell(previousCell, gameObject);
-            grid.SetCellOccupied(nextCell, gameObject);
-            currentCell = nextCell;
+            grid.SetCellOccupied(arrivedCell, gameObject);
+            currentCell = arrivedCell;
             transform.position = grid.CellToWorld(currentCell);
 
             pathIndex++;

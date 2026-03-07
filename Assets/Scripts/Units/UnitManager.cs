@@ -40,7 +40,11 @@ public class UnitManager : NetworkBehaviour
     [Server]
     public GameObject SpawnUnit(UnitData data, Vector3 position, Quaternion rotation, int teamId)
     {
-        if (data == null || data.prefab == null) return null;
+        if (data == null || data.prefab == null)
+        {
+            Debug.LogWarning($"[UnitManager] SpawnUnit failed: data={data != null}, prefab={data?.prefab != null}");
+            return null;
+        }
 
         GameObject obj = Instantiate(data.prefab, position, rotation);
         var unit = obj.GetComponent<Unit>();
@@ -52,6 +56,7 @@ public class UnitManager : NetworkBehaviour
 
         NetworkServer.Spawn(obj);
         EventBus.Raise(new UnitSpawnedEvent(obj, teamId));
+        Debug.Log($"[UnitManager] Spawned {data.unitName} (team {teamId}) at {position}");
         return obj;
     }
 

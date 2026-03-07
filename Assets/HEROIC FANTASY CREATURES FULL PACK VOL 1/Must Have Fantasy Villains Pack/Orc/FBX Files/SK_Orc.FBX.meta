@@ -1,0 +1,257 @@
+fileFormatVersion: 2
+guid: 926f4d46b1fe397408207038750c5683
+ModelImporter:
+  serializedVersion: 23
+  fileIDToRecycleName:
+    100000: ORC_
+    100002: ORC_ Head
+    100004: ORC_ L Calf
+    100006: ORC_ L Clavicle
+    100008: ORC_ L Finger0
+    100010: ORC_ L Finger01
+    100012: ORC_ L Finger02
+    100014: ORC_ L Finger1
+    100016: ORC_ L Finger11
+    100018: ORC_ L Finger12
+    100020: ORC_ L Finger2
+    100022: ORC_ L Finger21
+    100024: ORC_ L Finger22
+    100026: ORC_ L Finger3
+    100028: ORC_ L Finger31
+    100030: ORC_ L Finger32
+    100032: ORC_ L Foot
+    100034: ORC_ L Forearm
+    100036: ORC_ L Hand
+    100038: ORC_ L Thigh
+    100040: ORC_ L Toe0
+    100042: ORC_ L UpperArm
+    100044: ORC_ Neck
+    100046: ORC_ Pelvis
+    100048: ORC_ Queue de cheval 1
+    100050: ORC_ Queue de cheval 11
+    100052: ORC_ Queue de cheval 12
+    100054: ORC_ Queue de cheval 13
+    100056: ORC_ Queue de cheval 2
+    100058: ORC_ R Calf
+    100060: ORC_ R Clavicle
+    100062: ORC_ R Finger0
+    100064: ORC_ R Finger01
+    100066: ORC_ R Finger02
+    100068: ORC_ R Finger1
+    100070: ORC_ R Finger11
+    100072: ORC_ R Finger12
+    100074: ORC_ R Finger2
+    100076: ORC_ R Finger21
+    100078: ORC_ R Finger22
+    100080: ORC_ R Finger3
+    100082: ORC_ R Finger31
+    100084: ORC_ R Finger32
+    100086: ORC_ R Foot
+    100088: ORC_ R Forearm
+    100090: ORC_ R Hand
+    100092: ORC_ R Thigh
+    100094: ORC_ R Toe0
+    100096: ORC_ R UpperArm
+    100098: ORC_ Spine
+    100100: ORC_ Spine1
+    100102: PELT_SKIN_BACK_1
+    100104: PELT_SKIN_BACK_2
+    100106: PELT_SKIN_BACK_3
+    100108: PELT_SKIN_FRONT_1
+    100110: PELT_SKIN_FRONT_2
+    100112: PELT_SKIN_FRONT_3
+    100114: root
+    100116: SHOULDER_PAD_L
+    100118: SHOULDER_PAD_R
+    100120: SK_BellyArmor
+    100122: //RootNode
+    100124: SK_OrcBody
+    100126: SK_OrcPonytail
+    100128: SK_ShoulderPads
+    100130: SM_Axe
+    100132: SM_ForearmPad_Left
+    100134: SM_ForearmPad_Right
+    400000: ORC_
+    400002: ORC_ Head
+    400004: ORC_ L Calf
+    400006: ORC_ L Clavicle
+    400008: ORC_ L Finger0
+    400010: ORC_ L Finger01
+    400012: ORC_ L Finger02
+    400014: ORC_ L Finger1
+    400016: ORC_ L Finger11
+    400018: ORC_ L Finger12
+    400020: ORC_ L Finger2
+    400022: ORC_ L Finger21
+    400024: ORC_ L Finger22
+    400026: ORC_ L Finger3
+    400028: ORC_ L Finger31
+    400030: ORC_ L Finger32
+    400032: ORC_ L Foot
+    400034: ORC_ L Forearm
+    400036: ORC_ L Hand
+    400038: ORC_ L Thigh
+    400040: ORC_ L Toe0
+    400042: ORC_ L UpperArm
+    400044: ORC_ Neck
+    400046: ORC_ Pelvis
+    400048: ORC_ Queue de cheval 1
+    400050: ORC_ Queue de cheval 11
+    400052: ORC_ Queue de cheval 12
+    400054: ORC_ Queue de cheval 13
+    400056: ORC_ Queue de cheval 2
+    400058: ORC_ R Calf
+    400060: ORC_ R Clavicle
+    400062: ORC_ R Finger0
+    400064: ORC_ R Finger01
+    400066: ORC_ R Finger02
+    400068: ORC_ R Finger1
+    400070: ORC_ R Finger11
+    400072: ORC_ R Finger12
+    400074: ORC_ R Finger2
+    400076: ORC_ R Finger21
+    400078: ORC_ R Finger22
+    400080: ORC_ R Finger3
+    400082: ORC_ R Finger31
+    400084: ORC_ R Finger32
+    400086: ORC_ R Foot
+    400088: ORC_ R Forearm
+    400090: ORC_ R Hand
+    400092: ORC_ R Thigh
+    400094: ORC_ R Toe0
+    400096: ORC_ R UpperArm
+    400098: ORC_ Spine
+    400100: ORC_ Spine1
+    400102: PELT_SKIN_BACK_1
+    400104: PELT_SKIN_BACK_2
+    400106: PELT_SKIN_BACK_3
+    400108: PELT_SKIN_FRONT_1
+    400110: PELT_SKIN_FRONT_2
+    400112: PELT_SKIN_FRONT_3
+    400114: root
+    400116: SHOULDER_PAD_L
+    400118: SHOULDER_PAD_R
+    400120: SK_BellyArmor
+    400122: //RootNode
+    400124: SK_OrcBody
+    400126: SK_OrcPonytail
+    400128: SK_ShoulderPads
+    400130: SM_Axe
+    400132: SM_ForearmPad_Left
+    400134: SM_ForearmPad_Right
+    2100000: M_OrcBody
+    2100002: M_OrcGear
+    2100004: M_OrcAxe
+    2300000: SM_Axe
+    2300002: SM_ForearmPad_Left
+    2300004: SM_ForearmPad_Right
+    3300000: SM_Axe
+    3300002: SM_ForearmPad_Left
+    3300004: SM_ForearmPad_Right
+    4300000: SK_OrcPonytail
+    4300002: SK_BellyArmor
+    4300004: SK_ShoulderPads
+    4300006: SK_OrcBody
+    4300008: SM_Axe
+    4300010: SM_ForearmPad_Right
+    4300012: SM_ForearmPad_Left
+    7400000: Take 001
+    9500000: //RootNode
+    13700000: SK_BellyArmor
+    13700002: SK_OrcBody
+    13700004: SK_OrcPonytail
+    13700006: SK_ShoulderPads
+  externalObjects: {}
+  materials:
+    importMaterials: 1
+    materialName: 1
+    materialSearch: 1
+    materialLocation: 0
+  animations:
+    legacyGenerateAnimations: 4
+    bakeSimulation: 0
+    resampleCurves: 1
+    optimizeGameObjects: 0
+    motionNodeName: 
+    rigImportErrors: 
+    rigImportWarnings: 
+    animationImportErrors: 
+    animationImportWarnings: 
+    animationRetargetingWarnings: 
+    animationDoRetargetingWarnings: 0
+    importAnimatedCustomProperties: 0
+    importConstraints: 0
+    animationCompression: 1
+    animationRotationError: 0.5
+    animationPositionError: 0.5
+    animationScaleError: 0.5
+    animationWrapMode: 0
+    extraExposedTransformPaths: []
+    extraUserProperties: []
+    clipAnimations: []
+    isReadable: 1
+  meshes:
+    lODScreenPercentages: []
+    globalScale: 1
+    meshCompression: 0
+    addColliders: 0
+    useSRGBMaterialColor: 1
+    importVisibility: 1
+    importBlendShapes: 1
+    importCameras: 1
+    importLights: 1
+    swapUVChannels: 0
+    generateSecondaryUV: 0
+    useFileUnits: 1
+    optimizeMeshForGPU: 1
+    keepQuads: 0
+    weldVertices: 1
+    preserveHierarchy: 0
+    indexFormat: 0
+    secondaryUVAngleDistortion: 8
+    secondaryUVAreaDistortion: 15.000001
+    secondaryUVHardAngle: 88
+    secondaryUVPackMargin: 4
+    useFileScale: 1
+    previousCalculatedGlobalScale: 0.01
+    hasPreviousCalculatedGlobalScale: 1
+  tangentSpace:
+    normalSmoothAngle: 60
+    normalImportMode: 0
+    tangentImportMode: 3
+    normalCalculationMode: 4
+    legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: 0
+    blendShapeNormalImportMode: 1
+    normalSmoothingSource: 0
+  importAnimation: 1
+  copyAvatar: 0
+  humanDescription:
+    serializedVersion: 2
+    human: []
+    skeleton: []
+    armTwist: 0.5
+    foreArmTwist: 0.5
+    upperLegTwist: 0.5
+    legTwist: 0.5
+    armStretch: 0.05
+    legStretch: 0.05
+    feetSpacing: 0
+    rootMotionBoneName: root
+    hasTranslationDoF: 0
+    hasExtraRoot: 0
+    skeletonHasParents: 1
+  lastHumanDescriptionAvatarSource: {instanceID: 0}
+  animationType: 2
+  humanoidOversampling: 1
+  additionalBone: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 5730
+  packageName: HEROIC FANTASY CREATURES FULL PACK Volume 1
+  packageVersion: 2.5
+  assetPath: Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Must Have Fantasy Villains
+    Pack/Orc/FBX Files/SK_Orc.FBX
+  uploadId: 868080

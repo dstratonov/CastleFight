@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: c6ed6465d66c83742a9b914f0076da44
+timeCreated: 1538060056
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 5730
+  packageName: HEROIC FANTASY CREATURES FULL PACK Volume 1
+  packageVersion: 2.5
+  assetPath: Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Fantasy Lizards Pack/Dragonide/Dragonide_Controller.controller
+  uploadId: 868080

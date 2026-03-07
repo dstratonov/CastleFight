@@ -42,12 +42,22 @@ public class BuildingManager : NetworkBehaviour
     {
         if (data == null || data.prefab == null) return null;
 
+        var grid = GridSystem.Instance;
+        if (grid != null)
+            position = grid.SnapToGrid(position);
+
         GameObject obj = Instantiate(data.prefab, position, rotation);
         var building = obj.GetComponent<Building>();
         if (building != null)
         {
             building.Initialize(data, teamId, playerId);
             teamBuildings[teamId].Add(building);
+        }
+
+        if (grid != null)
+        {
+            Vector2Int cell = grid.WorldToCell(position);
+            grid.PlaceBuilding(cell, obj);
         }
 
         NetworkServer.Spawn(obj);

@@ -1,0 +1,263 @@
+fileFormatVersion: 2
+guid: 59cd457dc8057ee44bc0f2359597c0a4
+ModelImporter:
+  serializedVersion: 23
+  fileIDToRecycleName:
+    100000: //RootNode
+    100002: HARPY_
+    100004: HARPY_ Head
+    100006: HARPY_ L Calf
+    100008: HARPY_ L Clavicle
+    100010: HARPY_ L Finger0
+    100012: HARPY_ L Finger01
+    100014: HARPY_ L Finger1
+    100016: HARPY_ L Foot
+    100018: HARPY_ L Forearm
+    100020: HARPY_ L Hand
+    100022: HARPY_ L HorseLink
+    100024: HARPY_ L Thigh
+    100026: HARPY_ L Toe0
+    100028: HARPY_ L Toe01
+    100030: HARPY_ L Toe02
+    100032: HARPY_ L Toe1
+    100034: HARPY_ L Toe11
+    100036: HARPY_ L Toe12
+    100038: HARPY_ L Toe2
+    100040: HARPY_ L Toe21
+    100042: HARPY_ L Toe22
+    100044: HARPY_ L Toe3
+    100046: HARPY_ L Toe31
+    100048: HARPY_ L Toe32
+    100050: HARPY_ L UpperArm
+    100052: HARPY_ Neck
+    100054: HARPY_ Pelvis
+    100056: HARPY_ Ponytail15
+    100058: HARPY_ Queue de cheval 1
+    100060: HARPY_ Queue de cheval 11
+    100062: HARPY_ Queue de cheval 12
+    100064: HARPY_ Queue de cheval 13
+    100066: HARPY_ Queue de cheval 14
+    100068: HARPY_ Queue de cheval 2
+    100070: HARPY_ R Calf
+    100072: HARPY_ R Clavicle
+    100074: HARPY_ R Finger0
+    100076: HARPY_ R Finger01
+    100078: HARPY_ R Finger1
+    100080: HARPY_ R Foot
+    100082: HARPY_ R Forearm
+    100084: HARPY_ R Hand
+    100086: HARPY_ R HorseLink
+    100088: HARPY_ R Thigh
+    100090: HARPY_ R Toe0
+    100092: HARPY_ R Toe01
+    100094: HARPY_ R Toe02
+    100096: HARPY_ R Toe1
+    100098: HARPY_ R Toe11
+    100100: HARPY_ R Toe12
+    100102: HARPY_ R Toe2
+    100104: HARPY_ R Toe21
+    100106: HARPY_ R Toe22
+    100108: HARPY_ R Toe3
+    100110: HARPY_ R Toe31
+    100112: HARPY_ R Toe32
+    100114: HARPY_ R UpperArm
+    100116: HARPY_ Spine
+    100118: HARPY_ Spine1
+    100120: HARPY_ Tail
+    100122: HARPY_BREAST_L
+    100124: HARPY_BREAST_R
+    100126: HARPY_EYE_l
+    100128: HARPY_EYE_R
+    100130: ROOT
+    400000: //RootNode
+    400002: HARPY_
+    400004: HARPY_ Head
+    400006: HARPY_ L Calf
+    400008: HARPY_ L Clavicle
+    400010: HARPY_ L Finger0
+    400012: HARPY_ L Finger01
+    400014: HARPY_ L Finger1
+    400016: HARPY_ L Foot
+    400018: HARPY_ L Forearm
+    400020: HARPY_ L Hand
+    400022: HARPY_ L HorseLink
+    400024: HARPY_ L Thigh
+    400026: HARPY_ L Toe0
+    400028: HARPY_ L Toe01
+    400030: HARPY_ L Toe02
+    400032: HARPY_ L Toe1
+    400034: HARPY_ L Toe11
+    400036: HARPY_ L Toe12
+    400038: HARPY_ L Toe2
+    400040: HARPY_ L Toe21
+    400042: HARPY_ L Toe22
+    400044: HARPY_ L Toe3
+    400046: HARPY_ L Toe31
+    400048: HARPY_ L Toe32
+    400050: HARPY_ L UpperArm
+    400052: HARPY_ Neck
+    400054: HARPY_ Pelvis
+    400056: HARPY_ Ponytail15
+    400058: HARPY_ Queue de cheval 1
+    400060: HARPY_ Queue de cheval 11
+    400062: HARPY_ Queue de cheval 12
+    400064: HARPY_ Queue de cheval 13
+    400066: HARPY_ Queue de cheval 14
+    400068: HARPY_ Queue de cheval 2
+    400070: HARPY_ R Calf
+    400072: HARPY_ R Clavicle
+    400074: HARPY_ R Finger0
+    400076: HARPY_ R Finger01
+    400078: HARPY_ R Finger1
+    400080: HARPY_ R Foot
+    400082: HARPY_ R Forearm
+    400084: HARPY_ R Hand
+    400086: HARPY_ R HorseLink
+    400088: HARPY_ R Thigh
+    400090: HARPY_ R Toe0
+    400092: HARPY_ R Toe01
+    400094: HARPY_ R Toe02
+    400096: HARPY_ R Toe1
+    400098: HARPY_ R Toe11
+    400100: HARPY_ R Toe12
+    400102: HARPY_ R Toe2
+    400104: HARPY_ R Toe21
+    400106: HARPY_ R Toe22
+    400108: HARPY_ R Toe3
+    400110: HARPY_ R Toe31
+    400112: HARPY_ R Toe32
+    400114: HARPY_ R UpperArm
+    400116: HARPY_ Spine
+    400118: HARPY_ Spine1
+    400120: HARPY_ Tail
+    400122: HARPY_BREAST_L
+    400124: HARPY_BREAST_R
+    400126: HARPY_EYE_l
+    400128: HARPY_EYE_R
+    400130: ROOT
+    7400000: Jump
+    9500000: //RootNode
+    2186277476908879412: ImportLogs
+  externalObjects: {}
+  materials:
+    importMaterials: 1
+    materialName: 1
+    materialSearch: 1
+    materialLocation: 0
+  animations:
+    legacyGenerateAnimations: 4
+    bakeSimulation: 0
+    resampleCurves: 1
+    optimizeGameObjects: 0
+    motionNodeName: 
+    rigImportErrors: 
+    rigImportWarnings: 
+    animationImportErrors: 
+    animationImportWarnings: 
+    animationRetargetingWarnings: 
+    animationDoRetargetingWarnings: 0
+    importAnimatedCustomProperties: 0
+    importConstraints: 0
+    animationCompression: 0
+    animationRotationError: 0.5
+    animationPositionError: 0.5
+    animationScaleError: 0.5
+    animationWrapMode: 0
+    extraExposedTransformPaths: []
+    extraUserProperties: []
+    clipAnimations:
+    - serializedVersion: 16
+      name: Jump
+      takeName: Take 001
+      firstFrame: 0
+      lastFrame: 30
+      wrapMode: 0
+      orientationOffsetY: 0
+      level: 0
+      cycleOffset: 0
+      loop: 0
+      hasAdditiveReferencePose: 0
+      loopTime: 1
+      loopBlend: 0
+      loopBlendOrientation: 1
+      loopBlendPositionY: 1
+      loopBlendPositionXZ: 1
+      keepOriginalOrientation: 1
+      keepOriginalPositionY: 1
+      keepOriginalPositionXZ: 1
+      heightFromFeet: 0
+      mirror: 0
+      bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
+      curves: []
+      events: []
+      transformMask: []
+      maskType: 3
+      maskSource: {instanceID: 0}
+      additiveReferencePoseFrame: 0
+    isReadable: 1
+  meshes:
+    lODScreenPercentages: []
+    globalScale: 1
+    meshCompression: 0
+    addColliders: 0
+    useSRGBMaterialColor: 1
+    importVisibility: 0
+    importBlendShapes: 1
+    importCameras: 0
+    importLights: 0
+    swapUVChannels: 0
+    generateSecondaryUV: 0
+    useFileUnits: 1
+    optimizeMeshForGPU: 1
+    keepQuads: 0
+    weldVertices: 1
+    preserveHierarchy: 0
+    indexFormat: 1
+    secondaryUVAngleDistortion: 8
+    secondaryUVAreaDistortion: 15.000001
+    secondaryUVHardAngle: 88
+    secondaryUVPackMargin: 4
+    useFileScale: 1
+    previousCalculatedGlobalScale: 0.01
+    hasPreviousCalculatedGlobalScale: 1
+  tangentSpace:
+    normalSmoothAngle: 60
+    normalImportMode: 0
+    tangentImportMode: 4
+    normalCalculationMode: 0
+    legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: 1
+    blendShapeNormalImportMode: 1
+    normalSmoothingSource: 0
+  importAnimation: 1
+  copyAvatar: 1
+  humanDescription:
+    serializedVersion: 2
+    human: []
+    skeleton: []
+    armTwist: 0.5
+    foreArmTwist: 0.5
+    upperLegTwist: 0.5
+    legTwist: 0.5
+    armStretch: 0.05
+    legStretch: 0.05
+    feetSpacing: 0
+    rootMotionBoneName: ROOT
+    hasTranslationDoF: 0
+    hasExtraRoot: 0
+    skeletonHasParents: 1
+  lastHumanDescriptionAvatarSource: {fileID: 9000000, guid: bdece3abe90ab8e49b61ae7f886a94ab,
+    type: 3}
+  animationType: 2
+  humanoidOversampling: 1
+  additionalBone: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 5730
+  packageName: HEROIC FANTASY CREATURES FULL PACK Volume 1
+  packageVersion: 2.5
+  assetPath: Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Mythological Creatures
+    Pack/Harpy/FBX Files/Harpy@Jump.FBX
+  uploadId: 868080

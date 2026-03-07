@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: d6224b51219714549bee9992ca46c981
+timeCreated: 1538059973
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 5730
+  packageName: HEROIC FANTASY CREATURES FULL PACK Volume 1
+  packageVersion: 2.5
+  assetPath: Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Demonic Creatures Pack/Oak
+    Tree Ent/OakTreeEnt_Controller.controller
+  uploadId: 868080

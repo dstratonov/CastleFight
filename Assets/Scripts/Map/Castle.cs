@@ -4,7 +4,7 @@ using Mirror;
 [RequireComponent(typeof(Health))]
 public class Castle : NetworkBehaviour
 {
-    [SyncVar] private int teamId;
+    [SyncVar] private int teamId = -1;
 
     private Health health;
 
@@ -16,11 +16,21 @@ public class Castle : NetworkBehaviour
         health = GetComponent<Health>();
     }
 
+    public override void OnStartServer()
+    {
+        if (teamId < 0)
+        {
+            int team = gameObject.name.Contains("Team0") ? 0 : 1;
+            Initialize(team, 5000);
+        }
+    }
+
     [Server]
     public void Initialize(int team, int maxHp = 5000)
     {
         teamId = team;
         health.Initialize(maxHp, team);
+        Debug.Log($"[Castle] {gameObject.name} initialized as team {team} with {maxHp} HP");
     }
 
     private void OnEnable()

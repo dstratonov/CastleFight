@@ -1,0 +1,240 @@
+fileFormatVersion: 2
+guid: e6ba1b91f21b715429f68da884dfaa87
+ModelImporter:
+  serializedVersion: 23
+  fileIDToRecycleName:
+    100000: //RootNode
+    100002: HYDRA_
+    100004: HYDRA_ Head
+    100006: HYDRA_ L Calf
+    100008: HYDRA_ L Clavicle
+    100010: HYDRA_ L Foot
+    100012: HYDRA_ L Forearm
+    100014: HYDRA_ L Hand
+    100016: HYDRA_ L Thigh
+    100018: HYDRA_ L UpperArm
+    100020: HYDRA_ Neck
+    100022: HYDRA_ Neck1
+    100024: HYDRA_ Neck2
+    100026: HYDRA_ Neck3
+    100028: HYDRA_ Neck4
+    100030: HYDRA_ Neck5
+    100032: HYDRA_ Pelvis
+    100034: HYDRA_ Queue de cheval 1
+    100036: HYDRA_ R Calf
+    100038: HYDRA_ R Clavicle
+    100040: HYDRA_ R Foot
+    100042: HYDRA_ R Forearm
+    100044: HYDRA_ R Hand
+    100046: HYDRA_ R Thigh
+    100048: HYDRA_ R UpperArm
+    100050: HYDRA_ Spine
+    100052: HYDRA_ Spine1
+    100054: HYDRA_ Tail
+    100056: HYDRA_ Tail1
+    100058: HYDRA_ Tail10
+    100060: HYDRA_ Tail2
+    100062: HYDRA_ Tail3
+    100064: HYDRA_ Tail4
+    100066: HYDRA_ Tail5
+    100068: HYDRA_ Tail6
+    100070: HYDRA_ Tail7
+    100072: HYDRA_ Tail8
+    100074: HYDRA_ Tail9
+    100076: HYDRA_HEAD_L
+    100078: HYDRA_HEAD_R
+    100080: HYDRA_JAW_L
+    100082: HYDRA_JAW_R
+    100084: HYDRA_NECK_L_1
+    100086: HYDRA_NECK_L_2
+    100088: HYDRA_NECK_L_3
+    100090: HYDRA_NECK_L_4
+    100092: HYDRA_NECK_L_5
+    100094: HYDRA_NECK_L_6
+    100096: HYDRA_NECK_R_1
+    100098: HYDRA_NECK_R_2
+    100100: HYDRA_NECK_R_3
+    100102: HYDRA_NECK_R_4
+    100104: HYDRA_NECK_R_5
+    100106: HYDRA_NECK_R_6
+    100108: root
+    400000: //RootNode
+    400002: HYDRA_
+    400004: HYDRA_ Head
+    400006: HYDRA_ L Calf
+    400008: HYDRA_ L Clavicle
+    400010: HYDRA_ L Foot
+    400012: HYDRA_ L Forearm
+    400014: HYDRA_ L Hand
+    400016: HYDRA_ L Thigh
+    400018: HYDRA_ L UpperArm
+    400020: HYDRA_ Neck
+    400022: HYDRA_ Neck1
+    400024: HYDRA_ Neck2
+    400026: HYDRA_ Neck3
+    400028: HYDRA_ Neck4
+    400030: HYDRA_ Neck5
+    400032: HYDRA_ Pelvis
+    400034: HYDRA_ Queue de cheval 1
+    400036: HYDRA_ R Calf
+    400038: HYDRA_ R Clavicle
+    400040: HYDRA_ R Foot
+    400042: HYDRA_ R Forearm
+    400044: HYDRA_ R Hand
+    400046: HYDRA_ R Thigh
+    400048: HYDRA_ R UpperArm
+    400050: HYDRA_ Spine
+    400052: HYDRA_ Spine1
+    400054: HYDRA_ Tail
+    400056: HYDRA_ Tail1
+    400058: HYDRA_ Tail10
+    400060: HYDRA_ Tail2
+    400062: HYDRA_ Tail3
+    400064: HYDRA_ Tail4
+    400066: HYDRA_ Tail5
+    400068: HYDRA_ Tail6
+    400070: HYDRA_ Tail7
+    400072: HYDRA_ Tail8
+    400074: HYDRA_ Tail9
+    400076: HYDRA_HEAD_L
+    400078: HYDRA_HEAD_R
+    400080: HYDRA_JAW_L
+    400082: HYDRA_JAW_R
+    400084: HYDRA_NECK_L_1
+    400086: HYDRA_NECK_L_2
+    400088: HYDRA_NECK_L_3
+    400090: HYDRA_NECK_L_4
+    400092: HYDRA_NECK_L_5
+    400094: HYDRA_NECK_L_6
+    400096: HYDRA_NECK_R_1
+    400098: HYDRA_NECK_R_2
+    400100: HYDRA_NECK_R_3
+    400102: HYDRA_NECK_R_4
+    400104: HYDRA_NECK_R_5
+    400106: HYDRA_NECK_R_6
+    400108: root
+    7400000: Walk_RM
+    9500000: //RootNode
+  externalObjects: {}
+  materials:
+    importMaterials: 1
+    materialName: 0
+    materialSearch: 1
+    materialLocation: 1
+  animations:
+    legacyGenerateAnimations: 4
+    bakeSimulation: 0
+    resampleCurves: 1
+    optimizeGameObjects: 0
+    motionNodeName: 
+    rigImportErrors: 
+    rigImportWarnings: 
+    animationImportErrors: 
+    animationImportWarnings: 
+    animationRetargetingWarnings: 
+    animationDoRetargetingWarnings: 0
+    importAnimatedCustomProperties: 0
+    importConstraints: 0
+    animationCompression: 0
+    animationRotationError: 0.5
+    animationPositionError: 0.5
+    animationScaleError: 0.5
+    animationWrapMode: 0
+    extraExposedTransformPaths: []
+    extraUserProperties: []
+    clipAnimations:
+    - serializedVersion: 16
+      name: Walk_RM
+      takeName: Take 001
+      firstFrame: 0
+      lastFrame: 30
+      wrapMode: 0
+      orientationOffsetY: 0
+      level: 0
+      cycleOffset: 0
+      loop: 0
+      hasAdditiveReferencePose: 0
+      loopTime: 1
+      loopBlend: 0
+      loopBlendOrientation: 1
+      loopBlendPositionY: 1
+      loopBlendPositionXZ: 0
+      keepOriginalOrientation: 1
+      keepOriginalPositionY: 1
+      keepOriginalPositionXZ: 1
+      heightFromFeet: 0
+      mirror: 0
+      bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
+      curves: []
+      events: []
+      transformMask: []
+      maskType: 3
+      maskSource: {instanceID: 0}
+      additiveReferencePoseFrame: 0
+    isReadable: 1
+  meshes:
+    lODScreenPercentages: []
+    globalScale: 1
+    meshCompression: 0
+    addColliders: 0
+    useSRGBMaterialColor: 1
+    importVisibility: 1
+    importBlendShapes: 1
+    importCameras: 1
+    importLights: 1
+    swapUVChannels: 0
+    generateSecondaryUV: 0
+    useFileUnits: 1
+    optimizeMeshForGPU: 1
+    keepQuads: 0
+    weldVertices: 1
+    preserveHierarchy: 0
+    indexFormat: 0
+    secondaryUVAngleDistortion: 8
+    secondaryUVAreaDistortion: 15.000001
+    secondaryUVHardAngle: 88
+    secondaryUVPackMargin: 4
+    useFileScale: 1
+    previousCalculatedGlobalScale: 0.01
+    hasPreviousCalculatedGlobalScale: 1
+  tangentSpace:
+    normalSmoothAngle: 60
+    normalImportMode: 0
+    tangentImportMode: 3
+    normalCalculationMode: 4
+    legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: 0
+    blendShapeNormalImportMode: 1
+    normalSmoothingSource: 0
+  importAnimation: 1
+  copyAvatar: 1
+  humanDescription:
+    serializedVersion: 2
+    human: []
+    skeleton: []
+    armTwist: 0.5
+    foreArmTwist: 0.5
+    upperLegTwist: 0.5
+    legTwist: 0.5
+    armStretch: 0.05
+    legStretch: 0.05
+    feetSpacing: 0
+    rootMotionBoneName: root
+    hasTranslationDoF: 0
+    hasExtraRoot: 0
+    skeletonHasParents: 1
+  lastHumanDescriptionAvatarSource: {fileID: 9000000, guid: 90892f95151ae8445ad3cb1f8946e20a,
+    type: 3}
+  animationType: 2
+  humanoidOversampling: 1
+  additionalBone: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 5730
+  packageName: HEROIC FANTASY CREATURES FULL PACK Volume 1
+  packageVersion: 2.5
+  assetPath: Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Fantasy Lizards Pack/Hydra/FBX
+    Files/Hydra@Walk_RM.FBX
+  uploadId: 868080

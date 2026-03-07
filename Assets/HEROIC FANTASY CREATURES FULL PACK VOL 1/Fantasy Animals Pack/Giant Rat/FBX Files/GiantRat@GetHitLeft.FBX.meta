@@ -1,0 +1,210 @@
+fileFormatVersion: 2
+guid: a17f6069a77f6a0499b748bd8c0b0bb4
+ModelImporter:
+  serializedVersion: 23
+  fileIDToRecycleName:
+    100000: GIANT_RAT_
+    100002: GIANT_RAT_ Head
+    100004: GIANT_RAT_ L Calf
+    100006: GIANT_RAT_ L Clavicle
+    100008: GIANT_RAT_ L Finger0
+    100010: GIANT_RAT_ L Foot
+    100012: GIANT_RAT_ L Forearm
+    100014: GIANT_RAT_ L Hand
+    100016: GIANT_RAT_ L HorseLink
+    100018: GIANT_RAT_ L Thigh
+    100020: GIANT_RAT_ L Toe0
+    100022: GIANT_RAT_ L UpperArm
+    100024: GIANT_RAT_ Neck
+    100026: GIANT_RAT_ Pelvis
+    100028: GIANT_RAT_ Ponytail1
+    100030: GIANT_RAT_ R Calf
+    100032: GIANT_RAT_ R Clavicle
+    100034: GIANT_RAT_ R Finger0
+    100036: GIANT_RAT_ R Foot
+    100038: GIANT_RAT_ R Forearm
+    100040: GIANT_RAT_ R Hand
+    100042: GIANT_RAT_ R HorseLink
+    100044: GIANT_RAT_ R Thigh
+    100046: GIANT_RAT_ R Toe0
+    100048: GIANT_RAT_ R UpperArm
+    100050: GIANT_RAT_ Spine
+    100052: GIANT_RAT_ Spine1
+    100054: GIANT_RAT_ Tail
+    100056: GIANT_RAT_ Tail1
+    100058: GIANT_RAT_ Tail2
+    100060: GIANT_RAT_ Tail3
+    100062: GIANT_RAT_ Tail4
+    100064: GIANT_RAT_ Tail5
+    100066: GIANT_RAT_ Tail6
+    100068: GIANT_RAT_ Tail7
+    100070: GIANT_RAT_ Tail8
+    100072: GIANT_RAT_ Tail9
+    100074: //RootNode
+    100076: ROOT_
+    100078: ROOT_nub
+    400000: GIANT_RAT_
+    400002: GIANT_RAT_ Head
+    400004: GIANT_RAT_ L Calf
+    400006: GIANT_RAT_ L Clavicle
+    400008: GIANT_RAT_ L Finger0
+    400010: GIANT_RAT_ L Foot
+    400012: GIANT_RAT_ L Forearm
+    400014: GIANT_RAT_ L Hand
+    400016: GIANT_RAT_ L HorseLink
+    400018: GIANT_RAT_ L Thigh
+    400020: GIANT_RAT_ L Toe0
+    400022: GIANT_RAT_ L UpperArm
+    400024: GIANT_RAT_ Neck
+    400026: GIANT_RAT_ Pelvis
+    400028: GIANT_RAT_ Ponytail1
+    400030: GIANT_RAT_ R Calf
+    400032: GIANT_RAT_ R Clavicle
+    400034: GIANT_RAT_ R Finger0
+    400036: GIANT_RAT_ R Foot
+    400038: GIANT_RAT_ R Forearm
+    400040: GIANT_RAT_ R Hand
+    400042: GIANT_RAT_ R HorseLink
+    400044: GIANT_RAT_ R Thigh
+    400046: GIANT_RAT_ R Toe0
+    400048: GIANT_RAT_ R UpperArm
+    400050: GIANT_RAT_ Spine
+    400052: GIANT_RAT_ Spine1
+    400054: GIANT_RAT_ Tail
+    400056: GIANT_RAT_ Tail1
+    400058: GIANT_RAT_ Tail2
+    400060: GIANT_RAT_ Tail3
+    400062: GIANT_RAT_ Tail4
+    400064: GIANT_RAT_ Tail5
+    400066: GIANT_RAT_ Tail6
+    400068: GIANT_RAT_ Tail7
+    400070: GIANT_RAT_ Tail8
+    400072: GIANT_RAT_ Tail9
+    400074: //RootNode
+    400076: ROOT_
+    400078: ROOT_nub
+    7400000: GetHitLeft
+    9500000: //RootNode
+  externalObjects: {}
+  materials:
+    importMaterials: 1
+    materialName: 0
+    materialSearch: 1
+    materialLocation: 1
+  animations:
+    legacyGenerateAnimations: 4
+    bakeSimulation: 0
+    resampleCurves: 1
+    optimizeGameObjects: 0
+    motionNodeName: 
+    rigImportErrors: 
+    rigImportWarnings: 
+    animationImportErrors: 
+    animationImportWarnings: 
+    animationRetargetingWarnings: 
+    animationDoRetargetingWarnings: 0
+    importAnimatedCustomProperties: 0
+    importConstraints: 0
+    animationCompression: 0
+    animationRotationError: 0.5
+    animationPositionError: 0.5
+    animationScaleError: 0.5
+    animationWrapMode: 0
+    extraExposedTransformPaths: []
+    extraUserProperties: []
+    clipAnimations:
+    - serializedVersion: 16
+      name: GetHitLeft
+      takeName: Take 001
+      firstFrame: 0
+      lastFrame: 25
+      wrapMode: 0
+      orientationOffsetY: 0
+      level: 0
+      cycleOffset: 0
+      loop: 0
+      hasAdditiveReferencePose: 0
+      loopTime: 1
+      loopBlend: 0
+      loopBlendOrientation: 1
+      loopBlendPositionY: 1
+      loopBlendPositionXZ: 1
+      keepOriginalOrientation: 1
+      keepOriginalPositionY: 1
+      keepOriginalPositionXZ: 1
+      heightFromFeet: 0
+      mirror: 0
+      bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
+      curves: []
+      events: []
+      transformMask: []
+      maskType: 3
+      maskSource: {instanceID: 0}
+      additiveReferencePoseFrame: 0
+    isReadable: 1
+  meshes:
+    lODScreenPercentages: []
+    globalScale: 1
+    meshCompression: 0
+    addColliders: 0
+    useSRGBMaterialColor: 1
+    importVisibility: 1
+    importBlendShapes: 1
+    importCameras: 1
+    importLights: 1
+    swapUVChannels: 0
+    generateSecondaryUV: 0
+    useFileUnits: 1
+    optimizeMeshForGPU: 1
+    keepQuads: 0
+    weldVertices: 1
+    preserveHierarchy: 0
+    indexFormat: 0
+    secondaryUVAngleDistortion: 8
+    secondaryUVAreaDistortion: 15.000001
+    secondaryUVHardAngle: 88
+    secondaryUVPackMargin: 4
+    useFileScale: 1
+    previousCalculatedGlobalScale: 0.01
+    hasPreviousCalculatedGlobalScale: 1
+  tangentSpace:
+    normalSmoothAngle: 60
+    normalImportMode: 0
+    tangentImportMode: 3
+    normalCalculationMode: 4
+    legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: 0
+    blendShapeNormalImportMode: 1
+    normalSmoothingSource: 0
+  importAnimation: 1
+  copyAvatar: 1
+  humanDescription:
+    serializedVersion: 2
+    human: []
+    skeleton: []
+    armTwist: 0.5
+    foreArmTwist: 0.5
+    upperLegTwist: 0.5
+    legTwist: 0.5
+    armStretch: 0.05
+    legStretch: 0.05
+    feetSpacing: 0
+    rootMotionBoneName: ROOT_
+    hasTranslationDoF: 0
+    hasExtraRoot: 0
+    skeletonHasParents: 1
+  lastHumanDescriptionAvatarSource: {fileID: 9000000, guid: ae44b79b11cf1d54095a1865b8722bde,
+    type: 3}
+  animationType: 2
+  humanoidOversampling: 1
+  additionalBone: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 5730
+  packageName: HEROIC FANTASY CREATURES FULL PACK Volume 1
+  packageVersion: 2.5
+  assetPath: Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Fantasy Animals Pack/Giant
+    Rat/FBX Files/GiantRat@GetHitLeft.FBX
+  uploadId: 868080

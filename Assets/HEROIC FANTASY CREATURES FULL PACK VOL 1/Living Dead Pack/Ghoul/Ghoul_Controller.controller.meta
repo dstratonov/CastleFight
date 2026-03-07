@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: bf0bb28b7be76b14ab13b5ab0615c68e
+timeCreated: 1538060127
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 5730
+  packageName: HEROIC FANTASY CREATURES FULL PACK Volume 1
+  packageVersion: 2.5
+  assetPath: Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Living Dead Pack/Ghoul/Ghoul_Controller.controller
+  uploadId: 868080

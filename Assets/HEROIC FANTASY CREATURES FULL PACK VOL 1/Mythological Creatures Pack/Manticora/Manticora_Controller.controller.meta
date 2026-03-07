@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 3918310a0fcf9254e9bcd22c303b9ae5
+timeCreated: 1538060322
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 5730
+  packageName: HEROIC FANTASY CREATURES FULL PACK Volume 1
+  packageVersion: 2.5
+  assetPath: Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Mythological Creatures
+    Pack/Manticora/Manticora_Controller.controller
+  uploadId: 868080

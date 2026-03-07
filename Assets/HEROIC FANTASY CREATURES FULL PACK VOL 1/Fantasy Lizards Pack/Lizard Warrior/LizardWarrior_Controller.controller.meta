@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 9fa4d6180e53baf4f8a02130ac05d86e
+timeCreated: 1538060083
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 5730
+  packageName: HEROIC FANTASY CREATURES FULL PACK Volume 1
+  packageVersion: 2.5
+  assetPath: Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Fantasy Lizards Pack/Lizard
+    Warrior/LizardWarrior_Controller.controller
+  uploadId: 868080

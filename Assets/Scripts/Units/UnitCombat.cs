@@ -90,7 +90,8 @@ public class UnitCombat : NetworkBehaviour
 
         targetHealth = null;
         isTargetUnreachable = false;
-        movement?.SetDestinationToEnemyCastle();
+        if (movement != null && !movement.HasPath && !movement.IsMoving)
+            movement.SetDestinationToEnemyCastle();
     }
 
     [Server]

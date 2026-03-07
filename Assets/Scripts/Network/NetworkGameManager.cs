@@ -16,14 +16,38 @@ public class NetworkGameManager : NetworkManager
 
     public static new NetworkGameManager singleton => (NetworkGameManager)NetworkManager.singleton;
 
+    public override void Awake()
+    {
+        base.Awake();
+        RegisterUnitPrefabs();
+    }
+
     public override void OnStartServer()
     {
         base.OnStartServer();
 
         InitializeDamageSystem();
-        InitializeCastles();
 
         GameManager.Instance?.SetState(GameState.Playing);
+    }
+
+    private void RegisterUnitPrefabs()
+    {
+        var raceDb = RaceDatabase.Instance;
+        if (raceDb == null || raceDb.AllRaces == null) return;
+
+        foreach (var race in raceDb.AllRaces)
+        {
+            if (race == null || race.buildings == null) continue;
+            foreach (var building in race.buildings)
+            {
+                if (building?.spawnedUnit?.prefab == null) continue;
+                var prefab = building.spawnedUnit.prefab;
+                if (!spawnPrefabs.Contains(prefab))
+                    spawnPrefabs.Add(prefab);
+            }
+        }
+        Debug.Log($"[NetworkGameManager] Registered {spawnPrefabs.Count} unit prefabs for network spawning");
     }
 
     private void InitializeDamageSystem()
@@ -37,17 +61,6 @@ public class NetworkGameManager : NetworkManager
             Debug.LogWarning("[NetworkGameManager] No DamageTable found. Attack/armor multipliers will default to 1.0x.");
     }
 
-    private void InitializeCastles()
-    {
-        var castles = FindObjectsByType<Castle>(FindObjectsSortMode.None);
-        foreach (var castle in castles)
-        {
-            int team = castle.gameObject.name.Contains("Team0") ? 0 : 1;
-            castle.Initialize(team, 5000);
-            Debug.Log($"[NetworkGameManager] Initialized {castle.gameObject.name} as team {team}");
-        }
-    }
-
     public override void OnServerAddPlayer(NetworkConnectionToClient conn)
     {
         int teamId = TeamManager.Instance.GetTeamWithFewestPlayers();
@@ -59,7 +72,7 @@ public class NetworkGameManager : NetworkManager
         if (networkPlayer != null)
         {
             networkPlayer.Initialize(conn.connectionId, teamId);
-            networkPlayer.SetRace("humans");
+            networkPlayer.SetRace("horde");
             players[conn.connectionId] = networkPlayer;
             TeamManager.Instance.AddPlayerToTeam(conn.connectionId, teamId);
         }

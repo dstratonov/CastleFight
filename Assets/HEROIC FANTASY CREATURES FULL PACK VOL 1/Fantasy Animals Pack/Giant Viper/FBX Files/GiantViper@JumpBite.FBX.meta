@@ -1,0 +1,166 @@
+fileFormatVersion: 2
+guid: 9631bce085ac1df4db56944b3d8c615b
+ModelImporter:
+  serializedVersion: 23
+  fileIDToRecycleName:
+    100000: GIANT_VIPER_
+    100002: GIANT_VIPER_ Footsteps
+    100004: GIANT_VIPER_ Head
+    100006: GIANT_VIPER_ Neck
+    100008: GIANT_VIPER_ Ponytail1
+    100010: GIANT_VIPER_ Spine
+    100012: GIANT_VIPER_ Spine1
+    100014: GIANT_VIPER_ Spine2
+    100016: GIANT_VIPER_ Spine3
+    100018: GIANT_VIPER_ Spine4
+    100020: GIANT_VIPER_ Spine5
+    100022: GIANT_VIPER_ Spine6
+    100024: GIANT_VIPER_ Spine7
+    100026: GIANT_VIPER_ Tail
+    100028: GIANT_VIPER_ Tail1
+    100030: GIANT_VIPER_ Tail2
+    100032: GIANT_VIPER_ Tail3
+    100034: GIANT_VIPER_ Tail4
+    100036: GIANT_VIPER_ Tail5
+    100038: GIANT_VIPER_ Tail6
+    100040: GIANT_VIPER_ Tail7
+    100042: GIANT_VIPER_ Tail8
+    100044: GIANT_VIPER_ Tail9
+    100046: GIANT_VIPER_HOOK_Left
+    100048: GIANT_VIPER_HOOK_Right
+    100050: GIANT_VIPER_Tongue_01
+    100052: GIANT_VIPER_Tongue_02
+    100054: GIANT_VIPER_Tongue_03
+    100056: GIANT_VIPER_Tongue_04
+    100058: GIANT_VIPER_Tongue_05
+    100060: //RootNode
+    100062: ROOT_
+    400000: GIANT_VIPER_
+    400002: GIANT_VIPER_ Footsteps
+    400004: GIANT_VIPER_ Head
+    400006: GIANT_VIPER_ Neck
+    400008: GIANT_VIPER_ Ponytail1
+    400010: GIANT_VIPER_ Spine
+    400012: GIANT_VIPER_ Spine1
+    400014: GIANT_VIPER_ Spine2
+    400016: GIANT_VIPER_ Spine3
+    400018: GIANT_VIPER_ Spine4
+    400020: GIANT_VIPER_ Spine5
+    400022: GIANT_VIPER_ Spine6
+    400024: GIANT_VIPER_ Spine7
+    400026: GIANT_VIPER_ Tail
+    400028: GIANT_VIPER_ Tail1
+    400030: GIANT_VIPER_ Tail2
+    400032: GIANT_VIPER_ Tail3
+    400034: GIANT_VIPER_ Tail4
+    400036: GIANT_VIPER_ Tail5
+    400038: GIANT_VIPER_ Tail6
+    400040: GIANT_VIPER_ Tail7
+    400042: GIANT_VIPER_ Tail8
+    400044: GIANT_VIPER_ Tail9
+    400046: GIANT_VIPER_HOOK_Left
+    400048: GIANT_VIPER_HOOK_Right
+    400050: GIANT_VIPER_Tongue_01
+    400052: GIANT_VIPER_Tongue_02
+    400054: GIANT_VIPER_Tongue_03
+    400056: GIANT_VIPER_Tongue_04
+    400058: GIANT_VIPER_Tongue_05
+    400060: //RootNode
+    400062: ROOT_
+    7400000: Take 001
+    9500000: //RootNode
+  externalObjects: {}
+  materials:
+    importMaterials: 1
+    materialName: 0
+    materialSearch: 1
+    materialLocation: 1
+  animations:
+    legacyGenerateAnimations: 4
+    bakeSimulation: 0
+    resampleCurves: 1
+    optimizeGameObjects: 0
+    motionNodeName: 
+    rigImportErrors: 
+    rigImportWarnings: 
+    animationImportErrors: 
+    animationImportWarnings: 
+    animationRetargetingWarnings: 
+    animationDoRetargetingWarnings: 0
+    importAnimatedCustomProperties: 0
+    importConstraints: 0
+    animationCompression: 0
+    animationRotationError: 0.5
+    animationPositionError: 0.5
+    animationScaleError: 0.5
+    animationWrapMode: 0
+    extraExposedTransformPaths: []
+    extraUserProperties: []
+    clipAnimations: []
+    isReadable: 1
+  meshes:
+    lODScreenPercentages: []
+    globalScale: 1
+    meshCompression: 0
+    addColliders: 0
+    useSRGBMaterialColor: 1
+    importVisibility: 1
+    importBlendShapes: 1
+    importCameras: 1
+    importLights: 1
+    swapUVChannels: 0
+    generateSecondaryUV: 0
+    useFileUnits: 1
+    optimizeMeshForGPU: 1
+    keepQuads: 0
+    weldVertices: 1
+    preserveHierarchy: 0
+    indexFormat: 0
+    secondaryUVAngleDistortion: 8
+    secondaryUVAreaDistortion: 15.000001
+    secondaryUVHardAngle: 88
+    secondaryUVPackMargin: 4
+    useFileScale: 1
+    previousCalculatedGlobalScale: 1
+    hasPreviousCalculatedGlobalScale: 1
+  tangentSpace:
+    normalSmoothAngle: 60
+    normalImportMode: 0
+    tangentImportMode: 3
+    normalCalculationMode: 4
+    legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: 0
+    blendShapeNormalImportMode: 1
+    normalSmoothingSource: 0
+  importAnimation: 1
+  copyAvatar: 1
+  humanDescription:
+    serializedVersion: 2
+    human: []
+    skeleton: []
+    armTwist: 0.5
+    foreArmTwist: 0.5
+    upperLegTwist: 0.5
+    legTwist: 0.5
+    armStretch: 0.05
+    legStretch: 0.05
+    feetSpacing: 0
+    rootMotionBoneName: ROOT_
+    hasTranslationDoF: 0
+    hasExtraRoot: 0
+    skeletonHasParents: 1
+  lastHumanDescriptionAvatarSource: {fileID: 9000000, guid: 1b6d9104e84a945408637c4e98fc7d32,
+    type: 3}
+  animationType: 2
+  humanoidOversampling: 1
+  additionalBone: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 5730
+  packageName: HEROIC FANTASY CREATURES FULL PACK Volume 1
+  packageVersion: 2.5
+  assetPath: Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Fantasy Animals Pack/Giant
+    Viper/FBX Files/GiantViper@JumpBite.FBX
+  uploadId: 868080

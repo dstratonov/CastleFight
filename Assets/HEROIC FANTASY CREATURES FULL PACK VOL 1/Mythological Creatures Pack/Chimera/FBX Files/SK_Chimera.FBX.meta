@@ -1,0 +1,285 @@
+fileFormatVersion: 2
+guid: 37239e41086edd04a9c79206f1b695be
+ModelImporter:
+  serializedVersion: 23
+  fileIDToRecycleName:
+    100000: CHIMERA
+    100002: CHIMERA_
+    100004: CHIMERA_ Head
+    100006: CHIMERA_ L Calf
+    100008: CHIMERA_ L Clavicle
+    100010: CHIMERA_ L Finger0
+    100012: CHIMERA_ L Finger01
+    100014: CHIMERA_ L Finger1
+    100016: CHIMERA_ L Finger11
+    100018: CHIMERA_ L Finger2
+    100020: CHIMERA_ L Finger21
+    100022: CHIMERA_ L Finger3
+    100024: CHIMERA_ L Finger31
+    100026: CHIMERA_ L Foot
+    100028: CHIMERA_ L Forearm
+    100030: CHIMERA_ L Hand
+    100032: CHIMERA_ L HorseLink
+    100034: CHIMERA_ L Thigh
+    100036: CHIMERA_ L Toe0
+    100038: CHIMERA_ L UpperArm
+    100040: CHIMERA_ Neck
+    100042: CHIMERA_ Neck1
+    100044: CHIMERA_ Neck2
+    100046: CHIMERA_ Pelvis
+    100048: CHIMERA_ Queue de cheval 1
+    100050: CHIMERA_ R Calf
+    100052: CHIMERA_ R Clavicle
+    100054: CHIMERA_ R Finger0
+    100056: CHIMERA_ R Finger01
+    100058: CHIMERA_ R Finger1
+    100060: CHIMERA_ R Finger11
+    100062: CHIMERA_ R Finger2
+    100064: CHIMERA_ R Finger21
+    100066: CHIMERA_ R Finger3
+    100068: CHIMERA_ R Finger31
+    100070: CHIMERA_ R Foot
+    100072: CHIMERA_ R Forearm
+    100074: CHIMERA_ R Hand
+    100076: CHIMERA_ R HorseLink
+    100078: CHIMERA_ R Thigh
+    100080: CHIMERA_ R Toe0
+    100082: CHIMERA_ R UpperArm
+    100084: CHIMERA_ Spine
+    100086: CHIMERA_ Spine1
+    100088: CHIMERA_ Tail
+    100090: CHIMERA_ Tail1
+    100092: CHIMERA_ Tail10
+    100094: CHIMERA_ Tail11
+    100096: CHIMERA_ Tail12
+    100098: CHIMERA_ Tail13
+    100100: CHIMERA_ Tail14
+    100102: CHIMERA_ Tail15
+    100104: CHIMERA_ Tail16
+    100106: CHIMERA_ Tail17
+    100108: CHIMERA_ Tail18
+    100110: CHIMERA_ Tail19
+    100112: CHIMERA_ Tail2
+    100114: CHIMERA_ Tail20
+    100116: CHIMERA_ Tail3
+    100118: CHIMERA_ Tail4
+    100120: CHIMERA_ Tail5
+    100122: CHIMERA_ Tail6
+    100124: CHIMERA_ Tail7
+    100126: CHIMERA_ Tail8
+    100128: CHIMERA_ Tail9
+    100130: CHIMERA_Goat_Head
+    100132: CHIMERA_Goat_jaw
+    100134: CHIMERA_GOATY_1
+    100136: CHIMERA_GOATY_2
+    100138: CHIMERA_Neck_b_01
+    100140: CHIMERA_Neck_b_02
+    100142: CHIMERA_Neck_b_03
+    100144: CHIMERA_Snake_Head_jaw
+    100146: CHIMERA_Snake_Head_tongue_01
+    100148: CHIMERA_Snake_Head_tongue_02
+    100150: CHIMERA_Snake_Head_tongue_03
+    100152: CHIMERA_Snake_Head_tongue_04
+    100154: CHIMERA_Snake_Head_tongue_05
+    100156: CHIMERA_VENOM_HOOK_L
+    100158: CHIMERA_VENOM_HOOK_R
+    100160: ROOT_CHIMERA
+    100162: //RootNode
+    100164: SK_Chimera
+    400000: CHIMERA
+    400002: CHIMERA_
+    400004: CHIMERA_ Head
+    400006: CHIMERA_ L Calf
+    400008: CHIMERA_ L Clavicle
+    400010: CHIMERA_ L Finger0
+    400012: CHIMERA_ L Finger01
+    400014: CHIMERA_ L Finger1
+    400016: CHIMERA_ L Finger11
+    400018: CHIMERA_ L Finger2
+    400020: CHIMERA_ L Finger21
+    400022: CHIMERA_ L Finger3
+    400024: CHIMERA_ L Finger31
+    400026: CHIMERA_ L Foot
+    400028: CHIMERA_ L Forearm
+    400030: CHIMERA_ L Hand
+    400032: CHIMERA_ L HorseLink
+    400034: CHIMERA_ L Thigh
+    400036: CHIMERA_ L Toe0
+    400038: CHIMERA_ L UpperArm
+    400040: CHIMERA_ Neck
+    400042: CHIMERA_ Neck1
+    400044: CHIMERA_ Neck2
+    400046: CHIMERA_ Pelvis
+    400048: CHIMERA_ Queue de cheval 1
+    400050: CHIMERA_ R Calf
+    400052: CHIMERA_ R Clavicle
+    400054: CHIMERA_ R Finger0
+    400056: CHIMERA_ R Finger01
+    400058: CHIMERA_ R Finger1
+    400060: CHIMERA_ R Finger11
+    400062: CHIMERA_ R Finger2
+    400064: CHIMERA_ R Finger21
+    400066: CHIMERA_ R Finger3
+    400068: CHIMERA_ R Finger31
+    400070: CHIMERA_ R Foot
+    400072: CHIMERA_ R Forearm
+    400074: CHIMERA_ R Hand
+    400076: CHIMERA_ R HorseLink
+    400078: CHIMERA_ R Thigh
+    400080: CHIMERA_ R Toe0
+    400082: CHIMERA_ R UpperArm
+    400084: CHIMERA_ Spine
+    400086: CHIMERA_ Spine1
+    400088: CHIMERA_ Tail
+    400090: CHIMERA_ Tail1
+    400092: CHIMERA_ Tail10
+    400094: CHIMERA_ Tail11
+    400096: CHIMERA_ Tail12
+    400098: CHIMERA_ Tail13
+    400100: CHIMERA_ Tail14
+    400102: CHIMERA_ Tail15
+    400104: CHIMERA_ Tail16
+    400106: CHIMERA_ Tail17
+    400108: CHIMERA_ Tail18
+    400110: CHIMERA_ Tail19
+    400112: CHIMERA_ Tail2
+    400114: CHIMERA_ Tail20
+    400116: CHIMERA_ Tail3
+    400118: CHIMERA_ Tail4
+    400120: CHIMERA_ Tail5
+    400122: CHIMERA_ Tail6
+    400124: CHIMERA_ Tail7
+    400126: CHIMERA_ Tail8
+    400128: CHIMERA_ Tail9
+    400130: CHIMERA_Goat_Head
+    400132: CHIMERA_Goat_jaw
+    400134: CHIMERA_GOATY_1
+    400136: CHIMERA_GOATY_2
+    400138: CHIMERA_Neck_b_01
+    400140: CHIMERA_Neck_b_02
+    400142: CHIMERA_Neck_b_03
+    400144: CHIMERA_Snake_Head_jaw
+    400146: CHIMERA_Snake_Head_tongue_01
+    400148: CHIMERA_Snake_Head_tongue_02
+    400150: CHIMERA_Snake_Head_tongue_03
+    400152: CHIMERA_Snake_Head_tongue_04
+    400154: CHIMERA_Snake_Head_tongue_05
+    400156: CHIMERA_VENOM_HOOK_L
+    400158: CHIMERA_VENOM_HOOK_R
+    400160: ROOT_CHIMERA
+    400162: //RootNode
+    400164: SK_Chimera
+    2100000: CHIMERA
+    2100002: CHIMERA_HAIR
+    2100004: M_Chimera
+    2100006: M_ChimeraHair
+    4300000: CHIMERA
+    4300002: SK_Chimera
+    7400000: Take 001
+    9500000: //RootNode
+    13700000: CHIMERA
+    13700002: SK_Chimera
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Chimera
+    second: {fileID: 2100000, guid: bc1e1fabaa62e90439262c04dd020498, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_ChimeraHair
+    second: {fileID: 2100000, guid: 56117f82c3c483640873fff78c0f7c5f, type: 2}
+  materials:
+    importMaterials: 1
+    materialName: 1
+    materialSearch: 1
+    materialLocation: 0
+  animations:
+    legacyGenerateAnimations: 4
+    bakeSimulation: 0
+    resampleCurves: 1
+    optimizeGameObjects: 0
+    motionNodeName: 
+    rigImportErrors: 
+    rigImportWarnings: 
+    animationImportErrors: 
+    animationImportWarnings: 
+    animationRetargetingWarnings: 
+    animationDoRetargetingWarnings: 0
+    importAnimatedCustomProperties: 0
+    importConstraints: 0
+    animationCompression: 1
+    animationRotationError: 0.5
+    animationPositionError: 0.5
+    animationScaleError: 0.5
+    animationWrapMode: 0
+    extraExposedTransformPaths: []
+    extraUserProperties: []
+    clipAnimations: []
+    isReadable: 1
+  meshes:
+    lODScreenPercentages: []
+    globalScale: 1
+    meshCompression: 0
+    addColliders: 0
+    useSRGBMaterialColor: 1
+    importVisibility: 1
+    importBlendShapes: 1
+    importCameras: 1
+    importLights: 1
+    swapUVChannels: 0
+    generateSecondaryUV: 0
+    useFileUnits: 1
+    optimizeMeshForGPU: 1
+    keepQuads: 0
+    weldVertices: 1
+    preserveHierarchy: 0
+    indexFormat: 0
+    secondaryUVAngleDistortion: 8
+    secondaryUVAreaDistortion: 15.000001
+    secondaryUVHardAngle: 88
+    secondaryUVPackMargin: 4
+    useFileScale: 1
+    previousCalculatedGlobalScale: 0.01
+    hasPreviousCalculatedGlobalScale: 1
+  tangentSpace:
+    normalSmoothAngle: 60
+    normalImportMode: 0
+    tangentImportMode: 3
+    normalCalculationMode: 4
+    legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: 0
+    blendShapeNormalImportMode: 1
+    normalSmoothingSource: 0
+  importAnimation: 1
+  copyAvatar: 0
+  humanDescription:
+    serializedVersion: 2
+    human: []
+    skeleton: []
+    armTwist: 0.5
+    foreArmTwist: 0.5
+    upperLegTwist: 0.5
+    legTwist: 0.5
+    armStretch: 0.05
+    legStretch: 0.05
+    feetSpacing: 0
+    rootMotionBoneName: ROOT_CHIMERA
+    hasTranslationDoF: 0
+    hasExtraRoot: 0
+    skeletonHasParents: 1
+  lastHumanDescriptionAvatarSource: {instanceID: 0}
+  animationType: 2
+  humanoidOversampling: 1
+  additionalBone: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 5730
+  packageName: HEROIC FANTASY CREATURES FULL PACK Volume 1
+  packageVersion: 2.5
+  assetPath: Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Mythological Creatures
+    Pack/Chimera/FBX Files/SK_Chimera.FBX
+  uploadId: 868080

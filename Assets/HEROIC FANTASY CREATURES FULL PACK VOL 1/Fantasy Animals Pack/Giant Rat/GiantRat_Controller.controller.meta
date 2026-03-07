@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 2eb559c178bb5c14293d747dc31d0601
+timeCreated: 1538060018
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 5730
+  packageName: HEROIC FANTASY CREATURES FULL PACK Volume 1
+  packageVersion: 2.5
+  assetPath: Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Fantasy Animals Pack/Giant
+    Rat/GiantRat_Controller.controller
+  uploadId: 868080
