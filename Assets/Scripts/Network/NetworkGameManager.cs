@@ -41,13 +41,16 @@ public class NetworkGameManager : NetworkManager
             if (race == null || race.buildings == null) continue;
             foreach (var building in race.buildings)
             {
-                if (building?.spawnedUnit?.prefab == null) continue;
-                var prefab = building.spawnedUnit.prefab;
-                if (!spawnPrefabs.Contains(prefab))
-                    spawnPrefabs.Add(prefab);
+                if (building == null) continue;
+
+                if (building.prefab != null && !spawnPrefabs.Contains(building.prefab))
+                    spawnPrefabs.Add(building.prefab);
+
+                if (building.spawnedUnit?.prefab != null && !spawnPrefabs.Contains(building.spawnedUnit.prefab))
+                    spawnPrefabs.Add(building.spawnedUnit.prefab);
             }
         }
-        Debug.Log($"[NetworkGameManager] Registered {spawnPrefabs.Count} unit prefabs for network spawning");
+        Debug.Log($"[NetworkGameManager] Registered {spawnPrefabs.Count} prefabs for network spawning");
     }
 
     private void InitializeDamageSystem()

@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 73118a57b6898a941bc156417706c982
+ScriptedImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 2
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+  script: {fileID: 11500000, guid: 60072b568d64c40a485e0fc55012dc9f, type: 3}
+AssetOrigin:
+  serializedVersion: 1
+  productId: 355790
+  packageName: 'Townsmith: Modular Medieval Town (Medieval Town, Modular Fantasy
+    Town, Town)'
+  packageVersion: 1.0
+  assetPath: Assets/Hivemind/TownSmith/HDRP(Default)/Art/Shaders/SubG_WorldAlignedTexture.shadersubgraph
+  uploadId: 847832
