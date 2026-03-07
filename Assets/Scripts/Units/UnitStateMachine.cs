@@ -16,15 +16,8 @@ public class UnitStateMachine : NetworkBehaviour
 
     private Unit unit;
     private GridMovement movement;
-    private UnitCombat combat;
     private Health health;
-    private Animator animator;
-
-    private static readonly int AnimIdle = Animator.StringToHash("Idle");
-    private static readonly int AnimWalk = Animator.StringToHash("Walk");
-    private static readonly int AnimAttack = Animator.StringToHash("Attack");
-    private static readonly int AnimDeath = Animator.StringToHash("Death");
-    private static readonly int AnimSpeed = Animator.StringToHash("Speed");
+    private UnitAnimator unitAnimator;
 
     public UnitState CurrentState => currentState;
 
@@ -32,17 +25,30 @@ public class UnitStateMachine : NetworkBehaviour
     {
         unit = GetComponent<Unit>();
         movement = GetComponent<GridMovement>();
-        combat = GetComponent<UnitCombat>();
         health = GetComponent<Health>();
-        animator = GetComponentInChildren<Animator>();
     }
 
     public override void OnStartClient()
     {
+        SetupAnimator();
+        ApplyAnimation(currentState);
+    }
+
+    public override void OnStartServer()
+    {
+        SetupAnimator();
+        ApplyAnimation(currentState);
+    }
+
+    private void SetupAnimator()
+    {
+        if (unitAnimator != null) return;
+
+        var animator = GetComponentInChildren<Animator>();
         if (animator != null)
         {
-            animator.applyRootMotion = false;
-            SetAnimatorState(currentState);
+            unitAnimator = gameObject.AddComponent<UnitAnimator>();
+            unitAnimator.Initialize(animator);
         }
     }
 
@@ -90,82 +96,32 @@ public class UnitStateMachine : NetworkBehaviour
     {
         if (currentState == newState) return;
         currentState = newState;
+        ApplyAnimation(newState);
     }
 
     private void OnStateChanged(UnitState oldState, UnitState newState)
     {
-        SetAnimatorState(newState);
+        ApplyAnimation(newState);
     }
 
-    private void SetAnimatorState(UnitState state)
+    private void ApplyAnimation(UnitState state)
     {
-        if (animator == null || animator.runtimeAnimatorController == null) return;
+        if (unitAnimator == null || !unitAnimator.HasAnimator) return;
 
         switch (state)
         {
             case UnitState.Idle:
-                TrySetTrigger("Idle");
-                TrySetFloat("Speed", 0f);
+                unitAnimator.PlayIdle();
                 break;
             case UnitState.Moving:
-                TrySetTrigger("Walk");
-                TrySetFloat("Speed", 1f);
+                unitAnimator.PlayWalk();
                 break;
             case UnitState.Fighting:
-                TrySetTrigger("Attack");
+                unitAnimator.PlayAttack();
                 break;
             case UnitState.Dying:
-                TrySetTrigger("Death");
+                unitAnimator.PlayDeath();
                 break;
-        }
-    }
-
-    private void TrySetTrigger(string name)
-    {
-        if (animator == null) return;
-        foreach (var param in animator.parameters)
-        {
-            if (param.name == name && param.type == AnimatorControllerParameterType.Trigger)
-            {
-                animator.SetTrigger(name);
-                return;
-            }
-            if (param.name == name && param.type == AnimatorControllerParameterType.Bool)
-            {
-                animator.SetBool(name, true);
-                ResetOtherBools(name);
-                return;
-            }
-        }
-    }
-
-    private void TrySetFloat(string name, float value)
-    {
-        if (animator == null) return;
-        foreach (var param in animator.parameters)
-        {
-            if (param.name == name && param.type == AnimatorControllerParameterType.Float)
-            {
-                animator.SetFloat(name, value);
-                return;
-            }
-        }
-    }
-
-    private void ResetOtherBools(string active)
-    {
-        string[] states = { "Idle", "Walk", "Attack", "Death" };
-        foreach (var s in states)
-        {
-            if (s == active) continue;
-            foreach (var param in animator.parameters)
-            {
-                if (param.name == s && param.type == AnimatorControllerParameterType.Bool)
-                {
-                    animator.SetBool(s, false);
-                    break;
-                }
-            }
         }
     }
 

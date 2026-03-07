@@ -7,6 +7,7 @@ public class UnitCombat : NetworkBehaviour
 
     private Unit unit;
     private GridMovement movement;
+    private UnitStateMachine stateMachine;
     private Health targetHealth;
     private float scanTimer;
     private float attackTimer;
@@ -16,6 +17,7 @@ public class UnitCombat : NetworkBehaviour
     {
         unit = GetComponent<Unit>();
         movement = GetComponent<GridMovement>();
+        stateMachine = GetComponent<UnitStateMachine>();
     }
 
     private void OnEnable()
@@ -49,6 +51,7 @@ public class UnitCombat : NetworkBehaviour
             if (dist <= range)
             {
                 movement?.Stop();
+                stateMachine?.SetState(UnitState.Fighting);
                 TryAttack();
             }
             else if (!movement.IsMoving)
@@ -191,11 +194,21 @@ public class UnitCombat : NetworkBehaviour
         float damage = DamageSystem.CalculateDamage(baseDamage, atkType, defArmor);
         targetHealth.TakeDamage(damage, gameObject);
 
+        Vector3 lookDir = (targetHealth.transform.position - transform.position).normalized;
+        if (lookDir != Vector3.zero)
+        {
+            lookDir.y = 0;
+            transform.forward = lookDir;
+        }
+
         RpcPlayAttackAnimation();
     }
 
     [ClientRpc]
     private void RpcPlayAttackAnimation()
     {
+        var unitAnim = GetComponent<UnitAnimator>();
+        if (unitAnim != null)
+            unitAnim.PlayAttack();
     }
 }

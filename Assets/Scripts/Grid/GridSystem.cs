@@ -176,15 +176,16 @@ public class GridSystem : MonoBehaviour
 
     // --- Neighbor Queries ---
 
-    private static readonly Vector2Int[] FourDirections =
+    private static readonly Vector2Int[] EightDirections =
     {
-        new(0, 1), new(0, -1), new(1, 0), new(-1, 0)
+        new(0, 1), new(0, -1), new(1, 0), new(-1, 0),
+        new(1, 1), new(1, -1), new(-1, 1), new(-1, -1)
     };
 
     public List<Vector2Int> GetWalkableNeighbors(Vector2Int cell)
     {
-        var result = new List<Vector2Int>(4);
-        foreach (var dir in FourDirections)
+        var result = new List<Vector2Int>(8);
+        foreach (var dir in EightDirections)
         {
             Vector2Int neighbor = cell + dir;
             if (IsWalkable(neighbor))
@@ -195,8 +196,8 @@ public class GridSystem : MonoBehaviour
 
     public List<Vector2Int> GetAdjacentCells(Vector2Int cell)
     {
-        var result = new List<Vector2Int>(4);
-        foreach (var dir in FourDirections)
+        var result = new List<Vector2Int>(8);
+        foreach (var dir in EightDirections)
         {
             Vector2Int neighbor = cell + dir;
             if (IsInBounds(neighbor))
@@ -207,7 +208,7 @@ public class GridSystem : MonoBehaviour
 
     public bool HasWalkableNeighbor(Vector2Int cell)
     {
-        foreach (var dir in FourDirections)
+        foreach (var dir in EightDirections)
         {
             if (IsWalkable(cell + dir))
                 return true;

@@ -13,10 +13,16 @@ public struct PathResult
 public static class GridPathfinding
 {
     private const int MaxIterations = 2000;
+    private const float DiagonalCost = 1.41421356f;
 
-    private static readonly Vector2Int[] Directions =
+    private static readonly Vector2Int[] CardinalDirections =
     {
         new(0, 1), new(0, -1), new(1, 0), new(-1, 0)
+    };
+
+    private static readonly Vector2Int[] DiagonalDirections =
+    {
+        new(1, 1), new(1, -1), new(-1, 1), new(-1, -1)
     };
 
     public static PathResult FindPath(Vector2Int start, Vector2Int goal, GridSystem grid, GameObject requestingUnit = null)
@@ -76,27 +82,44 @@ public static class GridPathfinding
                 closestNode = current;
             }
 
-            foreach (var dir in Directions)
+            foreach (var dir in CardinalDirections)
             {
                 Vector2Int neighbor = current + dir;
+                if (closedSet.Contains(neighbor) || !grid.IsInBounds(neighbor)) continue;
 
-                if (closedSet.Contains(neighbor)) continue;
-                if (!grid.IsInBounds(neighbor)) continue;
-
-                bool neighborIsGoal = neighbor == goal;
-                bool neighborWalkable = grid.IsWalkable(neighbor);
-                bool neighborIsSelf = requestingUnit != null && grid.IsWalkableOrOccupiedBy(neighbor, requestingUnit);
-
-                if (!neighborWalkable && !neighborIsGoal && !neighborIsSelf) continue;
+                if (!IsPassable(neighbor, goal, grid, requestingUnit)) continue;
 
                 float tentativeG = gScore[current] + 1f;
-
                 if (!gScore.ContainsKey(neighbor) || tentativeG < gScore[neighbor])
                 {
                     cameFrom[neighbor] = current;
                     gScore[neighbor] = tentativeG;
                     fScore[neighbor] = tentativeG + Heuristic(neighbor, goal);
+                    if (!openSet.Contains(neighbor))
+                        openSet.Insert(neighbor, fScore[neighbor]);
+                    else
+                        openSet.Update(neighbor, fScore[neighbor]);
+                }
+            }
 
+            foreach (var dir in DiagonalDirections)
+            {
+                Vector2Int neighbor = current + dir;
+                if (closedSet.Contains(neighbor) || !grid.IsInBounds(neighbor)) continue;
+
+                if (!IsPassable(neighbor, goal, grid, requestingUnit)) continue;
+
+                Vector2Int adj1 = new(current.x + dir.x, current.y);
+                Vector2Int adj2 = new(current.x, current.y + dir.y);
+                if (!IsPassable(adj1, goal, grid, requestingUnit) && !IsPassable(adj2, goal, grid, requestingUnit))
+                    continue;
+
+                float tentativeG = gScore[current] + DiagonalCost;
+                if (!gScore.ContainsKey(neighbor) || tentativeG < gScore[neighbor])
+                {
+                    cameFrom[neighbor] = current;
+                    gScore[neighbor] = tentativeG;
+                    fScore[neighbor] = tentativeG + Heuristic(neighbor, goal);
                     if (!openSet.Contains(neighbor))
                         openSet.Insert(neighbor, fScore[neighbor]);
                     else
@@ -128,9 +151,19 @@ public static class GridPathfinding
         return pathResult.HasPath;
     }
 
+    private static bool IsPassable(Vector2Int cell, Vector2Int goal, GridSystem grid, GameObject requestingUnit)
+    {
+        if (cell == goal) return true;
+        if (grid.IsWalkable(cell)) return true;
+        if (requestingUnit != null && grid.IsWalkableOrOccupiedBy(cell, requestingUnit)) return true;
+        return false;
+    }
+
     private static float Heuristic(Vector2Int a, Vector2Int b)
     {
-        return Mathf.Abs(a.x - b.x) + Mathf.Abs(a.y - b.y);
+        int dx = Mathf.Abs(a.x - b.x);
+        int dy = Mathf.Abs(a.y - b.y);
+        return dx + dy + (DiagonalCost - 2f) * Mathf.Min(dx, dy);
     }
 
     private static List<Vector2Int> ReconstructPath(Dictionary<Vector2Int, Vector2Int> cameFrom, Vector2Int current)

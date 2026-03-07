@@ -46,17 +46,6 @@ public class GridMovement : NetworkBehaviour
         transform.position = grid.CellToWorld(currentCell);
         bool occupied = grid.TryOccupyCell(currentCell, gameObject);
         Debug.Log($"[GridMovement] {gameObject.name} started at cell {currentCell}, occupy={occupied}, worldPos={transform.position}");
-
-        DisableRootMotion();
-    }
-
-    private void DisableRootMotion()
-    {
-        var animators = GetComponentsInChildren<Animator>();
-        foreach (var anim in animators)
-        {
-            anim.applyRootMotion = false;
-        }
     }
 
     private void Update()
@@ -205,8 +194,9 @@ public class GridMovement : NetworkBehaviour
     private void UpdateCellMovement()
     {
         float speed = (unit != null && unit.Data != null) ? unit.Data.moveSpeed : moveSpeed;
-        float cellDistance = grid.CellSize;
-        moveProgress += (speed / cellDistance) * Time.deltaTime;
+        float actualDistance = Vector3.Distance(moveFrom, moveTo);
+        if (actualDistance < 0.001f) actualDistance = grid.CellSize;
+        moveProgress += (speed / actualDistance) * Time.deltaTime;
 
         transform.position = Vector3.Lerp(moveFrom, moveTo, moveProgress);
 
