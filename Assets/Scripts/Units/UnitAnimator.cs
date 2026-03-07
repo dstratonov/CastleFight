@@ -176,25 +176,50 @@ public class UnitAnimator : MonoBehaviour
         animator.applyRootMotion = false;
         animator.speed = 1f;
 
-        resolvedIdle = ResolveState(IdleNames);
-        resolvedWalk = ResolveState(WalkNames);
-        resolvedRun = ResolveState(RunNames);
-        resolvedAttack = ResolveState(AttackNames);
-        resolvedDeath = ResolveState(DeathNames);
-        resolvedHit = ResolveState(HitNames);
+        CacheClipNames();
+
+        resolvedIdle = ResolveState(IdleNames, IdleKeywords);
+        resolvedWalk = ResolveState(WalkNames, WalkKeywords);
+        resolvedRun = ResolveState(RunNames, RunKeywords);
+        resolvedAttack = ResolveState(AttackNames, AttackKeywords);
+        resolvedDeath = ResolveState(DeathNames, DeathKeywords);
+        resolvedHit = ResolveState(HitNames, HitKeywords);
 
         if (resolvedWalk < 0 && resolvedRun >= 0) resolvedWalk = resolvedRun;
         if (resolvedRun < 0 && resolvedWalk >= 0) resolvedRun = resolvedWalk;
 
         if (resolvedIdle < 0)
-            Debug.LogWarning($"[UnitAnimator] No idle animation found on {gameObject.name}");
+        {
+            string available = clipNames != null ? string.Join(", ", clipNames) : "none";
+            Debug.LogWarning($"[UnitAnimator] No idle animation found on {gameObject.name}. Available clips: {available}");
+        }
         if (resolvedWalk < 0)
             Debug.LogWarning($"[UnitAnimator] No walk animation found on {gameObject.name}");
         if (resolvedAttack < 0)
             Debug.LogWarning($"[UnitAnimator] No attack animation found on {gameObject.name}");
     }
 
-    private int ResolveState(string[][] nameGroups)
+    private HashSet<string> clipNames;
+
+    private void CacheClipNames()
+    {
+        clipNames = new HashSet<string>();
+        if (animator.runtimeAnimatorController == null) return;
+        foreach (var clip in animator.runtimeAnimatorController.animationClips)
+        {
+            if (clip != null)
+                clipNames.Add(clip.name);
+        }
+    }
+
+    private static readonly string[] IdleKeywords = { "idle", "breathe", "lookaround", "rest", "stand" };
+    private static readonly string[] WalkKeywords = { "walk", "move", "crawl", "fly forward", "gallop" };
+    private static readonly string[] RunKeywords = { "run", "sprint" };
+    private static readonly string[] AttackKeywords = { "attack", "bite", "claw", "slash", "hit combo", "spit", "sting", "stomp", "smash", "throw", "cast", "projectile" };
+    private static readonly string[] DeathKeywords = { "die", "death" };
+    private static readonly string[] HitKeywords = { "hit", "damage", "hurt" };
+
+    private int ResolveState(string[][] nameGroups, string[] fallbackKeywords = null)
     {
         if (animator == null || animator.runtimeAnimatorController == null) return -1;
 
@@ -207,6 +232,26 @@ public class UnitAnimator : MonoBehaviour
                     return hash;
             }
         }
+
+        // Fallback: try every clip name as a potential state name if it matches keywords
+        if (clipNames != null && fallbackKeywords != null)
+        {
+            foreach (var clipName in clipNames)
+            {
+                string lower = clipName.ToLowerInvariant();
+                foreach (var keyword in fallbackKeywords)
+                {
+                    if (lower.Contains(keyword))
+                    {
+                        int hash = Animator.StringToHash(clipName);
+                        if (animator.HasState(0, hash))
+                            return hash;
+                        break;
+                    }
+                }
+            }
+        }
+
         return -1;
     }
 

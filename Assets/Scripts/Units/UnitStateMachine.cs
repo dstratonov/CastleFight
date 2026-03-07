@@ -52,7 +52,7 @@ public class UnitStateMachine : NetworkBehaviour
             unitAnimator = gameObject.AddComponent<UnitAnimator>();
 
         unitAnimator.Initialize(animator);
-        animatorNeedsRetry = !unitAnimator.HasIdleAnim && !unitAnimator.HasWalkAnim;
+        animatorNeedsRetry = !unitAnimator.HasIdleAnim || !unitAnimator.HasWalkAnim;
     }
 
     private void OnEnable()

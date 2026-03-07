@@ -34,7 +34,7 @@ public class UnitCombat : NetworkBehaviour
 
         if (targetHealth != null && !targetHealth.IsDead)
         {
-            float dist = Vector3.Distance(transform.position, targetHealth.transform.position);
+            float dist = DistanceToTarget(targetHealth);
             float range = unit.Data != null ? unit.Data.attackRange : 2f;
 
             if (dist <= range)
@@ -59,13 +59,12 @@ public class UnitCombat : NetworkBehaviour
     {
         if (targetHealth != null && !targetHealth.IsDead)
         {
-            float dist = Vector3.Distance(transform.position, targetHealth.transform.position);
+            float dist = DistanceToTarget(targetHealth);
             float scanRange = unit.Data != null ? unit.Data.attackRange * 2f : 10f;
             if (dist <= scanRange) return;
         }
 
         float range = unit.Data != null ? unit.Data.attackRange * 2f : 10f;
-        float attackRange = unit.Data != null ? unit.Data.attackRange : 2f;
         int enemyTeam = GetEnemyTeam();
 
         // Priority 1: nearest enemy unit
@@ -77,7 +76,7 @@ public class UnitCombat : NetworkBehaviour
             return;
         }
 
-        // Priority 2: nearest enemy building within engagement range
+        // Priority 2: nearest enemy building
         Health nearestBuildingHealth = FindNearestEnemyBuilding(enemyTeam, range);
         if (nearestBuildingHealth != null)
         {
@@ -86,21 +85,30 @@ public class UnitCombat : NetworkBehaviour
             return;
         }
 
-        // Priority 3: enemy castle when close enough
+        // Priority 3: enemy castle (always target when no other enemies exist)
         Health castleHealth = FindEnemyCastle(enemyTeam);
         if (castleHealth != null && !castleHealth.IsDead)
         {
-            float castleDist = Vector3.Distance(transform.position, castleHealth.transform.position);
-            if (castleDist <= attackRange * 2f)
-            {
-                targetHealth = castleHealth;
-                return;
-            }
+            targetHealth = castleHealth;
+            float castleDist = DistanceToTarget(castleHealth);
+            float attackRange = unit.Data != null ? unit.Data.attackRange : 2f;
+            if (castleDist > attackRange)
+                MoveTowardTarget();
+            return;
         }
 
         targetHealth = null;
         if (movement != null && !movement.HasPath && !movement.IsMoving)
             movement.SetDestinationToEnemyCastle();
+    }
+
+    private float DistanceToTarget(Health target)
+    {
+        var col = target.GetComponent<Collider>();
+        if (col != null)
+            return Vector3.Distance(transform.position, col.ClosestPoint(transform.position));
+
+        return Vector3.Distance(transform.position, target.transform.position);
     }
 
     private int GetEnemyTeam()
@@ -116,7 +124,7 @@ public class UnitCombat : NetworkBehaviour
 
         var buildings = BuildingManager.Instance.GetTeamBuildings(enemyTeam);
         Health nearest = null;
-        float nearestDistSq = maxRange * maxRange;
+        float nearestDist = maxRange;
 
         foreach (var b in buildings)
         {
@@ -124,10 +132,10 @@ public class UnitCombat : NetworkBehaviour
             var h = b.GetComponent<Health>();
             if (h == null || h.IsDead) continue;
 
-            float distSq = (b.transform.position - transform.position).sqrMagnitude;
-            if (distSq < nearestDistSq)
+            float dist = DistanceToTarget(h);
+            if (dist < nearestDist)
             {
-                nearestDistSq = distSq;
+                nearestDist = dist;
                 nearest = h;
             }
         }

@@ -158,10 +158,48 @@ public class UnitMovement : NetworkBehaviour
         {
             if (c.TeamId == enemyTeam)
             {
-                SetDestinationWorld(c.transform.position);
+                Vector3 target = FindWalkablePositionNear(c.transform.position);
+                SetDestinationWorld(target);
                 return;
             }
         }
+    }
+
+    private Vector3 FindWalkablePositionNear(Vector3 worldPos)
+    {
+        Vector2Int center = grid.WorldToCell(worldPos);
+        if (grid.IsInBounds(center) && grid.IsWalkable(center))
+            return worldPos;
+
+        for (int radius = 1; radius <= 10; radius++)
+        {
+            Vector2Int best = center;
+            float bestDist = float.MaxValue;
+            bool found = false;
+
+            for (int dx = -radius; dx <= radius; dx++)
+            {
+                for (int dz = -radius; dz <= radius; dz++)
+                {
+                    if (Mathf.Abs(dx) != radius && Mathf.Abs(dz) != radius) continue;
+                    Vector2Int cell = new(center.x + dx, center.y + dz);
+                    if (!grid.IsInBounds(cell) || !grid.IsWalkable(cell)) continue;
+
+                    float dist = (transform.position - grid.CellToWorld(cell)).sqrMagnitude;
+                    if (dist < bestDist)
+                    {
+                        bestDist = dist;
+                        best = cell;
+                        found = true;
+                    }
+                }
+            }
+
+            if (found)
+                return grid.CellToWorld(best);
+        }
+
+        return worldPos;
     }
 
     [Server]
@@ -198,7 +236,8 @@ public class UnitMovement : NetworkBehaviour
         if (result.HasPath)
         {
             waypoints = GridPathfinding.SmoothPath(result.Path, grid);
-            if (waypoints.Count > 1)
+
+            if (result.IsComplete && waypoints.Count > 1)
                 waypoints[waypoints.Count - 1] = worldTarget.Value;
 
             waypointIndex = 0;
