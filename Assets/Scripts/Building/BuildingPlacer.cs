@@ -7,13 +7,28 @@ public class BuildingPlacer : NetworkBehaviour
     [SerializeField] private LayerMask groundLayer;
     [SerializeField] private Material validPlacementMaterial;
     [SerializeField] private Material invalidPlacementMaterial;
+    [SerializeField] private Material outOfRangePlacementMaterial;
 
     private BuildingData currentBuildingData;
     private GameObject ghostObject;
     private bool isPlacing;
     private Camera mainCamera;
 
+    private Vector3? pendingPosition;
+    private Quaternion pendingRotation;
+    private string pendingBuildingId;
+
+    private HeroBuilder heroBuilder;
+    private HeroController heroController;
+
     public bool IsPlacing => isPlacing;
+    public bool HasPendingPlacement => pendingPosition.HasValue;
+
+    private void Awake()
+    {
+        heroBuilder = GetComponent<HeroBuilder>();
+        heroController = GetComponent<HeroController>();
+    }
 
     private void Start()
     {
@@ -22,7 +37,14 @@ public class BuildingPlacer : NetworkBehaviour
 
     private void Update()
     {
-        if (!isLocalPlayer || !isPlacing) return;
+        if (!isLocalPlayer) return;
+
+        if (pendingPosition.HasValue)
+        {
+            CheckPendingPlacement();
+        }
+
+        if (!isPlacing) return;
 
         var mouse = Mouse.current;
         var keyboard = Keyboard.current;
@@ -53,6 +75,8 @@ public class BuildingPlacer : NetworkBehaviour
     {
         isPlacing = false;
         currentBuildingData = null;
+        pendingPosition = null;
+        pendingBuildingId = null;
 
         if (ghostObject != null)
         {
@@ -72,20 +96,19 @@ public class BuildingPlacer : NetworkBehaviour
         Vector3 snapped = grid != null ? grid.SnapToGrid(hit.point) : hit.point;
         ghostObject.transform.position = snapped;
 
-        bool valid = IsValidPlacement(snapped);
-        SetGhostMaterial(valid ? validPlacementMaterial : invalidPlacementMaterial);
+        bool zoneValid = IsInValidZone(snapped);
+        bool inRange = heroBuilder != null && heroBuilder.IsInBuildRange(snapped);
+
+        if (!zoneValid)
+            SetGhostMaterial(invalidPlacementMaterial);
+        else if (!inRange)
+            SetGhostMaterial(outOfRangePlacementMaterial != null ? outOfRangePlacementMaterial : validPlacementMaterial);
+        else
+            SetGhostMaterial(validPlacementMaterial);
     }
 
-    private bool IsValidPlacement(Vector3 position)
+    private bool IsInValidZone(Vector3 position)
     {
-        var hero = GetComponent<HeroController>();
-        if (hero == null) return false;
-
-        float dist = Vector3.Distance(hero.transform.position, position);
-        float buildRange = 5f;
-
-        if (dist > buildRange) return false;
-
         var player = GetComponent<NetworkPlayer>();
         if (player == null) return false;
 
@@ -101,10 +124,45 @@ public class BuildingPlacer : NetworkBehaviour
         if (ghostObject == null) return;
 
         Vector3 position = ghostObject.transform.position;
-        if (!IsValidPlacement(position)) return;
+        if (!IsInValidZone(position)) return;
 
-        CmdPlaceBuilding(currentBuildingData.buildingId, position, ghostObject.transform.rotation);
-        CancelPlacement();
+        bool inRange = heroBuilder != null && heroBuilder.IsInBuildRange(position);
+
+        if (inRange)
+        {
+            CmdPlaceBuilding(currentBuildingData.buildingId, position, ghostObject.transform.rotation);
+            CancelPlacement();
+        }
+        else
+        {
+            pendingPosition = position;
+            pendingRotation = ghostObject.transform.rotation;
+            pendingBuildingId = currentBuildingData.buildingId;
+
+            if (heroController != null)
+                heroController.MoveTo(position);
+
+            if (ghostObject != null)
+            {
+                Destroy(ghostObject);
+                ghostObject = null;
+            }
+            isPlacing = false;
+            currentBuildingData = null;
+        }
+    }
+
+    private void CheckPendingPlacement()
+    {
+        if (!pendingPosition.HasValue) return;
+
+        bool inRange = heroBuilder != null && heroBuilder.IsInBuildRange(pendingPosition.Value);
+        if (inRange)
+        {
+            CmdPlaceBuilding(pendingBuildingId, pendingPosition.Value, pendingRotation);
+            pendingPosition = null;
+            pendingBuildingId = null;
+        }
     }
 
     [Command]
@@ -119,11 +177,11 @@ public class BuildingPlacer : NetworkBehaviour
         BuildingData data = raceDb.GetBuildingData(player.SelectedRaceId, buildingId);
         if (data == null) return;
 
-        var hero = GetComponent<HeroController>();
-        if (hero == null) return;
+        var builder = GetComponent<HeroBuilder>();
+        if (builder == null) return;
 
-        float dist = Vector3.Distance(hero.transform.position, position);
-        if (dist > 5f) return;
+        float dist = Vector3.Distance(transform.position, position);
+        if (dist > builder.BuildRange) return;
 
         if (!ResourceManager.Instance.TrySpendGold(player, data.cost)) return;
 

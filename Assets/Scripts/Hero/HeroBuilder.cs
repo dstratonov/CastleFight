@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 public class HeroBuilder : NetworkBehaviour
 {
-    [SerializeField] private float buildRange = 5f;
+    [SerializeField] private float buildRange = 15f;
 
     private BuildingPlacer placer;
     private NetworkPlayer networkPlayer;

@@ -37,6 +37,9 @@ public class HeroController : NetworkBehaviour
             var placer = GetComponent<BuildingPlacer>();
             if (placer != null && placer.IsPlacing) return;
 
+            if (placer != null && placer.HasPendingPlacement)
+                placer.CancelPlacement();
+
             HandleMoveInput();
         }
 
@@ -104,6 +107,13 @@ public class HeroController : NetworkBehaviour
         if (moveIndicatorPrefab == null) return;
         var indicator = Instantiate(moveIndicatorPrefab, position + Vector3.up * 0.1f, Quaternion.identity);
         Destroy(indicator, 1f);
+    }
+
+    public void MoveTo(Vector3 worldPosition)
+    {
+        Vector3 dest = new Vector3(worldPosition.x, flyHeight, worldPosition.z);
+        CmdMoveTo(dest);
+        ShowMoveIndicator(worldPosition);
     }
 
     public void StopMoving()
