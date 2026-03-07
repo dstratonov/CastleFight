@@ -41,15 +41,17 @@ public class NetworkGameManager : NetworkManager
         Transform spawnPoint = GetSpawnPoint(teamId, TeamManager.Instance.GetTeamPlayerCount(teamId));
 
         GameObject heroObj = Instantiate(heroPrefab, spawnPoint.position, spawnPoint.rotation);
-        NetworkServer.AddPlayerForConnection(conn, heroObj);
 
         var networkPlayer = heroObj.GetComponent<NetworkPlayer>();
         if (networkPlayer != null)
         {
             networkPlayer.Initialize(conn.connectionId, teamId);
+            networkPlayer.SetRace("humans");
             players[conn.connectionId] = networkPlayer;
             TeamManager.Instance.AddPlayerToTeam(conn.connectionId, teamId);
         }
+
+        NetworkServer.AddPlayerForConnection(conn, heroObj);
     }
 
     public override void OnServerDisconnect(NetworkConnectionToClient conn)

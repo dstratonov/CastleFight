@@ -4,8 +4,6 @@ using Mirror;
 
 public class BuildingPlacer : NetworkBehaviour
 {
-    public static BuildingPlacer Instance { get; private set; }
-
     [SerializeField] private LayerMask groundLayer;
     [SerializeField] private Material validPlacementMaterial;
     [SerializeField] private Material invalidPlacementMaterial;
@@ -16,16 +14,6 @@ public class BuildingPlacer : NetworkBehaviour
     private Camera mainCamera;
 
     public bool IsPlacing => isPlacing;
-
-    private void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
-    }
 
     private void Start()
     {
@@ -155,8 +143,8 @@ public class BuildingPlacer : NetworkBehaviour
     {
         foreach (var collider in ghost.GetComponentsInChildren<Collider>())
             collider.enabled = false;
-        foreach (var nb in ghost.GetComponentsInChildren<NetworkBehaviour>())
-            Destroy(nb);
+        foreach (var mb in ghost.GetComponentsInChildren<MonoBehaviour>())
+            mb.enabled = false;
         foreach (var rb in ghost.GetComponentsInChildren<Rigidbody>())
             Destroy(rb);
     }

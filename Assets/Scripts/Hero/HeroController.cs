@@ -34,6 +34,9 @@ public class HeroController : NetworkBehaviour
         var mouse = Mouse.current;
         if (mouse != null && mouse.rightButton.wasPressedThisFrame)
         {
+            var placer = GetComponent<BuildingPlacer>();
+            if (placer != null && placer.IsPlacing) return;
+
             HandleMoveInput();
         }
 
