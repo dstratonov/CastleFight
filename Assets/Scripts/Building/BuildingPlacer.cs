@@ -88,6 +88,8 @@ public class BuildingPlacer : NetworkBehaviour
     private void UpdateGhostPosition(Mouse mouse)
     {
         if (ghostObject == null) return;
+        if (mainCamera == null) mainCamera = Camera.main;
+        if (mainCamera == null) return;
 
         Ray ray = mainCamera.ScreenPointToRay(mouse.position.ReadValue());
         if (!Physics.Raycast(ray, out RaycastHit hit, 200f, groundLayer)) return;
@@ -183,14 +185,19 @@ public class BuildingPlacer : NetworkBehaviour
         float dist = Vector3.Distance(transform.position, position);
         if (dist > builder.BuildRange) return;
 
-        if (!ResourceManager.Instance.TrySpendGold(player, data.cost)) return;
+        if (BuildingManager.Instance == null) return;
+        if (ResourceManager.Instance == null) return;
+        if (!ResourceManager.Instance.CanAfford(player, data.cost)) return;
 
         var grid = GridSystem.Instance;
         if (grid != null && !grid.CanPlaceBuilding(position, player.TeamId)) return;
 
-        var buildingObj = BuildingManager.Instance?.PlaceBuilding(data, position, rotation, player.TeamId, player.PlayerId);
+        var buildingObj = BuildingManager.Instance.PlaceBuilding(data, position, rotation, player.TeamId, player.PlayerId);
+        if (buildingObj == null) return;
 
-        if (grid != null && buildingObj != null)
+        ResourceManager.Instance.TrySpendGold(player, data.cost);
+
+        if (grid != null)
         {
             Vector2Int cell = grid.WorldToCell(position);
             grid.PlaceBuilding(cell, buildingObj);

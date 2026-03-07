@@ -23,12 +23,6 @@ public class RTSCameraController : MonoBehaviour
 
     private Vector3 dragOrigin;
     private bool isDragging;
-    private Camera cam;
-
-    private void Awake()
-    {
-        cam = GetComponent<Camera>();
-    }
 
     private void Update()
     {

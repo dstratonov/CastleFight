@@ -12,6 +12,11 @@ public class BuildMenuUI : MonoBehaviour
     private HeroBuilder heroBuilder;
     private readonly List<BuildMenuButton> buttons = new();
 
+    public void Init(Transform container)
+    {
+        buildButtonContainer = container;
+    }
+
     public void Initialize(NetworkPlayer player)
     {
         localPlayer = player;
@@ -105,26 +110,9 @@ public class BuildMenuUI : MonoBehaviour
         costTmp.alignment = TMPro.TextAlignmentOptions.MidlineRight;
         costTmp.color = new Color(1f, 0.85f, 0f);
 
-        var field = typeof(BuildMenuButton).GetField("button",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        if (field != null)
-        {
-            var menuButton = buttonObj.GetComponent<BuildMenuButton>();
-            if (menuButton == null) menuButton = buttonObj.AddComponent<BuildMenuButton>();
-            field.SetValue(menuButton, btn);
-
-            var cgField = typeof(BuildMenuButton).GetField("canvasGroup",
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            cgField?.SetValue(menuButton, cg);
-
-            var nameField = typeof(BuildMenuButton).GetField("nameText",
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            nameField?.SetValue(menuButton, nameTmp);
-
-            var costField = typeof(BuildMenuButton).GetField("costText",
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            costField?.SetValue(menuButton, costTmp);
-        }
+        var menuButton = buttonObj.GetComponent<BuildMenuButton>();
+        if (menuButton == null) menuButton = buttonObj.AddComponent<BuildMenuButton>();
+        menuButton.Init(btn, cg, nameTmp, costTmp);
 
         return buttonObj;
     }

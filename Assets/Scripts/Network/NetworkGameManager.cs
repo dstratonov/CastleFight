@@ -8,6 +8,7 @@ public class NetworkGameManager : NetworkManager
     [SerializeField] private GameObject heroPrefab;
     [SerializeField] private Transform[] team1SpawnPoints;
     [SerializeField] private Transform[] team2SpawnPoints;
+    [SerializeField] private DamageTable damageTable;
 
     private readonly Dictionary<int, NetworkPlayer> players = new();
 
@@ -19,9 +20,21 @@ public class NetworkGameManager : NetworkManager
     {
         base.OnStartServer();
 
+        InitializeDamageSystem();
         InitializeCastles();
 
         GameManager.Instance?.SetState(GameState.Playing);
+    }
+
+    private void InitializeDamageSystem()
+    {
+        var table = damageTable;
+        if (table == null)
+            table = Resources.Load<DamageTable>("DamageTable");
+        if (table != null)
+            DamageSystem.Initialize(table);
+        else
+            Debug.LogWarning("[NetworkGameManager] No DamageTable found. Attack/armor multipliers will default to 1.0x.");
     }
 
     private void InitializeCastles()

@@ -20,8 +20,9 @@ public class NetworkPlayer : NetworkBehaviour
     {
         playerId = id;
         teamId = team;
-        gold = GameConfig_Defaults.StartingGold;
-        income = GameConfig_Defaults.BaseIncome;
+        var config = Resources.Load<GameConfig>("GameConfig");
+        gold = config != null ? config.startingGold : 100;
+        income = config != null ? config.passiveIncomeAmount : 10;
     }
 
     [Server]
@@ -60,10 +61,4 @@ public class NetworkPlayer : NetworkBehaviour
     {
         EventBus.Raise(new GoldChangedEvent(playerId, newGold, newGold - oldGold));
     }
-}
-
-public static class GameConfig_Defaults
-{
-    public const int StartingGold = 100;
-    public const int BaseIncome = 10;
 }

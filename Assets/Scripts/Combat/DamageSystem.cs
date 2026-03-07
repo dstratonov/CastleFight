@@ -18,10 +18,4 @@ public static class DamageSystem
         return baseDamage * typeMultiplier * bonusMultiplier;
     }
 
-    public static float CalculateDamageWithArmor(float baseDamage, AttackType attackType, ArmorType armorType, int armorValue, float bonusMultiplier = 1f)
-    {
-        float typedDamage = CalculateDamage(baseDamage, attackType, armorType, bonusMultiplier);
-        float reduction = 1f - (armorValue * 0.06f / (1f + 0.06f * armorValue));
-        return typedDamage * reduction;
-    }
 }

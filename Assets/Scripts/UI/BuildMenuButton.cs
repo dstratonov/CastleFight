@@ -16,6 +16,14 @@ public class BuildMenuButton : MonoBehaviour
 
     public BuildingData Data => data;
 
+    public void Init(Button btn, CanvasGroup cg, TextMeshProUGUI name, TextMeshProUGUI cost)
+    {
+        button = btn;
+        canvasGroup = cg;
+        nameText = name;
+        costText = cost;
+    }
+
     public void Setup(BuildingData buildingData, Action<BuildingData> callback)
     {
         data = buildingData;

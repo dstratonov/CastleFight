@@ -13,6 +13,9 @@ public class Health : NetworkBehaviour
     [SyncVar]
     private int teamId;
 
+    [SyncVar]
+    private GameObject lastAttacker;
+
     public float CurrentHealth => currentHealth;
     public float MaxHealth => maxHealth;
     public float HealthPercent => maxHealth > 0 ? currentHealth / maxHealth : 0f;
@@ -29,6 +32,7 @@ public class Health : NetworkBehaviour
         maxHealth = hp;
         currentHealth = hp;
         teamId = team;
+        lastAttacker = null;
     }
 
     [Server]
@@ -41,7 +45,7 @@ public class Health : NetworkBehaviour
 
         if (currentHealth <= 0)
         {
-            OnDeath?.Invoke(attacker);
+            lastAttacker = attacker;
         }
     }
 
@@ -66,7 +70,7 @@ public class Health : NetworkBehaviour
 
         if (oldHealth > 0 && newHealth <= 0 && maxHealth > 0)
         {
-            OnDeath?.Invoke(null);
+            OnDeath?.Invoke(lastAttacker);
         }
     }
 }

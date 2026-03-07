@@ -4,7 +4,8 @@ using Mirror;
 public class Unit : NetworkBehaviour
 {
     [SyncVar] private int teamId;
-    [SyncVar] private string unitDataId;
+    [SyncVar(hook = nameof(OnUnitDataIdChanged))]
+    private string unitDataId;
 
     private UnitData data;
     private Health health;
@@ -27,6 +28,35 @@ public class Unit : NetworkBehaviour
 
         if (health != null)
             health.Initialize(unitData.maxHealth, team);
+    }
+
+    public override void OnStartClient()
+    {
+        if (data == null && !string.IsNullOrEmpty(unitDataId))
+            ResolveUnitData(unitDataId);
+    }
+
+    private void OnUnitDataIdChanged(string oldId, string newId)
+    {
+        if (data == null && !string.IsNullOrEmpty(newId))
+            ResolveUnitData(newId);
+    }
+
+    private void ResolveUnitData(string id)
+    {
+        var raceDb = RaceDatabase.Instance;
+        if (raceDb == null || raceDb.AllRaces == null) return;
+
+        foreach (var race in raceDb.AllRaces)
+        {
+            if (race == null) continue;
+            var found = race.GetUnit(id);
+            if (found != null)
+            {
+                data = found;
+                return;
+            }
+        }
     }
 
     private void OnEnable()

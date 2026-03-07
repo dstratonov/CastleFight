@@ -20,9 +20,19 @@ public class LobbyManager : NetworkBehaviour
         Instance = this;
     }
 
+    private void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
+    }
+
     public override void OnStartClient()
     {
         readyStates.OnChange += OnReadyStateChanged;
+    }
+
+    public override void OnStopClient()
+    {
+        readyStates.OnChange -= OnReadyStateChanged;
     }
 
     private void OnReadyStateChanged(SyncIDictionary<int, bool>.Operation op, int key, bool item)

@@ -26,6 +26,11 @@ public class TeamManager : MonoBehaviour
         Instance = this;
     }
 
+    private void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
+    }
+
     public void AddPlayerToTeam(int playerId, int teamId)
     {
         if (teamId < 0 || teamId >= TeamCount) return;

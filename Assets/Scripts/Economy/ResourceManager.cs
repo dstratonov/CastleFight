@@ -16,6 +16,11 @@ public class ResourceManager : NetworkBehaviour
         Instance = this;
     }
 
+    private void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
+    }
+
     [Server]
     public bool TrySpendGold(NetworkPlayer player, int amount)
     {

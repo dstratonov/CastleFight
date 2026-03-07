@@ -15,14 +15,28 @@ public class MinimapUI : MonoBehaviour, IPointerClickHandler
     [SerializeField] private float mapMinZ = -50f;
     [SerializeField] private float mapMaxZ = 50f;
 
+    private RenderTexture renderTexture;
+
     private void Start()
     {
         if (minimapCamera != null)
         {
-            var rt = new RenderTexture(256, 256, 16);
-            minimapCamera.targetTexture = rt;
+            renderTexture = new RenderTexture(256, 256, 16);
+            minimapCamera.targetTexture = renderTexture;
             if (minimapImage != null)
-                minimapImage.texture = rt;
+                minimapImage.texture = renderTexture;
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (renderTexture != null)
+        {
+            if (minimapCamera != null)
+                minimapCamera.targetTexture = null;
+            renderTexture.Release();
+            Destroy(renderTexture);
+            renderTexture = null;
         }
     }
 

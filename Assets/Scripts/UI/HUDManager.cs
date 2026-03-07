@@ -20,6 +20,14 @@ public class HUDManager : MonoBehaviour
     private float matchTimer;
     private NetworkPlayer localPlayer;
 
+    public void Init(TextMeshProUGUI gold, TextMeshProUGUI income, TextMeshProUGUI timer, TextMeshProUGUI team)
+    {
+        goldText = gold;
+        incomeText = income;
+        timerText = timer;
+        teamText = team;
+    }
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -28,6 +36,11 @@ public class HUDManager : MonoBehaviour
             return;
         }
         Instance = this;
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
     }
 
     private void OnEnable()
@@ -50,7 +63,6 @@ public class HUDManager : MonoBehaviour
             UpdateTimerDisplay();
         }
 
-        UpdateCastleHealth();
     }
 
     public void SetLocalPlayer(NetworkPlayer player)
@@ -72,19 +84,6 @@ public class HUDManager : MonoBehaviour
         int minutes = Mathf.FloorToInt(matchTimer / 60f);
         int seconds = Mathf.FloorToInt(matchTimer % 60f);
         timerText.text = $"{minutes:00}:{seconds:00}";
-    }
-
-    private void UpdateCastleHealth()
-    {
-        var castles = FindObjectsByType<Castle>(FindObjectsSortMode.None);
-        foreach (var castle in castles)
-        {
-            if (localPlayer == null) continue;
-
-            var slider = castle.TeamId == localPlayer.TeamId ? allyCastleHealthBar : enemyCastleHealthBar;
-            if (slider != null && castle.Health != null)
-                slider.value = castle.Health.HealthPercent;
-        }
     }
 
     private void OnGoldChanged(GoldChangedEvent evt)

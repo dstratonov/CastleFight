@@ -25,6 +25,11 @@ public class GameUIBuilder : MonoBehaviour
         CreateUI();
     }
 
+    private void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
+    }
+
     private void CreateUI()
     {
         var canvasObj = new GameObject("GameCanvas");
@@ -65,10 +70,7 @@ public class GameUIBuilder : MonoBehaviour
         var teamText = CreateTMPText("TeamText", hudObj.transform, "Team 0", 18, TextAlignmentOptions.MidlineLeft, 120);
 
         hudManager = hudObj.AddComponent<HUDManager>();
-        SetPrivateField(hudManager, "goldText", goldText);
-        SetPrivateField(hudManager, "incomeText", incomeText);
-        SetPrivateField(hudManager, "timerText", timerText);
-        SetPrivateField(hudManager, "teamText", teamText);
+        hudManager.Init(goldText, incomeText, timerText, teamText);
     }
 
     private void CreateBuildPanel(Transform parent)
@@ -117,7 +119,7 @@ public class GameUIBuilder : MonoBehaviour
         vlg.childForceExpandHeight = false;
 
         buildMenuUI = panelObj.AddComponent<BuildMenuUI>();
-        SetPrivateField(buildMenuUI, "buildButtonContainer", containerObj.transform);
+        buildMenuUI.Init(containerObj.transform);
     }
 
     private GameObject CreatePanel(string name, Transform parent)
@@ -147,11 +149,4 @@ public class GameUIBuilder : MonoBehaviour
         return tmp;
     }
 
-    private void SetPrivateField(object target, string fieldName, object value)
-    {
-        var field = target.GetType().GetField(fieldName,
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        if (field != null)
-            field.SetValue(target, value);
-    }
 }

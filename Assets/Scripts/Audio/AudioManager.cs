@@ -11,6 +11,7 @@ public class AudioManager : MonoBehaviour
 
     private readonly List<AudioSource> sfxPool = new();
     private int sfxPoolIndex;
+    private float sfxVolume = 1f;
 
     private void Awake()
     {
@@ -22,6 +23,11 @@ public class AudioManager : MonoBehaviour
         Instance = this;
 
         InitializeSfxPool();
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
     }
 
     private void InitializeSfxPool()
@@ -53,7 +59,7 @@ public class AudioManager : MonoBehaviour
         if (clip == null) return;
         var source = GetNextSfxSource();
         source.clip = clip;
-        source.volume = volume;
+        source.volume = volume * sfxVolume;
         source.Play();
     }
 
@@ -77,6 +83,11 @@ public class AudioManager : MonoBehaviour
 
     public void SetSFXVolume(float volume)
     {
-        if (sfxSource != null) sfxSource.volume = volume;
+        sfxVolume = Mathf.Clamp01(volume);
+        foreach (var source in sfxPool)
+        {
+            if (source != null && source.isPlaying)
+                source.volume = sfxVolume;
+        }
     }
 }

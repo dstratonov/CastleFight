@@ -22,6 +22,11 @@ public class BuildingManager : NetworkBehaviour
         Instance = this;
     }
 
+    private void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
+    }
+
     private void OnEnable()
     {
         EventBus.Subscribe<BuildingDestroyedEvent>(OnBuildingDestroyed);

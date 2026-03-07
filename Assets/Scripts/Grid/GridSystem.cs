@@ -43,6 +43,11 @@ public class GridSystem : MonoBehaviour
         InitializeGrid();
     }
 
+    private void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
+    }
+
     private void InitializeGrid()
     {
         cells = new CellData[gridWidth, gridHeight];

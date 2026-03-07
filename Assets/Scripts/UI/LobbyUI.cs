@@ -56,11 +56,11 @@ public class LobbyUI : MonoBehaviour
     {
         ClearEntries();
 
+        if (playerEntryPrefab == null || playerListContainer == null) return;
+
         var players = FindObjectsByType<NetworkPlayer>(FindObjectsSortMode.None);
         foreach (var player in players)
         {
-            if (playerEntryPrefab == null || playerListContainer == null) continue;
-
             var entry = Instantiate(playerEntryPrefab, playerListContainer);
             playerEntries.Add(entry);
 
