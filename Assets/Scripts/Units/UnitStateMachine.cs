@@ -55,13 +55,19 @@ public class UnitStateMachine : NetworkBehaviour
     private void OnEnable()
     {
         if (health != null)
+        {
             health.OnDeath += OnDeath;
+            health.OnDamaged += OnDamaged;
+        }
     }
 
     private void OnDisable()
     {
         if (health != null)
+        {
             health.OnDeath -= OnDeath;
+            health.OnDamaged -= OnDamaged;
+        }
     }
 
     private void Update()
@@ -123,6 +129,12 @@ public class UnitStateMachine : NetworkBehaviour
                 unitAnimator.PlayDeath();
                 break;
         }
+    }
+
+    private void OnDamaged(float amount, GameObject attacker)
+    {
+        if (unitAnimator != null && currentState != UnitState.Dying)
+            unitAnimator.PlayHit();
     }
 
     private void OnDeath(GameObject killer)

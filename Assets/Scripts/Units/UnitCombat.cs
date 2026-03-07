@@ -48,6 +48,10 @@ public class UnitCombat : NetworkBehaviour
                 MoveTowardTarget();
             }
         }
+        else if (stateMachine != null && stateMachine.CurrentState == UnitState.Fighting)
+        {
+            stateMachine.SetState(UnitState.Idle);
+        }
     }
 
     [Server]
@@ -94,6 +98,7 @@ public class UnitCombat : NetworkBehaviour
         if (targetHealth == null || targetHealth.IsDead)
         {
             targetHealth = null;
+            stateMachine?.SetState(UnitState.Idle);
             movement?.Resume();
             return;
         }
