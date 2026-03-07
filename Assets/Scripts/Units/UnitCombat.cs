@@ -104,11 +104,32 @@ public class UnitCombat : NetworkBehaviour
 
     private float DistanceToTarget(Health target)
     {
+        Vector3 closest = ClosestPointOnTarget(target);
+        return Vector3.Distance(transform.position, closest);
+    }
+
+    private Vector3 ClosestPointOnTarget(Health target)
+    {
+        var renderers = target.GetComponentsInChildren<Renderer>();
+        if (renderers.Length > 0)
+        {
+            Bounds combined = default;
+            bool first = true;
+            foreach (var r in renderers)
+            {
+                if (r is ParticleSystemRenderer) continue;
+                if (first) { combined = r.bounds; first = false; }
+                else combined.Encapsulate(r.bounds);
+            }
+            if (!first)
+                return combined.ClosestPoint(transform.position);
+        }
+
         var col = target.GetComponent<Collider>();
         if (col != null)
-            return Vector3.Distance(transform.position, col.ClosestPoint(transform.position));
+            return col.ClosestPoint(transform.position);
 
-        return Vector3.Distance(transform.position, target.transform.position);
+        return target.transform.position;
     }
 
     private int GetEnemyTeam()
@@ -157,7 +178,9 @@ public class UnitCombat : NetworkBehaviour
     private void MoveTowardTarget()
     {
         if (targetHealth == null || movement == null) return;
-        movement.SetDestinationWorld(targetHealth.transform.position);
+        Vector3 closest = ClosestPointOnTarget(targetHealth);
+        closest.y = transform.position.y;
+        movement.SetDestinationWorld(closest);
     }
 
     [Server]
@@ -188,12 +211,11 @@ public class UnitCombat : NetworkBehaviour
         float damage = DamageSystem.CalculateDamage(baseDamage, atkType, defArmor);
         targetHealth.TakeDamage(damage, gameObject);
 
-        Vector3 lookDir = (targetHealth.transform.position - transform.position).normalized;
-        if (lookDir != Vector3.zero)
-        {
-            lookDir.y = 0;
-            transform.forward = lookDir;
-        }
+        Vector3 lookTarget = ClosestPointOnTarget(targetHealth);
+        Vector3 lookDir = (lookTarget - transform.position);
+        lookDir.y = 0;
+        if (lookDir.sqrMagnitude > 0.001f)
+            transform.forward = lookDir.normalized;
 
         RpcPlayAttackAnimation();
     }
