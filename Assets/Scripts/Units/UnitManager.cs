@@ -12,6 +12,8 @@ public class UnitManager : NetworkBehaviour
         { 1, new List<Unit>() }
     };
 
+    private readonly List<Unit> allUnits = new();
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -67,6 +69,7 @@ public class UnitManager : NetworkBehaviour
         if (!teamUnits.ContainsKey(team))
             teamUnits[team] = new List<Unit>();
         teamUnits[team].Add(unit);
+        allUnits.Add(unit);
     }
 
     public void UnregisterUnit(Unit unit)
@@ -74,6 +77,7 @@ public class UnitManager : NetworkBehaviour
         if (unit == null) return;
         if (teamUnits.TryGetValue(unit.TeamId, out var list))
             list.Remove(unit);
+        allUnits.Remove(unit);
     }
 
     public List<Unit> GetTeamUnits(int teamId)
@@ -108,38 +112,25 @@ public class UnitManager : NetworkBehaviour
         return nearest;
     }
 
-    public Unit FindNearestReachableEnemy(Vector3 position, int myTeamId, float maxRange, GameObject requestingUnit)
+    /// <summary>
+    /// Returns all live units (any team) within radius of position. Used for separation steering.
+    /// </summary>
+    public List<Unit> GetUnitsInRadius(Vector3 position, float radius)
     {
-        var grid = GridSystem.Instance;
-        if (grid == null) return FindNearestEnemy(position, myTeamId, maxRange);
+        var result = new List<Unit>();
+        float radiusSq = radius * radius;
 
-        Unit nearest = null;
-        float nearestDist = maxRange * maxRange;
-
-        int enemyTeam = TeamManager.Instance != null
-            ? TeamManager.Instance.GetEnemyTeamId(myTeamId)
-            : (myTeamId == 0 ? 1 : 0);
-
-        if (!teamUnits.TryGetValue(enemyTeam, out var enemies)) return null;
-        Vector2Int startCell = grid.WorldToCell(position);
-
-        for (int i = enemies.Count - 1; i >= 0; i--)
+        for (int i = allUnits.Count - 1; i >= 0; i--)
         {
-            var enemy = enemies[i];
-            if (enemy == null || enemy.IsDead) continue;
+            var u = allUnits[i];
+            if (u == null || u.IsDead) continue;
 
-            float distSq = (enemy.transform.position - position).sqrMagnitude;
-            if (distSq >= nearestDist) continue;
-
-            Vector2Int enemyCell = grid.WorldToCell(enemy.transform.position);
-            if (GridPathfinding.IsReachable(startCell, enemyCell, grid, requestingUnit))
-            {
-                nearestDist = distSq;
-                nearest = enemy;
-            }
+            float distSq = (u.transform.position - position).sqrMagnitude;
+            if (distSq <= radiusSq)
+                result.Add(u);
         }
 
-        return nearest;
+        return result;
     }
 
     private void OnUnitKilled(UnitKilledEvent evt)
@@ -151,6 +142,12 @@ public class UnitManager : NetworkBehaviour
 
     private void LateUpdate()
     {
+        for (int i = allUnits.Count - 1; i >= 0; i--)
+        {
+            if (allUnits[i] == null)
+                allUnits.RemoveAt(i);
+        }
+
         foreach (var kvp in teamUnits)
         {
             kvp.Value.RemoveAll(u => u == null);

@@ -106,8 +106,8 @@ public static class RaceSetupEditor
         var existing = AssetDatabase.LoadAssetAtPath<GameObject>(path);
         if (existing != null)
         {
-            Debug.Log($"[RaceSetup] Prefab already exists: {path}, skipping");
-            return existing;
+            AssetDatabase.DeleteAsset(path);
+            Debug.Log($"[RaceSetup] Deleted old prefab: {path}, regenerating");
         }
 
         var root = new GameObject($"Unit_{def.id}");
@@ -115,7 +115,7 @@ public static class RaceSetupEditor
         root.AddComponent<NetworkIdentity>();
         root.AddComponent<Unit>();
         root.AddComponent<Health>();
-        root.AddComponent<GridMovement>();
+        root.AddComponent<UnitMovement>();
         root.AddComponent<UnitCombat>();
         root.AddComponent<UnitStateMachine>();
 

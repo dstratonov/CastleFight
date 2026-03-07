@@ -25,7 +25,7 @@ public static class GridPathfinding
         new(1, 1), new(1, -1), new(-1, 1), new(-1, -1)
     };
 
-    public static PathResult FindPath(Vector2Int start, Vector2Int goal, GridSystem grid, GameObject requestingUnit = null)
+    public static PathResult FindPath(Vector2Int start, Vector2Int goal, GridSystem grid)
     {
         var result = new PathResult
         {
@@ -86,8 +86,7 @@ public static class GridPathfinding
             {
                 Vector2Int neighbor = current + dir;
                 if (closedSet.Contains(neighbor) || !grid.IsInBounds(neighbor)) continue;
-
-                if (!IsPassable(neighbor, goal, grid, requestingUnit)) continue;
+                if (!IsPassable(neighbor, goal, grid)) continue;
 
                 float tentativeG = gScore[current] + 1f;
                 if (!gScore.ContainsKey(neighbor) || tentativeG < gScore[neighbor])
@@ -106,12 +105,11 @@ public static class GridPathfinding
             {
                 Vector2Int neighbor = current + dir;
                 if (closedSet.Contains(neighbor) || !grid.IsInBounds(neighbor)) continue;
-
-                if (!IsPassable(neighbor, goal, grid, requestingUnit)) continue;
+                if (!IsPassable(neighbor, goal, grid)) continue;
 
                 Vector2Int adj1 = new(current.x + dir.x, current.y);
                 Vector2Int adj2 = new(current.x, current.y + dir.y);
-                if (!IsPassable(adj1, goal, grid, requestingUnit) && !IsPassable(adj2, goal, grid, requestingUnit))
+                if (!IsPassable(adj1, goal, grid) && !IsPassable(adj2, goal, grid))
                     continue;
 
                 float tentativeG = gScore[current] + DiagonalCost;
@@ -128,7 +126,6 @@ public static class GridPathfinding
             }
         }
 
-        // No complete path found; return partial path to closest reachable cell
         result.ClosestReachableCell = closestNode;
         if (closestNode != start)
         {
@@ -139,24 +136,42 @@ public static class GridPathfinding
         return result;
     }
 
-    public static bool IsReachable(Vector2Int start, Vector2Int goal, GridSystem grid, GameObject requestingUnit = null)
+    /// <summary>
+    /// Reduces a cell-by-cell path to a minimal set of waypoints using line-of-sight checks.
+    /// </summary>
+    public static List<Vector3> SmoothPath(List<Vector2Int> cellPath, GridSystem grid)
     {
-        var pathResult = FindPath(start, goal, grid, requestingUnit);
-        return pathResult.IsComplete;
+        if (cellPath == null || cellPath.Count == 0 || grid == null)
+            return new List<Vector3>();
+
+        var waypoints = new List<Vector3>();
+        waypoints.Add(grid.CellToWorld(cellPath[0]));
+
+        if (cellPath.Count == 1)
+            return waypoints;
+
+        int anchor = 0;
+        while (anchor < cellPath.Count - 1)
+        {
+            int farthest = anchor + 1;
+            for (int i = anchor + 2; i < cellPath.Count; i++)
+            {
+                if (grid.HasLineOfSight(cellPath[anchor], cellPath[i]))
+                    farthest = i;
+                else
+                    break;
+            }
+            waypoints.Add(grid.CellToWorld(cellPath[farthest]));
+            anchor = farthest;
+        }
+
+        return waypoints;
     }
 
-    public static bool HasAnyPathToward(Vector2Int start, Vector2Int goal, GridSystem grid, GameObject requestingUnit = null)
-    {
-        var pathResult = FindPath(start, goal, grid, requestingUnit);
-        return pathResult.HasPath;
-    }
-
-    private static bool IsPassable(Vector2Int cell, Vector2Int goal, GridSystem grid, GameObject requestingUnit)
+    private static bool IsPassable(Vector2Int cell, Vector2Int goal, GridSystem grid)
     {
         if (cell == goal) return true;
-        if (grid.IsWalkable(cell)) return true;
-        if (requestingUnit != null && grid.IsWalkableOrOccupiedBy(cell, requestingUnit)) return true;
-        return false;
+        return grid.IsWalkable(cell);
     }
 
     private static float Heuristic(Vector2Int a, Vector2Int b)
@@ -179,9 +194,6 @@ public static class GridPathfinding
     }
 }
 
-/// <summary>
-/// Min-heap priority queue for A* open set.
-/// </summary>
 public class BinaryHeap
 {
     private readonly List<(Vector2Int cell, float priority)> heap = new();

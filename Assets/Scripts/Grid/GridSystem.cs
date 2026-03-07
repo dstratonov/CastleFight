@@ -4,15 +4,7 @@ using System.Collections.Generic;
 public enum CellState
 {
     Empty,
-    Building,
-    ReservedByUnit,
-    OccupiedByUnit
-}
-
-public struct CellData
-{
-    public CellState State;
-    public GameObject Occupant;
+    Building
 }
 
 public class GridSystem : MonoBehaviour
@@ -25,7 +17,7 @@ public class GridSystem : MonoBehaviour
     [SerializeField] private Vector3 gridOrigin = new(-100f, 0f, -100f);
     [SerializeField] private BuildZone[] buildZones;
 
-    private CellData[,] cells;
+    private CellState[,] cells;
 
     public int Width => gridWidth;
     public int Height => gridHeight;
@@ -50,17 +42,11 @@ public class GridSystem : MonoBehaviour
 
     private void InitializeGrid()
     {
-        cells = new CellData[gridWidth, gridHeight];
+        cells = new CellState[gridWidth, gridHeight];
         for (int x = 0; x < gridWidth; x++)
-        {
             for (int y = 0; y < gridHeight; y++)
-            {
-                cells[x, y] = new CellData { State = CellState.Empty, Occupant = null };
-            }
-        }
+                cells[x, y] = CellState.Empty;
     }
-
-    // --- Coordinate Conversion ---
 
     public Vector2Int WorldToCell(Vector3 worldPosition)
     {
@@ -84,49 +70,28 @@ public class GridSystem : MonoBehaviour
         return CellToWorld(cell);
     }
 
-    // --- Bounds Checking ---
-
     public bool IsInBounds(Vector2Int cell)
     {
         return cell.x >= 0 && cell.x < gridWidth && cell.y >= 0 && cell.y < gridHeight;
     }
 
-    // --- Cell State Queries ---
-
-    public CellData GetCell(Vector2Int cell)
-    {
-        if (!IsInBounds(cell))
-            return new CellData { State = CellState.Building, Occupant = null };
-        return cells[cell.x, cell.y];
-    }
-
     public CellState GetCellState(Vector2Int cell)
     {
-        return GetCell(cell).State;
+        if (!IsInBounds(cell)) return CellState.Building;
+        return cells[cell.x, cell.y];
     }
 
     public bool IsWalkable(Vector2Int cell)
     {
         if (!IsInBounds(cell)) return false;
-        return cells[cell.x, cell.y].State == CellState.Empty;
+        return cells[cell.x, cell.y] == CellState.Empty;
     }
-
-    public bool IsWalkableOrOccupiedBy(Vector2Int cell, GameObject unit)
-    {
-        if (!IsInBounds(cell)) return false;
-        var data = cells[cell.x, cell.y];
-        if (data.State == CellState.Empty) return true;
-        return (data.State == CellState.OccupiedByUnit || data.State == CellState.ReservedByUnit)
-               && data.Occupant == unit;
-    }
-
-    // --- Building Placement ---
 
     public bool CanPlaceBuilding(Vector3 worldPosition, int teamId)
     {
         Vector2Int cell = WorldToCell(worldPosition);
         if (!IsInBounds(cell)) return false;
-        if (cells[cell.x, cell.y].State != CellState.Empty) return false;
+        if (cells[cell.x, cell.y] != CellState.Empty) return false;
         if (!IsInBuildZone(worldPosition, teamId)) return false;
         return true;
     }
@@ -134,47 +99,14 @@ public class GridSystem : MonoBehaviour
     public void PlaceBuilding(Vector2Int cell, GameObject building)
     {
         if (!IsInBounds(cell)) return;
-        cells[cell.x, cell.y] = new CellData { State = CellState.Building, Occupant = building };
+        cells[cell.x, cell.y] = CellState.Building;
     }
 
     public void RemoveBuilding(Vector2Int cell)
     {
         if (!IsInBounds(cell)) return;
-        cells[cell.x, cell.y] = new CellData { State = CellState.Empty, Occupant = null };
+        cells[cell.x, cell.y] = CellState.Empty;
     }
-
-    // --- Unit Occupancy ---
-
-    public bool TryOccupyCell(Vector2Int cell, GameObject unit)
-    {
-        if (!IsInBounds(cell)) return false;
-        if (cells[cell.x, cell.y].State != CellState.Empty) return false;
-        cells[cell.x, cell.y] = new CellData { State = CellState.OccupiedByUnit, Occupant = unit };
-        return true;
-    }
-
-    public bool TryReserveCell(Vector2Int cell, GameObject unit)
-    {
-        if (!IsInBounds(cell)) return false;
-        if (cells[cell.x, cell.y].State != CellState.Empty) return false;
-        cells[cell.x, cell.y] = new CellData { State = CellState.ReservedByUnit, Occupant = unit };
-        return true;
-    }
-
-    public void SetCellOccupied(Vector2Int cell, GameObject unit)
-    {
-        if (!IsInBounds(cell)) return;
-        cells[cell.x, cell.y] = new CellData { State = CellState.OccupiedByUnit, Occupant = unit };
-    }
-
-    public void ReleaseCell(Vector2Int cell, GameObject unit)
-    {
-        if (!IsInBounds(cell)) return;
-        if (cells[cell.x, cell.y].Occupant == unit)
-            cells[cell.x, cell.y] = new CellData { State = CellState.Empty, Occupant = null };
-    }
-
-    // --- Neighbor Queries ---
 
     private static readonly Vector2Int[] EightDirections =
     {
@@ -216,7 +148,27 @@ public class GridSystem : MonoBehaviour
         return false;
     }
 
-    // --- Build Zone ---
+    public bool HasLineOfSight(Vector2Int from, Vector2Int to)
+    {
+        int x0 = from.x, y0 = from.y;
+        int x1 = to.x, y1 = to.y;
+        int dx = Mathf.Abs(x1 - x0), dy = Mathf.Abs(y1 - y0);
+        int sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+        int err = dx - dy;
+
+        while (true)
+        {
+            if (x0 == x1 && y0 == y1) return true;
+
+            var cell = new Vector2Int(x0, y0);
+            if (cell != from && cell != to && !IsWalkable(cell))
+                return false;
+
+            int e2 = 2 * err;
+            if (e2 > -dy) { err -= dy; x0 += sx; }
+            if (e2 < dx) { err += dx; y0 += sy; }
+        }
+    }
 
     private bool IsInBuildZone(Vector3 position, int teamId)
     {
@@ -229,8 +181,6 @@ public class GridSystem : MonoBehaviour
         return false;
     }
 
-    // --- Debug ---
-
     private void OnDrawGizmos()
     {
         if (cells == null) return;
@@ -239,23 +189,12 @@ public class GridSystem : MonoBehaviour
         {
             for (int y = 0; y < gridHeight; y++)
             {
-                Vector3 pos = CellToWorld(new Vector2Int(x, y));
-                pos.y = gridOrigin.y + 0.01f;
-
-                switch (cells[x, y].State)
+                if (cells[x, y] == CellState.Building)
                 {
-                    case CellState.Building:
-                        Gizmos.color = new Color(1f, 0f, 0f, 0.3f);
-                        Gizmos.DrawCube(pos, new Vector3(cellSize * 0.9f, 0.1f, cellSize * 0.9f));
-                        break;
-                    case CellState.OccupiedByUnit:
-                        Gizmos.color = new Color(0f, 0f, 1f, 0.3f);
-                        Gizmos.DrawCube(pos, new Vector3(cellSize * 0.9f, 0.1f, cellSize * 0.9f));
-                        break;
-                    case CellState.ReservedByUnit:
-                        Gizmos.color = new Color(1f, 1f, 0f, 0.3f);
-                        Gizmos.DrawCube(pos, new Vector3(cellSize * 0.9f, 0.1f, cellSize * 0.9f));
-                        break;
+                    Vector3 pos = CellToWorld(new Vector2Int(x, y));
+                    pos.y = gridOrigin.y + 0.01f;
+                    Gizmos.color = new Color(1f, 0f, 0f, 0.3f);
+                    Gizmos.DrawCube(pos, new Vector3(cellSize * 0.9f, 0.1f, cellSize * 0.9f));
                 }
             }
         }

@@ -6,30 +6,17 @@ public class UnitCombat : NetworkBehaviour
     [SerializeField] private float scanInterval = 0.25f;
 
     private Unit unit;
-    private GridMovement movement;
+    private UnitMovement movement;
     private UnitStateMachine stateMachine;
     private Health targetHealth;
     private float scanTimer;
     private float attackTimer;
-    private bool isTargetUnreachable;
 
     private void Awake()
     {
         unit = GetComponent<Unit>();
-        movement = GetComponent<GridMovement>();
+        movement = GetComponent<UnitMovement>();
         stateMachine = GetComponent<UnitStateMachine>();
-    }
-
-    private void OnEnable()
-    {
-        if (movement != null)
-            movement.OnPathBlocked += HandlePathBlocked;
-    }
-
-    private void OnDisable()
-    {
-        if (movement != null)
-            movement.OnPathBlocked -= HandlePathBlocked;
     }
 
     private void Update()
@@ -54,7 +41,7 @@ public class UnitCombat : NetworkBehaviour
                 stateMachine?.SetState(UnitState.Fighting);
                 TryAttack();
             }
-            else if (!movement.IsMoving)
+            else if (movement != null && !movement.IsMoving)
             {
                 MoveTowardTarget();
             }
@@ -64,7 +51,7 @@ public class UnitCombat : NetworkBehaviour
     [Server]
     private void ScanForTarget()
     {
-        if (targetHealth != null && !targetHealth.IsDead && !isTargetUnreachable)
+        if (targetHealth != null && !targetHealth.IsDead)
         {
             float dist = Vector3.Distance(transform.position, targetHealth.transform.position);
             float scanRange = unit.Data != null ? unit.Data.attackRange * 2f : 10f;
@@ -73,26 +60,15 @@ public class UnitCombat : NetworkBehaviour
 
         float range = unit.Data != null ? unit.Data.attackRange * 2f : 10f;
 
-        var reachableEnemy = FindNearestReachableEnemy(range);
-        if (reachableEnemy != null)
-        {
-            targetHealth = reachableEnemy.GetComponent<Health>();
-            isTargetUnreachable = false;
-            MoveTowardTarget();
-            return;
-        }
-
         var nearestEnemy = UnitManager.Instance?.FindNearestEnemy(transform.position, unit.TeamId, range);
         if (nearestEnemy != null)
         {
             targetHealth = nearestEnemy.GetComponent<Health>();
-            isTargetUnreachable = true;
-            MovePartialPathToward(nearestEnemy.transform.position);
+            MoveTowardTarget();
             return;
         }
 
         targetHealth = null;
-        isTargetUnreachable = false;
         if (movement != null && !movement.HasPath && !movement.IsMoving)
             movement.SetDestinationToEnemyCastle();
     }
@@ -100,70 +76,8 @@ public class UnitCombat : NetworkBehaviour
     [Server]
     private void MoveTowardTarget()
     {
-        if (targetHealth == null || movement == null || GridSystem.Instance == null) return;
-
-        Vector2Int targetCell = GridSystem.Instance.WorldToCell(targetHealth.transform.position);
-        movement.SetDestination(targetCell);
-    }
-
-    [Server]
-    private void MovePartialPathToward(Vector3 targetWorldPos)
-    {
-        if (movement == null || GridSystem.Instance == null) return;
-
-        Vector2Int start = movement.CurrentCell;
-        Vector2Int goal = GridSystem.Instance.WorldToCell(targetWorldPos);
-
-        var result = GridPathfinding.FindPath(start, goal, GridSystem.Instance, gameObject);
-        if (result.HasPath)
-            movement.SetPathDirect(result.Path);
-    }
-
-    private void HandlePathBlocked()
-    {
-        isTargetUnreachable = true;
-        scanTimer = 0f;
-    }
-
-    private Unit FindNearestReachableEnemy(float maxRange)
-    {
-        if (UnitManager.Instance == null || GridSystem.Instance == null) return null;
-
-        int enemyTeam = TeamManager.Instance != null
-            ? TeamManager.Instance.GetEnemyTeamId(unit.TeamId)
-            : (unit.TeamId == 0 ? 1 : 0);
-
-        var enemies = UnitManager.Instance.GetTeamUnits(enemyTeam);
-        Unit nearest = null;
-        float nearestDist = maxRange * maxRange;
-
-        foreach (var enemy in enemies)
-        {
-            if (enemy == null || enemy.IsDead) continue;
-
-            float distSq = (enemy.transform.position - transform.position).sqrMagnitude;
-            if (distSq >= nearestDist) continue;
-
-            Vector2Int enemyCell = GridSystem.Instance.WorldToCell(enemy.transform.position);
-            var adjacentCells = GridSystem.Instance.GetAdjacentCells(enemyCell);
-            bool hasReachableNeighbor = false;
-
-            foreach (var adj in adjacentCells)
-            {
-                if (GridSystem.Instance.IsWalkable(adj) || GridSystem.Instance.IsWalkableOrOccupiedBy(adj, gameObject))
-                {
-                    hasReachableNeighbor = true;
-                    break;
-                }
-            }
-
-            if (!hasReachableNeighbor) continue;
-
-            nearestDist = distSq;
-            nearest = enemy;
-        }
-
-        return nearest;
+        if (targetHealth == null || movement == null) return;
+        movement.SetDestinationWorld(targetHealth.transform.position);
     }
 
     [Server]
@@ -178,7 +92,6 @@ public class UnitCombat : NetworkBehaviour
         if (targetHealth == null || targetHealth.IsDead)
         {
             targetHealth = null;
-            isTargetUnreachable = false;
             movement?.Resume();
             return;
         }

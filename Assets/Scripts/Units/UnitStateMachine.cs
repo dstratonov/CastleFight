@@ -15,7 +15,7 @@ public class UnitStateMachine : NetworkBehaviour
     private UnitState currentState = UnitState.Idle;
 
     private Unit unit;
-    private GridMovement movement;
+    private UnitMovement movement;
     private Health health;
     private UnitAnimator unitAnimator;
 
@@ -24,7 +24,7 @@ public class UnitStateMachine : NetworkBehaviour
     private void Awake()
     {
         unit = GetComponent<Unit>();
-        movement = GetComponent<GridMovement>();
+        movement = GetComponent<UnitMovement>();
         health = GetComponent<Health>();
     }
 
@@ -85,7 +85,7 @@ public class UnitStateMachine : NetworkBehaviour
         {
             SetState(UnitState.Moving);
         }
-        else
+        else if (currentState != UnitState.Fighting)
         {
             SetState(UnitState.Idle);
         }
