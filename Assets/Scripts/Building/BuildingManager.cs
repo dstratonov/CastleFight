@@ -56,10 +56,12 @@ public class BuildingManager : NetworkBehaviour
             teamBuildings[teamId].Add(building);
         }
 
-        if (grid != null)
+        if (grid != null && building != null)
         {
-            Vector2Int cell = grid.WorldToCell(position);
-            grid.PlaceBuilding(cell, obj);
+            Bounds bounds = ComputeBuildingBounds(obj);
+            var occupiedCells = grid.GetCellsOverlappingBounds(bounds);
+            grid.MarkCells(occupiedCells, CellState.Building);
+            building.SetOccupiedCells(occupiedCells);
         }
 
         NetworkServer.Spawn(obj);
@@ -102,8 +104,35 @@ public class BuildingManager : NetworkBehaviour
         var grid = GridSystem.Instance;
         if (grid != null)
         {
-            Vector2Int cell = grid.WorldToCell(evt.Building.transform.position);
-            grid.RemoveBuilding(cell);
+            grid.ClearCells(new List<Vector2Int>(building.OccupiedCells));
         }
+    }
+
+    public static Bounds ComputeBuildingBounds(GameObject buildingObj)
+    {
+        var renderers = buildingObj.GetComponentsInChildren<Renderer>();
+        if (renderers.Length == 0)
+            return new Bounds(buildingObj.transform.position, Vector3.one * 2f);
+
+        Bounds combined = default;
+        bool first = true;
+        foreach (var r in renderers)
+        {
+            if (r is ParticleSystemRenderer) continue;
+            if (first)
+            {
+                combined = r.bounds;
+                first = false;
+            }
+            else
+            {
+                combined.Encapsulate(r.bounds);
+            }
+        }
+
+        if (first)
+            return new Bounds(buildingObj.transform.position, Vector3.one * 2f);
+
+        return combined;
     }
 }

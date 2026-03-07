@@ -115,8 +115,16 @@ public class BuildingPlacer : NetworkBehaviour
         if (player == null) return false;
 
         var grid = GridSystem.Instance;
-        if (grid != null && !grid.CanPlaceBuilding(position, player.TeamId))
-            return false;
+        if (grid == null) return false;
+
+        if (!grid.CanPlaceBuilding(position, player.TeamId)) return false;
+
+        if (ghostObject != null)
+        {
+            Bounds bounds = BuildingManager.ComputeBuildingBounds(ghostObject);
+            var cells = grid.GetCellsOverlappingBounds(bounds);
+            if (!grid.AreCellsEmpty(cells)) return false;
+        }
 
         return true;
     }

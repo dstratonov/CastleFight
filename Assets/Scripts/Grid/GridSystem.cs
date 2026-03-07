@@ -89,23 +89,50 @@ public class GridSystem : MonoBehaviour
 
     public bool CanPlaceBuilding(Vector3 worldPosition, int teamId)
     {
-        Vector2Int cell = WorldToCell(worldPosition);
-        if (!IsInBounds(cell)) return false;
-        if (cells[cell.x, cell.y] != CellState.Empty) return false;
         if (!IsInBuildZone(worldPosition, teamId)) return false;
+        Vector2Int cell = WorldToCell(worldPosition);
+        return IsInBounds(cell) && cells[cell.x, cell.y] == CellState.Empty;
+    }
+
+    public List<Vector2Int> GetCellsOverlappingBounds(Bounds worldBounds)
+    {
+        Vector2Int minCell = WorldToCell(worldBounds.min);
+        Vector2Int maxCell = WorldToCell(worldBounds.max);
+
+        int x0 = Mathf.Max(0, minCell.x);
+        int x1 = Mathf.Min(gridWidth - 1, maxCell.x);
+        int z0 = Mathf.Max(0, minCell.y);
+        int z1 = Mathf.Min(gridHeight - 1, maxCell.y);
+
+        var result = new List<Vector2Int>((x1 - x0 + 1) * (z1 - z0 + 1));
+        for (int x = x0; x <= x1; x++)
+            for (int z = z0; z <= z1; z++)
+                result.Add(new Vector2Int(x, z));
+        return result;
+    }
+
+    public bool AreCellsEmpty(List<Vector2Int> cellList)
+    {
+        foreach (var cell in cellList)
+        {
+            if (!IsInBounds(cell)) return false;
+            if (cells[cell.x, cell.y] != CellState.Empty) return false;
+        }
         return true;
     }
 
-    public void PlaceBuilding(Vector2Int cell, GameObject building)
+    public void MarkCells(List<Vector2Int> cellList, CellState state)
     {
-        if (!IsInBounds(cell)) return;
-        cells[cell.x, cell.y] = CellState.Building;
+        foreach (var cell in cellList)
+        {
+            if (IsInBounds(cell))
+                cells[cell.x, cell.y] = state;
+        }
     }
 
-    public void RemoveBuilding(Vector2Int cell)
+    public void ClearCells(List<Vector2Int> cellList)
     {
-        if (!IsInBounds(cell)) return;
-        cells[cell.x, cell.y] = CellState.Empty;
+        MarkCells(cellList, CellState.Empty);
     }
 
     private static readonly Vector2Int[] EightDirections =

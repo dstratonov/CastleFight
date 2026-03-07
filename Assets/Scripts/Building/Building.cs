@@ -1,5 +1,6 @@
 using UnityEngine;
 using Mirror;
+using System.Collections.Generic;
 
 [RequireComponent(typeof(Health))]
 public class Building : NetworkBehaviour
@@ -10,10 +11,17 @@ public class Building : NetworkBehaviour
     private BuildingData data;
     private Health health;
     private Spawner spawner;
+    private List<Vector2Int> occupiedCells = new();
 
     public BuildingData Data => data;
     public int TeamId => teamId;
     public int OwnerId => ownerId;
+    public IReadOnlyList<Vector2Int> OccupiedCells => occupiedCells;
+
+    public void SetOccupiedCells(List<Vector2Int> cells)
+    {
+        occupiedCells = cells;
+    }
 
     private void Awake()
     {
