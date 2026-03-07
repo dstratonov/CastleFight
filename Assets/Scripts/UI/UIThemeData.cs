@@ -9,7 +9,9 @@ public class UIThemeData : ScriptableObject
 
     [Header("Info Panel")]
     public Sprite infoPanelBackground;
+    public Sprite infoPanelFrame;
     public Sprite portraitFrame;
+    public Sprite portraitBackground;
     public Sprite hpFrame;
     public Sprite hpFill;
     public Sprite hpEnemyFrame;
@@ -25,6 +27,7 @@ public class UIThemeData : ScriptableObject
     public Sprite iconBuild;
     public Sprite iconSword;
     public Sprite iconArmor;
+    public Sprite iconSpeed;
 
     [Header("Portrait Icons")]
     public Sprite iconHero;

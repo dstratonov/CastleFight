@@ -19,7 +19,14 @@ public class InfoPanelUI : MonoBehaviour
     [SerializeField] private Image hpBarFrame;
     [SerializeField] private Image hpBarFill;
     [SerializeField] private TextMeshProUGUI hpText;
-    [SerializeField] private TextMeshProUGUI statsText;
+
+    [Header("Stat Rows")]
+    [SerializeField] private Image damageIcon;
+    [SerializeField] private TextMeshProUGUI damageText;
+    [SerializeField] private Image armorIcon;
+    [SerializeField] private TextMeshProUGUI armorText;
+    [SerializeField] private Image extraIcon;
+    [SerializeField] private TextMeshProUGUI extraText;
 
     private UIThemeData theme;
     private GameObject trackedTarget;
@@ -28,7 +35,10 @@ public class InfoPanelUI : MonoBehaviour
 
     public void Init(GameObject panel, Image bg, Image portrait, Image portIcon,
                      TextMeshProUGUI nameTxt, Image hpFrame, Image hpFill,
-                     TextMeshProUGUI hpTxt, TextMeshProUGUI statsTxt)
+                     TextMeshProUGUI hpTxt,
+                     Image dmgIcon, TextMeshProUGUI dmgTxt,
+                     Image armIcon, TextMeshProUGUI armTxt,
+                     Image extIcon, TextMeshProUGUI extTxt)
     {
         panelRoot = panel;
         panelBackground = bg;
@@ -38,7 +48,12 @@ public class InfoPanelUI : MonoBehaviour
         hpBarFrame = hpFrame;
         hpBarFill = hpFill;
         hpText = hpTxt;
-        statsText = statsTxt;
+        damageIcon = dmgIcon;
+        damageText = dmgTxt;
+        armorIcon = armIcon;
+        armorText = armTxt;
+        extraIcon = extIcon;
+        extraText = extTxt;
     }
 
     private void Awake()
@@ -82,13 +97,17 @@ public class InfoPanelUI : MonoBehaviour
         showingHero = true;
 
         if (nameText != null) nameText.text = "Hero";
-        if (statsText != null)
+
+        var autoAttack = local.GetComponent<HeroAutoAttack>();
+        if (autoAttack != null)
         {
-            var autoAttack = local.GetComponent<HeroAutoAttack>();
-            string stats = "";
-            if (autoAttack != null)
-                stats = $"Damage: {autoAttack.AttackDamage:F0}\nRange: {autoAttack.AttackRange:F0}\nType: Hero";
-            statsText.text = stats;
+            SetStatRow(damageIcon, damageText, theme?.iconSword, $"Damage: {autoAttack.AttackDamage:F0}");
+            SetStatRow(armorIcon, armorText, theme?.iconArmor, $"Range: {autoAttack.AttackRange:F0}");
+            SetStatRow(extraIcon, extraText, theme?.iconSpeed, "Type: Hero");
+        }
+        else
+        {
+            ClearStatRows();
         }
 
         SetPortrait(theme != null ? theme.iconHero : null, new Color(0.3f, 0.7f, 1f));
@@ -109,25 +128,13 @@ public class InfoPanelUI : MonoBehaviour
         trackedTarget = evt.Selected;
 
         var unit = evt.Selected.GetComponent<Unit>();
-        if (unit != null)
-        {
-            ShowUnit(unit);
-            return;
-        }
+        if (unit != null) { ShowUnit(unit); return; }
 
         var building = evt.Selected.GetComponent<Building>();
-        if (building != null)
-        {
-            ShowBuilding(building);
-            return;
-        }
+        if (building != null) { ShowBuilding(building); return; }
 
         var castle = evt.Selected.GetComponent<Castle>();
-        if (castle != null)
-        {
-            ShowCastle(castle);
-            return;
-        }
+        if (castle != null) { ShowCastle(castle); return; }
 
         TryShowHero();
     }
@@ -140,12 +147,15 @@ public class InfoPanelUI : MonoBehaviour
         if (nameText != null)
             nameText.text = data != null ? data.displayName : "Unit";
 
-        if (statsText != null && data != null)
+        if (data != null)
         {
-            statsText.text = $"Damage: {data.attackDamage:F0}\n" +
-                             $"Speed: {data.moveSpeed:F0}\n" +
-                             $"Attack: {data.attackType}\n" +
-                             $"Armor: {data.armorType}";
+            SetStatRow(damageIcon, damageText, theme?.iconSword, $"Damage: {data.attackDamage:F0}");
+            SetStatRow(armorIcon, armorText, theme?.iconArmor, $"Armor: {data.armorType}");
+            SetStatRow(extraIcon, extraText, theme?.iconSpeed, $"Speed: {data.moveSpeed:F0}");
+        }
+        else
+        {
+            ClearStatRows();
         }
 
         bool isEnemy = NetworkPlayer.Local != null && unit.TeamId != NetworkPlayer.Local.TeamId;
@@ -162,12 +172,18 @@ public class InfoPanelUI : MonoBehaviour
         if (nameText != null)
             nameText.text = data != null ? data.buildingName : "Building";
 
-        if (statsText != null && data != null)
+        if (data != null)
         {
-            string info = $"Tier: {data.tier}\nArmor: {data.armorType}";
-            if (data.spawnedUnit != null)
-                info += $"\nSpawns: {data.spawnedUnit.displayName}\nEvery: {data.spawnInterval:F0}s";
-            statsText.text = info;
+            SetStatRow(damageIcon, damageText, theme?.iconBuild,  $"Tier: {data.tier}");
+            SetStatRow(armorIcon, armorText, theme?.iconArmor, $"Armor: {data.armorType}");
+            string extra = data.spawnedUnit != null
+                ? $"Spawns: {data.spawnedUnit.displayName}"
+                : "";
+            SetStatRow(extraIcon, extraText, theme?.iconSpeed, extra);
+        }
+        else
+        {
+            ClearStatRows();
         }
 
         bool isEnemy = NetworkPlayer.Local != null && building.TeamId != NetworkPlayer.Local.TeamId;
@@ -184,12 +200,43 @@ public class InfoPanelUI : MonoBehaviour
         if (nameText != null)
             nameText.text = isEnemy ? "Enemy Castle" : "Allied Castle";
 
-        if (statsText != null)
-            statsText.text = $"Team: {castle.TeamId}\nArmor: Fortified";
+        SetStatRow(damageIcon, damageText, theme?.iconCastle, $"Team: {castle.TeamId}");
+        SetStatRow(armorIcon, armorText, theme?.iconArmor, "Armor: Fortified");
+        SetStatRow(extraIcon, extraText, null, "");
 
         SetPortrait(theme != null ? theme.iconCastle : null,
             isEnemy ? new Color(1f, 0.2f, 0.2f) : new Color(0.2f, 0.6f, 1f));
         UpdateHealthBar();
+    }
+
+    private void SetStatRow(Image icon, TextMeshProUGUI text, Sprite sprite, string value)
+    {
+        bool hasContent = !string.IsNullOrEmpty(value);
+
+        if (icon != null)
+        {
+            icon.gameObject.transform.parent.gameObject.SetActive(hasContent);
+            if (hasContent && sprite != null)
+            {
+                icon.sprite = sprite;
+                icon.color = Color.white;
+                icon.enabled = true;
+            }
+            else
+            {
+                icon.enabled = false;
+            }
+        }
+
+        if (text != null)
+            text.text = hasContent ? value : "";
+    }
+
+    private void ClearStatRows()
+    {
+        SetStatRow(damageIcon, damageText, null, "");
+        SetStatRow(armorIcon, armorText, null, "");
+        SetStatRow(extraIcon, extraText, null, "");
     }
 
     private void UpdateHealthBar()

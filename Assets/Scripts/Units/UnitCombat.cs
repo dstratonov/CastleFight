@@ -12,6 +12,8 @@ public class UnitCombat : NetworkBehaviour
     private float scanTimer;
     private float attackTimer;
 
+    public Transform AttackTarget => targetHealth != null && !targetHealth.IsDead ? targetHealth.transform : null;
+
     private void Awake()
     {
         unit = GetComponent<Unit>();

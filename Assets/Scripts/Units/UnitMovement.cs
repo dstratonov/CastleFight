@@ -22,6 +22,9 @@ public class UnitMovement : NetworkBehaviour
     public bool IsMoving => !isStopped && waypoints != null && waypointIndex < waypoints.Count;
     public bool HasPath => waypoints != null && waypointIndex < waypoints.Count;
     public Vector3? WorldTarget => worldTarget;
+    public IReadOnlyList<Vector3> Waypoints => waypoints;
+    public int WaypointIndex => waypointIndex;
+    public float SeparationRadius => separationRadius;
 
     public event System.Action OnReachedDestination;
 

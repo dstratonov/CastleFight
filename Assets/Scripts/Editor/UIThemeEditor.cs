@@ -27,8 +27,10 @@ public static class UIThemeEditor
         AssignIfLoaded(ref theme.topBarBackground, $"{UIDir}/RTS_Bar.png");
         AssignIfLoaded(ref theme.resourceBar, $"{UIDir}/res_bar.png");
 
-        AssignIfLoaded(ref theme.infoPanelBackground, $"{UIDir}/square_frame.png");
-        AssignIfLoaded(ref theme.portraitFrame, $"{UIDir}/icon_frame_round.png");
+        AssignIfLoaded(ref theme.infoPanelBackground, $"{UIDir}/Tile_background_3.png");
+        AssignIfLoaded(ref theme.infoPanelFrame, $"{UIDir}/Main_bar_frame.png");
+        AssignIfLoaded(ref theme.portraitFrame, $"{UIDir}/icon_frame_round_king.png");
+        AssignIfLoaded(ref theme.portraitBackground, $"{UIDir}/icon_bg_round.png");
         AssignIfLoaded(ref theme.hpFrame, $"{UIDir}/HP_frame.png");
         AssignIfLoaded(ref theme.hpFill, $"{UIDir}/HP_line.png");
         AssignIfLoaded(ref theme.hpEnemyFrame, $"{UIDir}/HP_enemy_frame.png");
@@ -42,6 +44,7 @@ public static class UIThemeEditor
         AssignIfLoaded(ref theme.iconBuild, $"{IconDir}/30_build.png");
         AssignIfLoaded(ref theme.iconSword, $"{IconDir}/04_sword.png");
         AssignIfLoaded(ref theme.iconArmor, $"{IconDir}/16_armor.png");
+        AssignIfLoaded(ref theme.iconSpeed, $"{IconDir}/17_attributes.png");
 
         AssignIfLoaded(ref theme.iconHero, $"{IconDir}/26_hero.png");
         AssignIfLoaded(ref theme.iconUnit, $"{IconDir}/87_unit.png");

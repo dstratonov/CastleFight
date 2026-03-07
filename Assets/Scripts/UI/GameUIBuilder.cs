@@ -49,6 +49,7 @@ public class GameUIBuilder : MonoBehaviour
         CreateBuildPanel(canvasObj.transform);
         CreateInfoPanel(canvasObj.transform);
         CreateSelectionManager();
+        CreateDebugSystem(canvasObj.transform);
     }
 
     // ====================================================================
@@ -284,69 +285,96 @@ public class GameUIBuilder : MonoBehaviour
         rect.anchorMax = new Vector2(0, 0);
         rect.pivot = new Vector2(0, 0);
         rect.anchoredPosition = new Vector2(10, 10);
-        rect.sizeDelta = new Vector2(320, 140);
+        rect.sizeDelta = new Vector2(460, 200);
 
-        var bg = panelObj.AddComponent<Image>();
-        if (theme != null && theme.infoPanelBackground != null)
+        // Solid dark background with slight transparency
+        var bgImg = panelObj.AddComponent<Image>();
+        bgImg.color = new Color(0.08f, 0.07f, 0.06f, 0.94f);
+
+        // Ornate border frame on top of solid bg
+        var frameObj = CreatePanel("Frame", panelObj.transform);
+        var frameRect = frameObj.GetComponent<RectTransform>();
+        frameRect.anchorMin = Vector2.zero;
+        frameRect.anchorMax = Vector2.one;
+        frameRect.offsetMin = Vector2.zero;
+        frameRect.offsetMax = Vector2.zero;
+        var frameImg = frameObj.AddComponent<Image>();
+        if (theme != null && theme.infoPanelFrame != null)
         {
-            bg.sprite = theme.infoPanelBackground;
-            bg.type = Image.Type.Sliced;
-            bg.color = new Color(1f, 1f, 1f, 0.95f);
+            frameImg.sprite = theme.infoPanelFrame;
+            frameImg.type = Image.Type.Sliced;
+            frameImg.color = new Color(0.85f, 0.8f, 0.7f);
         }
         else
         {
-            bg.color = new Color(0.08f, 0.06f, 0.12f, 0.9f);
+            frameImg.color = Color.clear;
         }
 
+        // Portrait -- centered vertically, left side
         var portraitObj = CreatePanel("Portrait", panelObj.transform);
         var portraitRect = portraitObj.GetComponent<RectTransform>();
-        portraitRect.anchorMin = new Vector2(0, 0);
-        portraitRect.anchorMax = new Vector2(0, 1);
+        portraitRect.anchorMin = new Vector2(0, 0.5f);
+        portraitRect.anchorMax = new Vector2(0, 0.5f);
         portraitRect.pivot = new Vector2(0, 0.5f);
-        portraitRect.anchoredPosition = new Vector2(10, 0);
-        portraitRect.sizeDelta = new Vector2(80, -20);
+        portraitRect.anchoredPosition = new Vector2(16, 0);
+        portraitRect.sizeDelta = new Vector2(110, 110);
 
-        var portraitFrame = portraitObj.AddComponent<Image>();
-        if (theme != null && theme.portraitFrame != null)
-        {
-            portraitFrame.sprite = theme.portraitFrame;
-            portraitFrame.preserveAspect = true;
-        }
-        else
-        {
-            portraitFrame.color = new Color(0.3f, 0.25f, 0.2f);
-        }
-
+        // Entity icon (centered inside portrait area)
         var portraitIconObj = CreatePanel("PortraitIcon", portraitObj.transform);
         var piRect = portraitIconObj.GetComponent<RectTransform>();
-        piRect.anchorMin = new Vector2(0.15f, 0.15f);
-        piRect.anchorMax = new Vector2(0.85f, 0.85f);
+        piRect.anchorMin = new Vector2(0.2f, 0.2f);
+        piRect.anchorMax = new Vector2(0.8f, 0.8f);
         piRect.offsetMin = Vector2.zero;
         piRect.offsetMax = Vector2.zero;
         var portraitIcon = portraitIconObj.AddComponent<Image>();
         portraitIcon.preserveAspect = true;
         portraitIcon.color = new Color(0.5f, 0.5f, 0.5f, 0.3f);
 
+        // Ornate circular frame overlay
+        var portraitFrameObj = CreatePanel("PortraitFrame", portraitObj.transform);
+        var pfRect = portraitFrameObj.GetComponent<RectTransform>();
+        pfRect.anchorMin = Vector2.zero;
+        pfRect.anchorMax = Vector2.one;
+        pfRect.offsetMin = Vector2.zero;
+        pfRect.offsetMax = Vector2.zero;
+        var portraitFrame = portraitFrameObj.AddComponent<Image>();
+        if (theme != null && theme.portraitFrame != null)
+        {
+            portraitFrame.sprite = theme.portraitFrame;
+            portraitFrame.preserveAspect = true;
+            portraitFrame.color = new Color(0.9f, 0.85f, 0.75f);
+        }
+        else
+        {
+            portraitFrame.color = new Color(0.3f, 0.25f, 0.2f);
+        }
+
+        // Info area (right of portrait)
         var infoArea = CreatePanel("InfoArea", panelObj.transform);
         var infoRect = infoArea.GetComponent<RectTransform>();
         infoRect.anchorMin = new Vector2(0, 0);
         infoRect.anchorMax = new Vector2(1, 1);
-        infoRect.offsetMin = new Vector2(100, 10);
-        infoRect.offsetMax = new Vector2(-10, -10);
+        infoRect.offsetMin = new Vector2(140, 16);
+        infoRect.offsetMax = new Vector2(-18, -16);
 
-        var nameText = CreateText("NameText", infoArea.transform, "Hero", 20, TextAlignmentOptions.TopLeft, 0);
+        // Entity name -- top strip
+        var nameText = CreateText("NameText", infoArea.transform, "Hero", 22, TextAlignmentOptions.MidlineLeft, 0);
         var nameRect = nameText.GetComponent<RectTransform>();
-        nameRect.anchorMin = new Vector2(0, 0.7f);
+        nameRect.anchorMin = new Vector2(0, 0.78f);
         nameRect.anchorMax = new Vector2(1, 1);
         nameRect.offsetMin = Vector2.zero;
         nameRect.offsetMax = Vector2.zero;
-        nameText.color = new Color(1f, 0.9f, 0.6f);
+        nameText.color = new Color(1f, 0.92f, 0.65f);
         nameText.fontStyle = FontStyles.Bold;
+        nameText.enableAutoSizing = true;
+        nameText.fontSizeMin = 16;
+        nameText.fontSizeMax = 22;
 
+        // HP bar
         var hpBarObj = CreatePanel("HPBar", infoArea.transform);
         var hpBarRect = hpBarObj.GetComponent<RectTransform>();
-        hpBarRect.anchorMin = new Vector2(0, 0.5f);
-        hpBarRect.anchorMax = new Vector2(1, 0.7f);
+        hpBarRect.anchorMin = new Vector2(0, 0.56f);
+        hpBarRect.anchorMax = new Vector2(1, 0.78f);
         hpBarRect.offsetMin = Vector2.zero;
         hpBarRect.offsetMax = Vector2.zero;
 
@@ -358,41 +386,104 @@ public class GameUIBuilder : MonoBehaviour
         }
         else
         {
-            hpFrameImg.color = new Color(0.2f, 0.2f, 0.2f, 0.8f);
+            hpFrameImg.color = new Color(0.15f, 0.15f, 0.15f, 0.9f);
         }
 
         var hpFillObj = CreatePanel("HPFill", hpBarObj.transform);
         var hpFillRect = hpFillObj.GetComponent<RectTransform>();
-        hpFillRect.anchorMin = new Vector2(0.03f, 0.15f);
-        hpFillRect.anchorMax = new Vector2(0.97f, 0.85f);
+        hpFillRect.anchorMin = new Vector2(0.03f, 0.1f);
+        hpFillRect.anchorMax = new Vector2(0.97f, 0.9f);
         hpFillRect.offsetMin = Vector2.zero;
         hpFillRect.offsetMax = Vector2.zero;
         var hpFill = hpFillObj.AddComponent<Image>();
-        hpFill.color = new Color(0.2f, 0.8f, 0.2f);
+        hpFill.color = new Color(0.2f, 0.75f, 0.2f);
         hpFill.type = Image.Type.Filled;
         hpFill.fillMethod = Image.FillMethod.Horizontal;
         if (theme != null && theme.hpFill != null)
             hpFill.sprite = theme.hpFill;
 
-        var hpText = CreateText("HPText", hpBarObj.transform, "", 12, TextAlignmentOptions.Center, 0);
+        var hpText = CreateText("HPText", hpBarObj.transform, "", 13, TextAlignmentOptions.Center, 0);
         var hpTextRect = hpText.GetComponent<RectTransform>();
         hpTextRect.anchorMin = Vector2.zero;
         hpTextRect.anchorMax = Vector2.one;
-        hpTextRect.offsetMin = Vector2.zero;
-        hpTextRect.offsetMax = Vector2.zero;
+        hpTextRect.offsetMin = new Vector2(4, 0);
+        hpTextRect.offsetMax = new Vector2(-4, 0);
         hpText.color = Color.white;
+        hpText.enableAutoSizing = true;
+        hpText.fontSizeMin = 9;
+        hpText.fontSizeMax = 13;
 
-        var statsText = CreateText("StatsText", infoArea.transform, "", 14, TextAlignmentOptions.TopLeft, 0);
-        var statsRect = statsText.GetComponent<RectTransform>();
-        statsRect.anchorMin = new Vector2(0, 0);
-        statsRect.anchorMax = new Vector2(1, 0.48f);
-        statsRect.offsetMin = Vector2.zero;
-        statsRect.offsetMax = Vector2.zero;
-        statsText.color = new Color(0.85f, 0.85f, 0.85f);
+        // Stats area with icon+label rows
+        var statsArea = CreatePanel("StatsArea", infoArea.transform);
+        var statsAreaRect = statsArea.GetComponent<RectTransform>();
+        statsAreaRect.anchorMin = new Vector2(0, 0);
+        statsAreaRect.anchorMax = new Vector2(1, 0.54f);
+        statsAreaRect.offsetMin = new Vector2(0, 2);
+        statsAreaRect.offsetMax = Vector2.zero;
+
+        var statsLayout = statsArea.AddComponent<VerticalLayoutGroup>();
+        statsLayout.spacing = 1;
+        statsLayout.padding = new RectOffset(0, 0, 0, 0);
+        statsLayout.childAlignment = TextAnchor.MiddleLeft;
+        statsLayout.childControlWidth = true;
+        statsLayout.childControlHeight = true;
+        statsLayout.childForceExpandWidth = true;
+        statsLayout.childForceExpandHeight = true;
+
+        var dmgIcon = CreateStatRow("DmgRow", statsArea.transform,
+            theme != null ? theme.iconSword : null, "Damage: --",
+            out var dmgText);
+        var armIcon = CreateStatRow("ArmRow", statsArea.transform,
+            theme != null ? theme.iconArmor : null, "Armor: --",
+            out var armText);
+        var extraIcon = CreateStatRow("ExtraRow", statsArea.transform,
+            theme != null ? theme.iconSpeed : null, "",
+            out var extraText);
 
         infoPanelUI = panelObj.AddComponent<InfoPanelUI>();
-        infoPanelUI.Init(panelObj, bg, portraitFrame, portraitIcon,
-                         nameText, hpFrameImg, hpFill, hpText, statsText);
+        infoPanelUI.Init(panelObj, bgImg, portraitFrame, portraitIcon,
+                         nameText, hpFrameImg, hpFill, hpText,
+                         dmgIcon, dmgText, armIcon, armText, extraIcon, extraText);
+    }
+
+    private Image CreateStatRow(string name, Transform parent, Sprite icon,
+        string defaultText, out TextMeshProUGUI label)
+    {
+        var row = CreatePanel(name, parent);
+        var rowLayout = row.AddComponent<HorizontalLayoutGroup>();
+        rowLayout.spacing = 6;
+        rowLayout.padding = new RectOffset(0, 0, 0, 0);
+        rowLayout.childAlignment = TextAnchor.MiddleLeft;
+        rowLayout.childControlWidth = false;
+        rowLayout.childControlHeight = true;
+        rowLayout.childForceExpandWidth = false;
+
+        var iconObj = CreatePanel(name + "Icon", row.transform);
+        var iconImg = iconObj.AddComponent<Image>();
+        iconImg.preserveAspect = true;
+        if (icon != null)
+        {
+            iconImg.sprite = icon;
+            iconImg.color = Color.white;
+        }
+        else
+        {
+            iconImg.color = new Color(0.4f, 0.4f, 0.4f, 0.3f);
+        }
+        var iconLe = iconObj.AddComponent<LayoutElement>();
+        iconLe.preferredWidth = 22;
+        iconLe.preferredHeight = 22;
+
+        label = CreateText(name + "Text", row.transform, defaultText,
+            16, TextAlignmentOptions.MidlineLeft, 0);
+        label.enableAutoSizing = true;
+        label.fontSizeMin = 12;
+        label.fontSizeMax = 16;
+        label.color = new Color(0.88f, 0.85f, 0.78f);
+        var labelLe = label.gameObject.AddComponent<LayoutElement>();
+        labelLe.flexibleWidth = 1;
+
+        return iconImg;
     }
 
     // ====================================================================
@@ -403,6 +494,22 @@ public class GameUIBuilder : MonoBehaviour
     {
         if (SelectionManager.Instance != null) return;
         selectionManager = gameObject.AddComponent<SelectionManager>();
+    }
+
+    // ====================================================================
+    // DEBUG SYSTEM
+    // ====================================================================
+
+    private void CreateDebugSystem(Transform canvasRoot)
+    {
+        var cam = Camera.main;
+        if (cam == null) return;
+
+        var overlay = cam.gameObject.AddComponent<DebugOverlay>();
+        overlay.enabled = false;
+
+        var debugPanel = canvasRoot.gameObject.AddComponent<DebugPanel>();
+        debugPanel.Init(overlay);
     }
 
     // ====================================================================
