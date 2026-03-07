@@ -112,7 +112,15 @@ public class DebugPanel : MonoBehaviour
         btnImg.color = initialState ? TOGGLE_ON : TOGGLE_OFF;
 
         var btn = btnObj.AddComponent<Button>();
-        var checkText = btnObj.AddComponent<TextMeshProUGUI>();
+
+        var checkObj = new GameObject("Check");
+        checkObj.transform.SetParent(btnObj.transform, false);
+        var checkRect = checkObj.AddComponent<RectTransform>();
+        checkRect.anchorMin = Vector2.zero;
+        checkRect.anchorMax = Vector2.one;
+        checkRect.offsetMin = Vector2.zero;
+        checkRect.offsetMax = Vector2.zero;
+        var checkText = checkObj.AddComponent<TextMeshProUGUI>();
         checkText.text = initialState ? "X" : "";
         checkText.fontSize = 18;
         checkText.fontStyle = FontStyles.Bold;
