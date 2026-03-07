@@ -1,54 +1,91 @@
 using UnityEngine;
-using UnityEngine.AI;
+using UnityEngine.InputSystem;
 using Mirror;
 
-[RequireComponent(typeof(NavMeshAgent))]
 public class HeroController : NetworkBehaviour
 {
     [SerializeField] private float moveSpeed = 8f;
+    [SerializeField] private float flyHeight = 1f;
+    [SerializeField] private float stoppingDistance = 0.1f;
     [SerializeField] private LayerMask groundLayer;
     [SerializeField] private GameObject moveIndicatorPrefab;
 
-    private NavMeshAgent agent;
     private Camera mainCamera;
+    private Vector3? targetPosition;
 
-    public bool IsMoving => agent != null && agent.hasPath && agent.remainingDistance > agent.stoppingDistance;
-
-    private void Awake()
-    {
-        agent = GetComponent<NavMeshAgent>();
-    }
+    public bool IsMoving => targetPosition.HasValue;
 
     public override void OnStartLocalPlayer()
     {
         mainCamera = Camera.main;
-        agent.speed = moveSpeed;
+        Debug.Log($"[Hero] OnStartLocalPlayer - camera: {(mainCamera != null ? mainCamera.name : "NULL")}, groundLayer: {groundLayer.value}");
     }
 
     private void Update()
     {
         if (!isLocalPlayer) return;
 
-        if (Input.GetMouseButtonDown(1))
+        if (mainCamera == null)
+        {
+            mainCamera = Camera.main;
+            if (mainCamera == null) return;
+        }
+
+        var mouse = Mouse.current;
+        if (mouse != null && mouse.rightButton.wasPressedThisFrame)
         {
             HandleMoveInput();
+        }
+
+        if (targetPosition.HasValue)
+        {
+            MoveTowardsTarget();
         }
     }
 
     private void HandleMoveInput()
     {
-        Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
+        Vector2 mousePos = Mouse.current.position.ReadValue();
+        Ray ray = mainCamera.ScreenPointToRay(mousePos);
         if (Physics.Raycast(ray, out RaycastHit hit, 200f, groundLayer))
         {
-            CmdMoveTo(hit.point);
+            Vector3 dest = new Vector3(hit.point.x, flyHeight, hit.point.z);
+            Debug.Log($"[Hero] Moving to {dest}");
+            CmdMoveTo(dest);
             ShowMoveIndicator(hit.point);
+        }
+        else
+        {
+            Debug.Log($"[Hero] Raycast missed - mouse: {mousePos}, layer: {groundLayer.value}");
+        }
+    }
+
+    private void MoveTowardsTarget()
+    {
+        Vector3 target = targetPosition.Value;
+        Vector3 direction = target - transform.position;
+        float distance = direction.magnitude;
+
+        if (distance <= stoppingDistance)
+        {
+            transform.position = target;
+            targetPosition = null;
+            return;
+        }
+
+        transform.position += direction.normalized * (moveSpeed * Time.deltaTime);
+
+        if (direction.sqrMagnitude > 0.01f)
+        {
+            Quaternion look = Quaternion.LookRotation(new Vector3(direction.x, 0f, direction.z));
+            transform.rotation = Quaternion.Slerp(transform.rotation, look, 10f * Time.deltaTime);
         }
     }
 
     [Command]
     private void CmdMoveTo(Vector3 destination)
     {
-        agent.SetDestination(destination);
+        targetPosition = destination;
         RpcMoveTo(destination);
     }
 
@@ -56,7 +93,7 @@ public class HeroController : NetworkBehaviour
     private void RpcMoveTo(Vector3 destination)
     {
         if (isServer) return;
-        agent.SetDestination(destination);
+        targetPosition = destination;
     }
 
     private void ShowMoveIndicator(Vector3 position)
@@ -68,7 +105,6 @@ public class HeroController : NetworkBehaviour
 
     public void StopMoving()
     {
-        if (agent.hasPath)
-            agent.ResetPath();
+        targetPosition = null;
     }
 }

@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using TMPro;
 
 public class TooltipUI : MonoBehaviour
@@ -88,9 +89,10 @@ public class TooltipUI : MonoBehaviour
     {
         if (panelRect == null || parentCanvas == null) return;
 
+        Vector2 mousePos = Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
         RectTransformUtility.ScreenPointToLocalPointInRectangle(
             parentCanvas.transform as RectTransform,
-            Input.mousePosition,
+            mousePos,
             parentCanvas.worldCamera,
             out Vector2 localPoint
         );

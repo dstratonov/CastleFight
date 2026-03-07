@@ -31,7 +31,6 @@ public class GameManager : NetworkBehaviour
             return;
         }
         Instance = this;
-        DontDestroyOnLoad(gameObject);
     }
 
     private void OnGameStateChanged(GameState oldState, GameState newState)

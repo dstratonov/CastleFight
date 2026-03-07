@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using Mirror;
 
 public class BuildingPlacer : NetworkBehaviour
@@ -35,12 +36,16 @@ public class BuildingPlacer : NetworkBehaviour
     {
         if (!isLocalPlayer || !isPlacing) return;
 
-        UpdateGhostPosition();
+        var mouse = Mouse.current;
+        var keyboard = Keyboard.current;
+        if (mouse == null) return;
 
-        if (Input.GetMouseButtonDown(0))
+        UpdateGhostPosition(mouse);
+
+        if (mouse.leftButton.wasPressedThisFrame)
             TryConfirmPlacement();
 
-        if (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape))
+        if (mouse.rightButton.wasPressedThisFrame || (keyboard != null && keyboard.escapeKey.wasPressedThisFrame))
             CancelPlacement();
     }
 
@@ -68,11 +73,11 @@ public class BuildingPlacer : NetworkBehaviour
         }
     }
 
-    private void UpdateGhostPosition()
+    private void UpdateGhostPosition(Mouse mouse)
     {
         if (ghostObject == null) return;
 
-        Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
+        Ray ray = mainCamera.ScreenPointToRay(mouse.position.ReadValue());
         if (!Physics.Raycast(ray, out RaycastHit hit, 200f, groundLayer)) return;
 
         var grid = GridSystem.Instance;

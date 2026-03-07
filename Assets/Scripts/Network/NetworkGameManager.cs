@@ -18,7 +18,21 @@ public class NetworkGameManager : NetworkManager
     public override void OnStartServer()
     {
         base.OnStartServer();
-        GameManager.Instance?.SetState(GameState.Lobby);
+
+        InitializeCastles();
+
+        GameManager.Instance?.SetState(GameState.Playing);
+    }
+
+    private void InitializeCastles()
+    {
+        var castles = FindObjectsByType<Castle>(FindObjectsSortMode.None);
+        foreach (var castle in castles)
+        {
+            int team = castle.gameObject.name.Contains("Team0") ? 0 : 1;
+            castle.Initialize(team, 5000);
+            Debug.Log($"[NetworkGameManager] Initialized {castle.gameObject.name} as team {team}");
+        }
     }
 
     public override void OnServerAddPlayer(NetworkConnectionToClient conn)

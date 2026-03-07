@@ -24,7 +24,6 @@ public class TeamManager : MonoBehaviour
             return;
         }
         Instance = this;
-        DontDestroyOnLoad(gameObject);
     }
 
     public void AddPlayerToTeam(int playerId, int teamId)

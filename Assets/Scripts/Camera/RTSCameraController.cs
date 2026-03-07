@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class RTSCameraController : MonoBehaviour
 {
@@ -6,12 +7,12 @@ public class RTSCameraController : MonoBehaviour
     [SerializeField] private float panSpeed = 20f;
     [SerializeField] private float edgeScrollSpeed = 15f;
     [SerializeField] private int edgeScrollBorder = 10;
-    [SerializeField] private bool enableEdgeScrolling = true;
+    [SerializeField] private bool enableEdgeScrolling = false;
 
     [Header("Zoom")]
     [SerializeField] private float zoomSpeed = 5f;
-    [SerializeField] private float minZoomHeight = 10f;
-    [SerializeField] private float maxZoomHeight = 50f;
+    [SerializeField] private float minZoomHeight = 8f;
+    [SerializeField] private float maxZoomHeight = 80f;
 
     [Header("Drag")]
     [SerializeField] private float dragSpeed = 2f;
@@ -26,38 +27,51 @@ public class RTSCameraController : MonoBehaviour
 
     private void Awake()
     {
-        cam = Camera.main;
+        cam = GetComponent<Camera>();
     }
 
     private void Update()
     {
-        HandleKeyboardPan();
-        if (enableEdgeScrolling) HandleEdgeScroll();
-        HandleMouseDrag();
-        HandleZoom();
+        if (!Application.isFocused) return;
+
+        var keyboard = Keyboard.current;
+        var mouse = Mouse.current;
+        if (keyboard == null || mouse == null) return;
+
+        HandleKeyboardPan(keyboard);
+        if (enableEdgeScrolling && IsMouseInsideScreen(mouse)) HandleEdgeScroll(mouse);
+        HandleMouseDrag(mouse);
+        HandleZoom(mouse);
         ClampPosition();
     }
 
-    private void HandleKeyboardPan()
+    private bool IsMouseInsideScreen(Mouse mouse)
+    {
+        Vector2 mp = mouse.position.ReadValue();
+        return mp.x >= 0 && mp.x <= Screen.width &&
+               mp.y >= 0 && mp.y <= Screen.height;
+    }
+
+    private void HandleKeyboardPan(Keyboard kb)
     {
         var input = Vector3.zero;
 
-        if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow))
+        if (kb.wKey.isPressed || kb.upArrowKey.isPressed)
             input.z += 1f;
-        if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow))
+        if (kb.sKey.isPressed || kb.downArrowKey.isPressed)
             input.z -= 1f;
-        if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow))
+        if (kb.aKey.isPressed || kb.leftArrowKey.isPressed)
             input.x -= 1f;
-        if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow))
+        if (kb.dKey.isPressed || kb.rightArrowKey.isPressed)
             input.x += 1f;
 
         transform.Translate(input.normalized * (panSpeed * Time.deltaTime), Space.World);
     }
 
-    private void HandleEdgeScroll()
+    private void HandleEdgeScroll(Mouse mouse)
     {
         var input = Vector3.zero;
-        var mousePos = Input.mousePosition;
+        var mousePos = mouse.position.ReadValue();
 
         if (mousePos.y >= Screen.height - edgeScrollBorder)
             input.z += 1f;
@@ -71,35 +85,37 @@ public class RTSCameraController : MonoBehaviour
         transform.Translate(input.normalized * (edgeScrollSpeed * Time.deltaTime), Space.World);
     }
 
-    private void HandleMouseDrag()
+    private void HandleMouseDrag(Mouse mouse)
     {
-        if (Input.GetMouseButtonDown(2))
+        if (mouse.middleButton.wasPressedThisFrame)
         {
             isDragging = true;
-            dragOrigin = Input.mousePosition;
+            dragOrigin = (Vector3)mouse.position.ReadValue();
         }
 
-        if (Input.GetMouseButtonUp(2))
+        if (mouse.middleButton.wasReleasedThisFrame)
             isDragging = false;
 
         if (isDragging)
         {
-            Vector3 delta = dragOrigin - Input.mousePosition;
+            Vector3 current = (Vector3)mouse.position.ReadValue();
+            Vector3 delta = dragOrigin - current;
             transform.Translate(
                 new Vector3(delta.x, 0, delta.y) * (dragSpeed * Time.deltaTime),
                 Space.World
             );
-            dragOrigin = Input.mousePosition;
+            dragOrigin = current;
         }
     }
 
-    private void HandleZoom()
+    private void HandleZoom(Mouse mouse)
     {
-        float scroll = Input.GetAxis("Mouse ScrollWheel");
+        float scroll = mouse.scroll.ReadValue().y;
         if (Mathf.Approximately(scroll, 0f)) return;
 
+        float scrollNormalized = Mathf.Sign(scroll);
         Vector3 pos = transform.position;
-        pos.y -= scroll * zoomSpeed * 100f * Time.deltaTime;
+        pos.y -= scrollNormalized * zoomSpeed;
         pos.y = Mathf.Clamp(pos.y, minZoomHeight, maxZoomHeight);
         transform.position = pos;
     }
