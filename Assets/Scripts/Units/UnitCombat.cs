@@ -74,9 +74,36 @@ public class UnitCombat : NetworkBehaviour
             return;
         }
 
+        var castleHealth = FindEnemyCastleHealth();
+        if (castleHealth != null && !castleHealth.IsDead)
+        {
+            float castleDist = Vector3.Distance(transform.position, castleHealth.transform.position);
+            float attackRange = unit.Data != null ? unit.Data.attackRange : 2f;
+            if (castleDist <= attackRange * 1.5f)
+            {
+                targetHealth = castleHealth;
+                return;
+            }
+        }
+
         targetHealth = null;
         if (movement != null && !movement.HasPath && !movement.IsMoving)
             movement.SetDestinationToEnemyCastle();
+    }
+
+    private Health FindEnemyCastleHealth()
+    {
+        int enemyTeam = TeamManager.Instance != null
+            ? TeamManager.Instance.GetEnemyTeamId(unit.TeamId)
+            : (unit.TeamId == 0 ? 1 : 0);
+
+        Castle[] castles = FindObjectsByType<Castle>(FindObjectsSortMode.None);
+        foreach (var c in castles)
+        {
+            if (c.TeamId == enemyTeam)
+                return c.Health;
+        }
+        return null;
     }
 
     [Server]

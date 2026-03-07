@@ -18,6 +18,7 @@ public class UnitStateMachine : NetworkBehaviour
     private UnitMovement movement;
     private Health health;
     private UnitAnimator unitAnimator;
+    private bool animatorNeedsRetry;
 
     public UnitState CurrentState => currentState;
 
@@ -42,14 +43,16 @@ public class UnitStateMachine : NetworkBehaviour
 
     private void SetupAnimator()
     {
-        if (unitAnimator != null) return;
+        if (unitAnimator != null && !animatorNeedsRetry) return;
 
         var animator = GetComponentInChildren<Animator>();
-        if (animator != null)
-        {
+        if (animator == null) return;
+
+        if (unitAnimator == null)
             unitAnimator = gameObject.AddComponent<UnitAnimator>();
-            unitAnimator.Initialize(animator);
-        }
+
+        unitAnimator.Initialize(animator);
+        animatorNeedsRetry = !unitAnimator.HasIdleAnim && !unitAnimator.HasWalkAnim;
     }
 
     private void OnEnable()
@@ -72,6 +75,13 @@ public class UnitStateMachine : NetworkBehaviour
 
     private void Update()
     {
+        if (animatorNeedsRetry)
+        {
+            SetupAnimator();
+            if (!animatorNeedsRetry)
+                ApplyAnimation(currentState);
+        }
+
         if (!isServer) return;
         if (currentState == UnitState.Dying) return;
 
