@@ -79,3 +79,7 @@ local.properties
 # Nuget
 *.nupkg
 packages/
+!/[Pp]ackages/
+/[Pp]ackages/*
+!/[Pp]ackages/manifest.json
+!/[Pp]ackages/packages-lock.json
