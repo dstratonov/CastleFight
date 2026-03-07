@@ -163,3 +163,9 @@ public struct HeroMovedEvent
         Position = position;
     }
 }
+
+public struct SelectionChangedEvent
+{
+    public GameObject Selected;
+    public SelectionChangedEvent(GameObject selected) { Selected = selected; }
+}

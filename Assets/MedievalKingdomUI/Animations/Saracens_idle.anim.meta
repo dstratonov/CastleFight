@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 3f64676f9d833774c8868546e1459f1d
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180688
+  packageName: Medieval Kingdom UI
+  packageVersion: 1.03
+  assetPath: Assets/MedievalKingdomUI/Animations/Saracens_idle.anim
+  uploadId: 861636

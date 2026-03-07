@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: f2ef3666d73a7b54bb125787e443d8c7
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180688
+  packageName: Medieval Kingdom UI
+  packageVersion: 1.03
+  assetPath: Assets/MedievalKingdomUI/Scripts/Controls/EventTriggerInvoker.cs
+  uploadId: 861636

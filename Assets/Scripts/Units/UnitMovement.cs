@@ -72,6 +72,7 @@ public class UnitMovement : NetworkBehaviour
             if (waypointIndex >= waypoints.Count)
             {
                 waypoints = null;
+                worldTarget = null;
                 OnReachedDestination?.Invoke();
                 return;
             }
@@ -186,6 +187,8 @@ public class UnitMovement : NetworkBehaviour
 
         if (!grid.IsInBounds(startCell))
             startCell = ClampToGrid(startCell);
+        if (!grid.IsInBounds(goalCell))
+            goalCell = ClampToGrid(goalCell);
 
         var result = GridPathfinding.FindPath(startCell, goalCell, grid);
 

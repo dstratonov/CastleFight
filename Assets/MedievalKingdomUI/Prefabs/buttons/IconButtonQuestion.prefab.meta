@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 02dda1e1a8c695d4c85fabf5cdd02afe
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180688
+  packageName: Medieval Kingdom UI
+  packageVersion: 1.03
+  assetPath: Assets/MedievalKingdomUI/Prefabs/buttons/IconButtonQuestion.prefab
+  uploadId: 861636

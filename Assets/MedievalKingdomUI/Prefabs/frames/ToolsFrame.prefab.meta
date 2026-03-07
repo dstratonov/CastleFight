@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: bf0d365ca9b2ddb42832fbb487360344
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180688
+  packageName: Medieval Kingdom UI
+  packageVersion: 1.03
+  assetPath: Assets/MedievalKingdomUI/Prefabs/frames/ToolsFrame.prefab
+  uploadId: 861636

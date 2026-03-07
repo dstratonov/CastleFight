@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: eb365a56e7cd9924ca908f8507078f32
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180688
+  packageName: Medieval Kingdom UI
+  packageVersion: 1.03
+  assetPath: Assets/MedievalKingdomUI/Prefabs/frames/VerticalFlagFrame.prefab
+  uploadId: 861636

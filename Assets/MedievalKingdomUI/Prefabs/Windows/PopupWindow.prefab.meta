@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 77dbe39daa0aeab49821a6c0ad66d323
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180688
+  packageName: Medieval Kingdom UI
+  packageVersion: 1.03
+  assetPath: Assets/MedievalKingdomUI/Prefabs/Windows/PopupWindow.prefab
+  uploadId: 861636

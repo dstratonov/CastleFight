@@ -14,6 +14,10 @@ public class HeroAutoAttack : NetworkBehaviour
     [SerializeField] private float projectileSpeed = 15f;
     [SerializeField] private LayerMask enemyLayer;
 
+    public float AttackDamage => attackDamage;
+    public float AttackRange => attackRange;
+    public float AttackCooldown => attackCooldown;
+
     private float lastAttackTime;
     private readonly Collider[] scanResults = new Collider[32];
 

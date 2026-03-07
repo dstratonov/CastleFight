@@ -80,7 +80,7 @@ public class UnitManager : NetworkBehaviour
         allUnits.Remove(unit);
     }
 
-    public List<Unit> GetTeamUnits(int teamId)
+    public IReadOnlyList<Unit> GetTeamUnits(int teamId)
     {
         return teamUnits.TryGetValue(teamId, out var list) ? list : new List<Unit>();
     }

@@ -42,7 +42,10 @@ public class BuildMenuButton : MonoBehaviour
             button = GetComponent<Button>();
 
         if (button != null)
+        {
+            button.onClick.RemoveListener(HandleClick);
             button.onClick.AddListener(HandleClick);
+        }
     }
 
     private void HandleClick()

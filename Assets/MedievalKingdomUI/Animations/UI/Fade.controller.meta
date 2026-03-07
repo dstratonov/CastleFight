@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 2b7eab4b14140bd4c89fd73f32448261
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180688
+  packageName: Medieval Kingdom UI
+  packageVersion: 1.03
+  assetPath: Assets/MedievalKingdomUI/Animations/UI/Fade.controller
+  uploadId: 861636

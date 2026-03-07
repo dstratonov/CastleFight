@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 58cead89cda2e424da894eecbcadd85a
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180688
+  packageName: Medieval Kingdom UI
+  packageVersion: 1.03
+  assetPath: Assets/MedievalKingdomUI/Prefabs/buttons/IconButtonCross.prefab
+  uploadId: 861636

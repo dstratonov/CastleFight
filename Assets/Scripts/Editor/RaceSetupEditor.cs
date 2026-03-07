@@ -36,6 +36,8 @@ public static class RaceSetupEditor
     const string UnitDataDir = "Assets/Data/Units";
     const string BuildingDataDir = "Assets/Data/Buildings";
     const string RaceDataDir = "Assets/Data/Races";
+    const string UnitBasePath = UnitPrefabDir + "/Unit_Base.prefab";
+    const string BuildingBasePath = BuildingPrefabDir + "/Bld_Base.prefab";
 
     const string TownSmithBase = "Assets/Hivemind/TownSmith/HDRP(Default)/Art/Prefabs";
     const string House01 = TownSmithBase + "/Drag&Drops/PF_House01.prefab";
@@ -50,6 +52,7 @@ public static class RaceSetupEditor
     public static void GenerateAllRaces()
     {
         EnsureDirectories();
+        EnsureBasePrefabs();
 
         var races = DefineRaces();
         var raceAssets = new RaceData[races.Length];
@@ -82,6 +85,118 @@ public static class RaceSetupEditor
         Debug.Log("[RaceSetup] All 6 races generated successfully!");
     }
 
+    // ========================================================================
+    // BASE PREFABS
+    // ========================================================================
+
+    static void EnsureBasePrefabs()
+    {
+        if (AssetDatabase.LoadAssetAtPath<GameObject>(UnitBasePath) == null)
+            CreateUnitBasePrefab();
+        else
+            UpdateUnitBasePrefab();
+
+        if (AssetDatabase.LoadAssetAtPath<GameObject>(BuildingBasePath) == null)
+            CreateBuildingBasePrefab();
+        else
+            UpdateBuildingBasePrefab();
+    }
+
+    static void CreateUnitBasePrefab()
+    {
+        var root = new GameObject("Unit_Base");
+        root.AddComponent<NetworkIdentity>();
+        root.AddComponent<Unit>();
+        root.AddComponent<Health>();
+        root.AddComponent<UnitMovement>();
+        root.AddComponent<UnitCombat>();
+        root.AddComponent<UnitStateMachine>();
+
+        var col = root.AddComponent<CapsuleCollider>();
+        col.radius = 0.5f;
+        col.height = 2f;
+        col.center = new Vector3(0, 1f, 0);
+
+        var placeholder = new GameObject("Model");
+        placeholder.transform.SetParent(root.transform, false);
+
+        PrefabUtility.SaveAsPrefabAsset(root, UnitBasePath);
+        Object.DestroyImmediate(root);
+        Debug.Log("[RaceSetup] Created Unit_Base.prefab");
+    }
+
+    static void UpdateUnitBasePrefab()
+    {
+        var basePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(UnitBasePath);
+        var instance = (GameObject)PrefabUtility.InstantiatePrefab(basePrefab);
+
+        bool dirty = false;
+        if (instance.GetComponent<NetworkIdentity>() == null) { instance.AddComponent<NetworkIdentity>(); dirty = true; }
+        if (instance.GetComponent<Unit>() == null) { instance.AddComponent<Unit>(); dirty = true; }
+        if (instance.GetComponent<Health>() == null) { instance.AddComponent<Health>(); dirty = true; }
+        if (instance.GetComponent<UnitMovement>() == null) { instance.AddComponent<UnitMovement>(); dirty = true; }
+        if (instance.GetComponent<UnitCombat>() == null) { instance.AddComponent<UnitCombat>(); dirty = true; }
+        if (instance.GetComponent<UnitStateMachine>() == null) { instance.AddComponent<UnitStateMachine>(); dirty = true; }
+
+        if (dirty)
+        {
+            PrefabUtility.SaveAsPrefabAsset(instance, UnitBasePath);
+            Debug.Log("[RaceSetup] Updated Unit_Base.prefab with missing components");
+        }
+
+        Object.DestroyImmediate(instance);
+    }
+
+    static void CreateBuildingBasePrefab()
+    {
+        var root = new GameObject("Bld_Base");
+        root.AddComponent<NetworkIdentity>();
+        root.AddComponent<Health>();
+        root.AddComponent<Building>();
+        root.AddComponent<Spawner>();
+
+        var col = root.AddComponent<BoxCollider>();
+        col.center = new Vector3(0, 1.5f, 0);
+        col.size = new Vector3(3f, 3f, 3f);
+
+        var modelHolder = new GameObject("Model");
+        modelHolder.transform.SetParent(root.transform, false);
+
+        var spawnPoint = new GameObject("SpawnPoint");
+        spawnPoint.transform.SetParent(root.transform, false);
+        spawnPoint.transform.localPosition = new Vector3(0, 0, 3f);
+
+        var spawner = root.GetComponent<Spawner>();
+        var spField = typeof(Spawner).GetField("spawnPoint",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        if (spField != null)
+            spField.SetValue(spawner, spawnPoint.transform);
+
+        PrefabUtility.SaveAsPrefabAsset(root, BuildingBasePath);
+        Object.DestroyImmediate(root);
+        Debug.Log("[RaceSetup] Created Bld_Base.prefab");
+    }
+
+    static void UpdateBuildingBasePrefab()
+    {
+        var basePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(BuildingBasePath);
+        var instance = (GameObject)PrefabUtility.InstantiatePrefab(basePrefab);
+
+        bool dirty = false;
+        if (instance.GetComponent<NetworkIdentity>() == null) { instance.AddComponent<NetworkIdentity>(); dirty = true; }
+        if (instance.GetComponent<Health>() == null) { instance.AddComponent<Health>(); dirty = true; }
+        if (instance.GetComponent<Building>() == null) { instance.AddComponent<Building>(); dirty = true; }
+        if (instance.GetComponent<Spawner>() == null) { instance.AddComponent<Spawner>(); dirty = true; }
+
+        if (dirty)
+        {
+            PrefabUtility.SaveAsPrefabAsset(instance, BuildingBasePath);
+            Debug.Log("[RaceSetup] Updated Bld_Base.prefab with missing components");
+        }
+
+        Object.DestroyImmediate(instance);
+    }
+
     static void EnsureDirectories()
     {
         string[] dirs = { UnitPrefabDir, BuildingPrefabDir, UnitDataDir, BuildingDataDir, RaceDataDir, "Assets/Resources" };
@@ -103,7 +218,7 @@ public static class RaceSetupEditor
     }
 
     // ========================================================================
-    // UNIT PREFAB
+    // UNIT PREFAB (Variant of Unit_Base)
     // ========================================================================
 
     static GameObject CreateUnitPrefab(UnitDef def)
@@ -114,29 +229,27 @@ public static class RaceSetupEditor
         if (existing != null)
         {
             AssetDatabase.DeleteAsset(path);
-            Debug.Log($"[RaceSetup] Deleted old unit prefab: {path}, regenerating");
         }
 
-        var root = new GameObject($"Unit_{def.id}");
+        var basePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(UnitBasePath);
+        if (basePrefab == null)
+        {
+            Debug.LogError($"[RaceSetup] Unit base prefab not found at {UnitBasePath}. Run EnsureBasePrefabs first.");
+            return null;
+        }
+        var instance = (GameObject)PrefabUtility.InstantiatePrefab(basePrefab);
+        instance.name = $"Unit_{def.id}";
 
-        root.AddComponent<NetworkIdentity>();
-        root.AddComponent<Unit>();
-        root.AddComponent<Health>();
-        root.AddComponent<UnitMovement>();
-        root.AddComponent<UnitCombat>();
-        root.AddComponent<UnitStateMachine>();
-
-        var col = root.AddComponent<CapsuleCollider>();
-        col.radius = 0.5f;
-        col.height = 2f;
-        col.center = new Vector3(0, 1f, 0);
+        var oldModel = instance.transform.Find("Model");
+        if (oldModel != null)
+            Object.DestroyImmediate(oldModel.gameObject);
 
         var modelPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(def.modelPath);
         if (modelPrefab != null)
         {
             var model = (GameObject)PrefabUtility.InstantiatePrefab(modelPrefab);
             model.name = "Model";
-            model.transform.SetParent(root.transform, false);
+            model.transform.SetParent(instance.transform, false);
             model.transform.localPosition = Vector3.zero;
             model.transform.localRotation = Quaternion.identity;
         }
@@ -144,16 +257,17 @@ public static class RaceSetupEditor
         {
             Debug.LogWarning($"[RaceSetup] Unit model not found at {def.modelPath}, creating empty placeholder");
             var placeholder = new GameObject("Model");
-            placeholder.transform.SetParent(root.transform, false);
+            placeholder.transform.SetParent(instance.transform, false);
         }
 
-        var prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
-        Object.DestroyImmediate(root);
+        var prefab = PrefabUtility.SaveAsPrefabAssetAndConnect(
+            instance, path, InteractionMode.AutomatedAction);
+        Object.DestroyImmediate(instance);
         return prefab;
     }
 
     // ========================================================================
-    // BUILDING PREFAB
+    // BUILDING PREFAB (Variant of Bld_Base)
     // ========================================================================
 
     static GameObject CreateBuildingPrefab(BuildingDef def)
@@ -164,27 +278,27 @@ public static class RaceSetupEditor
         if (existing != null)
         {
             AssetDatabase.DeleteAsset(path);
-            Debug.Log($"[RaceSetup] Deleted old building prefab: {path}, regenerating");
         }
 
-        var root = new GameObject($"Bld_{def.id}");
-        root.transform.position = Vector3.zero;
+        var basePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(BuildingBasePath);
+        if (basePrefab == null)
+        {
+            Debug.LogError($"[RaceSetup] Building base prefab not found at {BuildingBasePath}. Run EnsureBasePrefabs first.");
+            return null;
+        }
+        var instance = (GameObject)PrefabUtility.InstantiatePrefab(basePrefab);
+        instance.name = $"Bld_{def.id}";
 
-        root.AddComponent<NetworkIdentity>();
-        root.AddComponent<Health>();
-        root.AddComponent<Building>();
-        root.AddComponent<Spawner>();
-
-        var col = root.AddComponent<BoxCollider>();
-        col.center = new Vector3(0, 1.5f, 0);
-        col.size = new Vector3(3f, 3f, 3f);
+        var oldModel = instance.transform.Find("Model");
+        if (oldModel != null)
+            Object.DestroyImmediate(oldModel.gameObject);
 
         var modelPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(def.modelPath);
         if (modelPrefab != null)
         {
             var model = Object.Instantiate(modelPrefab);
             model.name = "Model";
-            model.transform.SetParent(root.transform, false);
+            model.transform.SetParent(instance.transform, false);
             model.transform.localPosition = Vector3.zero;
             model.transform.localRotation = Quaternion.identity;
             float s = def.modelScale;
@@ -196,24 +310,25 @@ public static class RaceSetupEditor
             Debug.LogWarning($"[RaceSetup] Building model not found at {def.modelPath}, creating cube placeholder");
             var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
             cube.name = "Model";
-            cube.transform.SetParent(root.transform, false);
+            cube.transform.SetParent(instance.transform, false);
             cube.transform.localPosition = new Vector3(0, 1f, 0);
             cube.transform.localScale = new Vector3(2f, 2f, 2f);
             Object.DestroyImmediate(cube.GetComponent<Collider>());
         }
 
-        var spawnPoint = new GameObject("SpawnPoint");
-        spawnPoint.transform.SetParent(root.transform, false);
-        spawnPoint.transform.localPosition = new Vector3(0, 0, 3f);
+        var spawner = instance.GetComponent<Spawner>();
+        var sp = instance.transform.Find("SpawnPoint");
+        if (spawner != null && sp != null)
+        {
+            var spField = typeof(Spawner).GetField("spawnPoint",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            if (spField != null)
+                spField.SetValue(spawner, sp);
+        }
 
-        var spawner = root.GetComponent<Spawner>();
-        var spField = typeof(Spawner).GetField("spawnPoint",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        if (spField != null)
-            spField.SetValue(spawner, spawnPoint.transform);
-
-        var prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
-        Object.DestroyImmediate(root);
+        var prefab = PrefabUtility.SaveAsPrefabAssetAndConnect(
+            instance, path, InteractionMode.AutomatedAction);
+        Object.DestroyImmediate(instance);
         return prefab;
     }
 
@@ -328,6 +443,8 @@ public static class RaceSetupEditor
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         if (field != null)
             field.SetValue(db, raceAssets);
+        else
+            Debug.LogError("[RaceSetup] Could not find 'races' field on RaceDatabase via reflection");
 
         EditorUtility.SetDirty(db);
     }

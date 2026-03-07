@@ -192,15 +192,13 @@ public class BuildingPlacer : NetworkBehaviour
         var grid = GridSystem.Instance;
         if (grid != null && !grid.CanPlaceBuilding(position, player.TeamId)) return;
 
+        if (!ResourceManager.Instance.TrySpendGold(player, data.cost)) return;
+
         var buildingObj = BuildingManager.Instance.PlaceBuilding(data, position, rotation, player.TeamId, player.PlayerId);
-        if (buildingObj == null) return;
-
-        ResourceManager.Instance.TrySpendGold(player, data.cost);
-
-        if (grid != null)
+        if (buildingObj == null)
         {
-            Vector2Int cell = grid.WorldToCell(position);
-            grid.PlaceBuilding(cell, buildingObj);
+            ResourceManager.Instance.AwardGold(player, data.cost);
+            return;
         }
     }
 

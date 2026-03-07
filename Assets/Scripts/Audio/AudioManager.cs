@@ -56,7 +56,7 @@ public class AudioManager : MonoBehaviour
 
     public void PlaySFX(AudioClip clip, float volume = 1f)
     {
-        if (clip == null) return;
+        if (clip == null || sfxPool.Count == 0) return;
         var source = GetNextSfxSource();
         source.clip = clip;
         source.volume = volume * sfxVolume;
@@ -66,7 +66,7 @@ public class AudioManager : MonoBehaviour
     public void PlaySFXAtPosition(AudioClip clip, Vector3 position, float volume = 1f)
     {
         if (clip == null) return;
-        AudioSource.PlayClipAtPoint(clip, position, volume);
+        AudioSource.PlayClipAtPoint(clip, position, volume * sfxVolume);
     }
 
     private AudioSource GetNextSfxSource()

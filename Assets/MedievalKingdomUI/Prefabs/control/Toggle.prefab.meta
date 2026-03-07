@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: aa32fac3fa9d8f849a5d564f1ac07eea
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180688
+  packageName: Medieval Kingdom UI
+  packageVersion: 1.03
+  assetPath: Assets/MedievalKingdomUI/Prefabs/control/Toggle.prefab
+  uploadId: 861636

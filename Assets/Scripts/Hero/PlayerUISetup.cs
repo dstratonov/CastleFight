@@ -23,5 +23,12 @@ public class PlayerUISetup : NetworkBehaviour
             hud.SetLocalPlayer(networkPlayer);
             Debug.Log("[PlayerUISetup] HUDManager initialized");
         }
+
+        var infoPanel = uiBuilder != null ? uiBuilder.InfoPanel : InfoPanelUI.Instance;
+        if (infoPanel != null)
+        {
+            infoPanel.TryShowHero();
+            Debug.Log("[PlayerUISetup] InfoPanelUI initialized with hero");
+        }
     }
 }

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 958652f1acb710544848c04bd2ada93f
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180688
+  packageName: Medieval Kingdom UI
+  packageVersion: 1.03
+  assetPath: Assets/MedievalKingdomUI/Prefabs/buttons/IconButtonBag.prefab
+  uploadId: 861636

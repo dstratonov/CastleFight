@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 5cd20e6b7f112174e8243a21e7f053cb
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180688
+  packageName: Medieval Kingdom UI
+  packageVersion: 1.03
+  assetPath: Assets/MedievalKingdomUI/Prefabs/buttons/BigMenuRedButtonFrame.prefab
+  uploadId: 861636

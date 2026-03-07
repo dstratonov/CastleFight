@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 08a23b118a9a630498602b965a18dde3
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180688
+  packageName: Medieval Kingdom UI
+  packageVersion: 1.03
+  assetPath: Assets/MedievalKingdomUI/Prefabs/buttons/SmallButton.prefab
+  uploadId: 861636

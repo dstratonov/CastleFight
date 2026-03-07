@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: cb4efcc2817b3654e8015c5f0ca8eb8d
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180688
+  packageName: Medieval Kingdom UI
+  packageVersion: 1.03
+  assetPath: Assets/MedievalKingdomUI/Animations/King_of_malians_PSB.controller
+  uploadId: 861636

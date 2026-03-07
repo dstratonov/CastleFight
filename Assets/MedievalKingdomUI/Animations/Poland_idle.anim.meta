@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 573c13b981b7f43429b7c9d584abe605
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180688
+  packageName: Medieval Kingdom UI
+  packageVersion: 1.03
+  assetPath: Assets/MedievalKingdomUI/Animations/Poland_idle.anim
+  uploadId: 861636

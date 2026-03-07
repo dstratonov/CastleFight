@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 70d8114ff711807409a42d7310520575
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180688
+  packageName: Medieval Kingdom UI
+  packageVersion: 1.03
+  assetPath: Assets/MedievalKingdomUI/Prefabs/buttons/ArrowLeft.prefab
+  uploadId: 861636

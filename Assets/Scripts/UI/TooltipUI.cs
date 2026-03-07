@@ -33,6 +33,11 @@ public class TooltipUI : MonoBehaviour
         parentCanvas = GetComponentInParent<Canvas>();
     }
 
+    private void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
+    }
+
     private void Update()
     {
         if (tooltipPanel != null && tooltipPanel.activeSelf)

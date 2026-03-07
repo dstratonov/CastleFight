@@ -34,8 +34,18 @@ public class TeamManager : MonoBehaviour
     public void AddPlayerToTeam(int playerId, int teamId)
     {
         if (teamId < 0 || teamId >= TeamCount) return;
+        if (playerTeamMap.TryGetValue(playerId, out int oldTeam) && oldTeam != teamId)
+            RemovePlayerFromTeam(playerId);
         teams[teamId].Add(playerId);
         playerTeamMap[playerId] = teamId;
+    }
+
+    public void RemovePlayerFromTeam(int playerId)
+    {
+        if (!playerTeamMap.TryGetValue(playerId, out int currentTeam)) return;
+        if (currentTeam >= 0 && currentTeam < TeamCount)
+            teams[currentTeam].Remove(playerId);
+        playerTeamMap.Remove(playerId);
     }
 
     public void RemovePlayerFromTeam(int playerId, int teamId)

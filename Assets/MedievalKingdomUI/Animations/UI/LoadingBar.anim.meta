@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 1b4d137efc5a23b4399aa2715a4bcbf9
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180688
+  packageName: Medieval Kingdom UI
+  packageVersion: 1.03
+  assetPath: Assets/MedievalKingdomUI/Animations/UI/LoadingBar.anim
+  uploadId: 861636

@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 5c550e207c514b7aa0c186dc1e5d4c57
+timeCreated: 1600421198
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180688
+  packageName: Medieval Kingdom UI
+  packageVersion: 1.03
+  assetPath: Assets/MedievalKingdomUI/Scripts/Controls/SliderStepController.cs
+  uploadId: 861636

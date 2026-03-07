@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: ada46cbe61bd92a419f8ae2b2124b70a
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180688
+  packageName: Medieval Kingdom UI
+  packageVersion: 1.03
+  assetPath: Assets/MedievalKingdomUI/Prefabs/Indicators/ResourceBar2.prefab
+  uploadId: 861636

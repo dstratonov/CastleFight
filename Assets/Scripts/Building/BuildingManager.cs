@@ -51,6 +51,8 @@ public class BuildingManager : NetworkBehaviour
         if (building != null)
         {
             building.Initialize(data, teamId, playerId);
+            if (!teamBuildings.ContainsKey(teamId))
+                teamBuildings[teamId] = new List<Building>();
             teamBuildings[teamId].Add(building);
         }
 

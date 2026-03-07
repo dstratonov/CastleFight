@@ -3,6 +3,8 @@ using Mirror;
 
 public class NetworkPlayer : NetworkBehaviour
 {
+    public static NetworkPlayer Local { get; private set; }
+
     [SyncVar] private int playerId;
     [SyncVar] private int teamId;
     [SyncVar] private string selectedRaceId;
@@ -14,6 +16,16 @@ public class NetworkPlayer : NetworkBehaviour
     public string SelectedRaceId => selectedRaceId;
     public int Gold => gold;
     public int Income => income;
+
+    public override void OnStartLocalPlayer()
+    {
+        Local = this;
+    }
+
+    private void OnDestroy()
+    {
+        if (Local == this) Local = null;
+    }
 
     [Server]
     public void Initialize(int id, int team)

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 66cddb1bacb2a4842ad03185c3102c1c
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180688
+  packageName: Medieval Kingdom UI
+  packageVersion: 1.03
+  assetPath: Assets/MedievalKingdomUI/Prefabs/frames/TallIconPlaceholder.prefab
+  uploadId: 861636

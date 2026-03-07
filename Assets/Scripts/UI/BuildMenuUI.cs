@@ -11,10 +11,15 @@ public class BuildMenuUI : MonoBehaviour
     private NetworkPlayer localPlayer;
     private HeroBuilder heroBuilder;
     private readonly List<BuildMenuButton> buttons = new();
+    private UIThemeData theme;
+    private TMP_FontAsset cachedFontAsset;
 
     public void Init(Transform container)
     {
         buildButtonContainer = container;
+        theme = Resources.Load<UIThemeData>("UITheme");
+        if (theme != null && theme.medievalFont != null)
+            cachedFontAsset = TMP_FontAsset.CreateFontAsset(theme.medievalFont);
     }
 
     public void Initialize(NetworkPlayer player)
@@ -69,18 +74,39 @@ public class BuildMenuUI : MonoBehaviour
         var buttonObj = new GameObject(data.buildingName, typeof(RectTransform));
         buttonObj.transform.SetParent(buildButtonContainer, false);
 
-        var le = buttonObj.AddComponent<UnityEngine.UI.LayoutElement>();
+        var le = buttonObj.AddComponent<LayoutElement>();
         le.preferredHeight = 50;
 
-        var bg = buttonObj.AddComponent<UnityEngine.UI.Image>();
-        bg.color = new Color(0.2f, 0.2f, 0.3f, 0.9f);
+        var bg = buttonObj.AddComponent<Image>();
+        if (theme != null && theme.buildButtonNormal != null)
+        {
+            bg.sprite = theme.buildButtonNormal;
+            bg.type = Image.Type.Sliced;
+            bg.color = Color.white;
+        }
+        else
+        {
+            bg.color = new Color(0.2f, 0.2f, 0.3f, 0.9f);
+        }
 
-        var btn = buttonObj.AddComponent<UnityEngine.UI.Button>();
-        var colors = btn.colors;
-        colors.highlightedColor = new Color(0.3f, 0.4f, 0.6f);
-        colors.pressedColor = new Color(0.2f, 0.3f, 0.5f);
-        colors.disabledColor = new Color(0.15f, 0.15f, 0.15f, 0.8f);
-        btn.colors = colors;
+        var btn = buttonObj.AddComponent<Button>();
+        if (theme != null && theme.buildButtonNormal != null)
+        {
+            var spriteState = new SpriteState();
+            spriteState.highlightedSprite = theme.buildButtonHighlight;
+            spriteState.pressedSprite = theme.buildButtonHighlight;
+            spriteState.disabledSprite = theme.buildButtonRed;
+            btn.spriteState = spriteState;
+            btn.transition = Selectable.Transition.SpriteSwap;
+        }
+        else
+        {
+            var colors = btn.colors;
+            colors.highlightedColor = new Color(0.3f, 0.4f, 0.6f);
+            colors.pressedColor = new Color(0.2f, 0.3f, 0.5f);
+            colors.disabledColor = new Color(0.15f, 0.15f, 0.15f, 0.8f);
+            btn.colors = colors;
+        }
 
         var cg = buttonObj.AddComponent<CanvasGroup>();
 
@@ -89,13 +115,17 @@ public class BuildMenuUI : MonoBehaviour
         var nameRect = nameObj.GetComponent<RectTransform>();
         nameRect.anchorMin = new Vector2(0, 0);
         nameRect.anchorMax = new Vector2(0.65f, 1);
-        nameRect.offsetMin = new Vector2(10, 0);
+        nameRect.offsetMin = new Vector2(12, 0);
         nameRect.offsetMax = Vector2.zero;
-        var nameTmp = nameObj.AddComponent<TMPro.TextMeshProUGUI>();
+        var nameTmp = nameObj.AddComponent<TextMeshProUGUI>();
         nameTmp.text = data.buildingName;
-        nameTmp.fontSize = 16;
-        nameTmp.alignment = TMPro.TextAlignmentOptions.MidlineLeft;
-        nameTmp.color = Color.white;
+        nameTmp.fontSize = 14;
+        nameTmp.alignment = TextAlignmentOptions.MidlineLeft;
+        nameTmp.color = new Color(0.95f, 0.9f, 0.75f);
+        nameTmp.enableAutoSizing = true;
+        nameTmp.fontSizeMin = 10;
+        nameTmp.fontSizeMax = 14;
+        if (cachedFontAsset != null) nameTmp.font = cachedFontAsset;
 
         var costObj = new GameObject("Cost", typeof(RectTransform));
         costObj.transform.SetParent(buttonObj.transform, false);
@@ -103,12 +133,14 @@ public class BuildMenuUI : MonoBehaviour
         costRect.anchorMin = new Vector2(0.65f, 0);
         costRect.anchorMax = new Vector2(1, 1);
         costRect.offsetMin = Vector2.zero;
-        costRect.offsetMax = new Vector2(-10, 0);
-        var costTmp = costObj.AddComponent<TMPro.TextMeshProUGUI>();
-        costTmp.text = data.cost.ToString() + "g";
-        costTmp.fontSize = 16;
-        costTmp.alignment = TMPro.TextAlignmentOptions.MidlineRight;
-        costTmp.color = new Color(1f, 0.85f, 0f);
+        costRect.offsetMax = new Vector2(-12, 0);
+        var costTmp = costObj.AddComponent<TextMeshProUGUI>();
+        costTmp.text = data.cost + "g";
+        costTmp.fontSize = 14;
+        costTmp.alignment = TextAlignmentOptions.MidlineRight;
+        costTmp.color = new Color(1f, 0.85f, 0.3f);
+        costTmp.fontStyle = FontStyles.Bold;
+        if (cachedFontAsset != null) costTmp.font = cachedFontAsset;
 
         var menuButton = buttonObj.GetComponent<BuildMenuButton>();
         if (menuButton == null) menuButton = buttonObj.AddComponent<BuildMenuButton>();

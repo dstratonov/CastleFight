@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 60d4df6c569fe014da60437af4ccc8e1
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures: []
+  nonModifiableTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180688
+  packageName: Medieval Kingdom UI
+  packageVersion: 1.03
+  assetPath: Assets/MedievalKingdomUI/Shaders/Fluid.shader
+  uploadId: 861636

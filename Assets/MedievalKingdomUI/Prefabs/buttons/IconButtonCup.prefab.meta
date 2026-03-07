@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 7aeac30e175e6e5408d9a0ae57085de4
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180688
+  packageName: Medieval Kingdom UI
+  packageVersion: 1.03
+  assetPath: Assets/MedievalKingdomUI/Prefabs/buttons/IconButtonCup.prefab
+  uploadId: 861636

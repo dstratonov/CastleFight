@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: ef08c592a822e514a9641c638d81e088
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180688
+  packageName: Medieval Kingdom UI
+  packageVersion: 1.03
+  assetPath: Assets/MedievalKingdomUI/Prefabs/control/ChatPrompt.prefab
+  uploadId: 861636

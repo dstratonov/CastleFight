@@ -1,0 +1,10 @@
+fileFormatVersion: 2
+guid: 080d24f69e264aabb3494c61dfb881e9
+timeCreated: 1670011470
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180688
+  packageName: Medieval Kingdom UI
+  packageVersion: 1.03
+  assetPath: Assets/MedievalKingdomUI/Scripts/Controls/Transform/TransformInRect.cs
+  uploadId: 861636

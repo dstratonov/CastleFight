@@ -6,6 +6,9 @@ public class RaceDatabase : ScriptableObject
 {
     private static RaceDatabase instance;
 
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatic() { instance = null; }
+
     public static RaceDatabase Instance
     {
         get

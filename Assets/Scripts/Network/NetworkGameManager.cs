@@ -64,8 +64,19 @@ public class NetworkGameManager : NetworkManager
             Debug.LogWarning("[NetworkGameManager] No DamageTable found. Attack/armor multipliers will default to 1.0x.");
     }
 
+    public override void OnStopServer()
+    {
+        base.OnStopServer();
+        EventBus.Clear();
+    }
+
     public override void OnServerAddPlayer(NetworkConnectionToClient conn)
     {
+        if (TeamManager.Instance == null)
+        {
+            Debug.LogError("[NetworkGameManager] TeamManager.Instance is null when adding player");
+            return;
+        }
         int teamId = TeamManager.Instance.GetTeamWithFewestPlayers();
         Transform spawnPoint = GetSpawnPoint(teamId, TeamManager.Instance.GetTeamPlayerCount(teamId));
 
@@ -87,7 +98,7 @@ public class NetworkGameManager : NetworkManager
     {
         if (players.TryGetValue(conn.connectionId, out var player))
         {
-            TeamManager.Instance.RemovePlayerFromTeam(conn.connectionId, player.TeamId);
+            TeamManager.Instance?.RemovePlayerFromTeam(conn.connectionId, player.TeamId);
             players.Remove(conn.connectionId);
         }
         base.OnServerDisconnect(conn);

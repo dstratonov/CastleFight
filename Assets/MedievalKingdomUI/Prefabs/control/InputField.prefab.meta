@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 4fb0f1f88b3861843a754b4082e638b4
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180688
+  packageName: Medieval Kingdom UI
+  packageVersion: 1.03
+  assetPath: Assets/MedievalKingdomUI/Prefabs/control/InputField.prefab
+  uploadId: 861636

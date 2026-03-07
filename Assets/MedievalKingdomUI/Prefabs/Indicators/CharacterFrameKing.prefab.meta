@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 979a51789cda9d24babd5164cd1c6a7b
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180688
+  packageName: Medieval Kingdom UI
+  packageVersion: 1.03
+  assetPath: Assets/MedievalKingdomUI/Prefabs/Indicators/CharacterFrameKing.prefab
+  uploadId: 861636

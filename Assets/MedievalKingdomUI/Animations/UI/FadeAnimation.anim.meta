@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 2399a97d976d86349be89bab1945d3d8
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180688
+  packageName: Medieval Kingdom UI
+  packageVersion: 1.03
+  assetPath: Assets/MedievalKingdomUI/Animations/UI/FadeAnimation.anim
+  uploadId: 861636

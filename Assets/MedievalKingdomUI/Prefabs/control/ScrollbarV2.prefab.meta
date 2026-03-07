@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: edeed3e53f8f92c44b6b266532afee6e
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180688
+  packageName: Medieval Kingdom UI
+  packageVersion: 1.03
+  assetPath: Assets/MedievalKingdomUI/Prefabs/control/ScrollbarV2.prefab
+  uploadId: 861636

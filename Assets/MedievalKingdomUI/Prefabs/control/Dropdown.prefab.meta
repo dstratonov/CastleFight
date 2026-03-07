@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 6221ac4724a6eba44aeb760f993e5120
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180688
+  packageName: Medieval Kingdom UI
+  packageVersion: 1.03
+  assetPath: Assets/MedievalKingdomUI/Prefabs/control/Dropdown.prefab
+  uploadId: 861636

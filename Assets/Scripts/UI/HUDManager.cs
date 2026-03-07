@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 using TMPro;
 
 public class HUDManager : MonoBehaviour
@@ -14,27 +15,34 @@ public class HUDManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI teamText;
 
     [Header("Castle Health")]
-    [SerializeField] private UnityEngine.UI.Slider allyCastleHealthBar;
-    [SerializeField] private UnityEngine.UI.Slider enemyCastleHealthBar;
+    [SerializeField] private Image allyCastleHealthBar;
+    [SerializeField] private Image enemyCastleHealthBar;
+    [SerializeField] private TextMeshProUGUI allyCastleText;
+    [SerializeField] private TextMeshProUGUI enemyCastleText;
 
     private float matchTimer;
     private NetworkPlayer localPlayer;
+    private Castle allyCastle;
+    private Castle enemyCastle;
 
-    public void Init(TextMeshProUGUI gold, TextMeshProUGUI income, TextMeshProUGUI timer, TextMeshProUGUI team)
+    public void Init(TextMeshProUGUI gold, TextMeshProUGUI income,
+                     TextMeshProUGUI timer, TextMeshProUGUI team,
+                     Image allyBar, Image enemyBar,
+                     TextMeshProUGUI allyText, TextMeshProUGUI enemyText)
     {
         goldText = gold;
         incomeText = income;
         timerText = timer;
         teamText = team;
+        allyCastleHealthBar = allyBar;
+        enemyCastleHealthBar = enemyBar;
+        allyCastleText = allyText;
+        enemyCastleText = enemyText;
     }
 
     private void Awake()
     {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
+        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
     }
 
@@ -63,12 +71,31 @@ public class HUDManager : MonoBehaviour
             UpdateTimerDisplay();
         }
 
+        if (allyCastle == null || enemyCastle == null)
+            FindCastles();
+
+        UpdateCastleHealthBars();
     }
 
     public void SetLocalPlayer(NetworkPlayer player)
     {
         localPlayer = player;
         UpdateGoldDisplay();
+        FindCastles();
+    }
+
+    private void FindCastles()
+    {
+        if (localPlayer == null) return;
+
+        var castles = FindObjectsByType<Castle>(FindObjectsSortMode.None);
+        foreach (var c in castles)
+        {
+            if (c.TeamId == localPlayer.TeamId)
+                allyCastle = c;
+            else
+                enemyCastle = c;
+        }
     }
 
     private void UpdateGoldDisplay()
@@ -84,6 +111,25 @@ public class HUDManager : MonoBehaviour
         int minutes = Mathf.FloorToInt(matchTimer / 60f);
         int seconds = Mathf.FloorToInt(matchTimer % 60f);
         timerText.text = $"{minutes:00}:{seconds:00}";
+    }
+
+    private void UpdateCastleHealthBars()
+    {
+        if (allyCastle != null && allyCastle.Health != null)
+        {
+            if (allyCastleHealthBar != null)
+                allyCastleHealthBar.fillAmount = allyCastle.Health.HealthPercent;
+            if (allyCastleText != null)
+                allyCastleText.text = $"Ally  {allyCastle.Health.CurrentHealth:F0}/{allyCastle.Health.MaxHealth:F0}";
+        }
+
+        if (enemyCastle != null && enemyCastle.Health != null)
+        {
+            if (enemyCastleHealthBar != null)
+                enemyCastleHealthBar.fillAmount = enemyCastle.Health.HealthPercent;
+            if (enemyCastleText != null)
+                enemyCastleText.text = $"Enemy  {enemyCastle.Health.CurrentHealth:F0}/{enemyCastle.Health.MaxHealth:F0}";
+        }
     }
 
     private void OnGoldChanged(GoldChangedEvent evt)

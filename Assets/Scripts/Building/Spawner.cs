@@ -41,8 +41,18 @@ public class Spawner : NetworkBehaviour
         Vector3 basePos = spawnPoint != null ? spawnPoint.position : transform.position + transform.forward * 2f;
         Quaternion rot = spawnPoint != null ? spawnPoint.rotation : transform.rotation;
 
-        Vector3 offset = new Vector3(Random.Range(-1f, 1f), 0, Random.Range(-1f, 1f));
-        Vector3 pos = basePos + offset;
+        Vector3 pos = basePos;
+        var grid = GridSystem.Instance;
+        for (int attempt = 0; attempt < 5; attempt++)
+        {
+            Vector3 offset = new Vector3(Random.Range(-1.5f, 1.5f), 0, Random.Range(-1.5f, 1.5f));
+            Vector3 candidate = basePos + offset;
+            if (grid == null || grid.IsWalkable(grid.WorldToCell(candidate)))
+            {
+                pos = candidate;
+                break;
+            }
+        }
 
         var unitObj = UnitManager.Instance?.SpawnUnit(unitData, pos, rot, teamId);
         if (unitObj != null)
