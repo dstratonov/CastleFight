@@ -65,7 +65,10 @@ public class UnitCombat : NetworkBehaviour
         }
 
         float range = unit.Data != null ? unit.Data.attackRange * 2f : 10f;
+        float attackRange = unit.Data != null ? unit.Data.attackRange : 2f;
+        int enemyTeam = GetEnemyTeam();
 
+        // Priority 1: nearest enemy unit
         var nearestEnemy = UnitManager.Instance?.FindNearestEnemy(transform.position, unit.TeamId, range);
         if (nearestEnemy != null)
         {
@@ -74,12 +77,21 @@ public class UnitCombat : NetworkBehaviour
             return;
         }
 
-        var castleHealth = FindEnemyCastleHealth();
+        // Priority 2: nearest enemy building within engagement range
+        Health nearestBuildingHealth = FindNearestEnemyBuilding(enemyTeam, range);
+        if (nearestBuildingHealth != null)
+        {
+            targetHealth = nearestBuildingHealth;
+            MoveTowardTarget();
+            return;
+        }
+
+        // Priority 3: enemy castle when close enough
+        Health castleHealth = FindEnemyCastle(enemyTeam);
         if (castleHealth != null && !castleHealth.IsDead)
         {
             float castleDist = Vector3.Distance(transform.position, castleHealth.transform.position);
-            float attackRange = unit.Data != null ? unit.Data.attackRange : 2f;
-            if (castleDist <= attackRange * 1.5f)
+            if (castleDist <= attackRange * 2f)
             {
                 targetHealth = castleHealth;
                 return;
@@ -91,12 +103,39 @@ public class UnitCombat : NetworkBehaviour
             movement.SetDestinationToEnemyCastle();
     }
 
-    private Health FindEnemyCastleHealth()
+    private int GetEnemyTeam()
     {
-        int enemyTeam = TeamManager.Instance != null
+        return TeamManager.Instance != null
             ? TeamManager.Instance.GetEnemyTeamId(unit.TeamId)
             : (unit.TeamId == 0 ? 1 : 0);
+    }
 
+    private Health FindNearestEnemyBuilding(int enemyTeam, float maxRange)
+    {
+        if (BuildingManager.Instance == null) return null;
+
+        var buildings = BuildingManager.Instance.GetTeamBuildings(enemyTeam);
+        Health nearest = null;
+        float nearestDistSq = maxRange * maxRange;
+
+        foreach (var b in buildings)
+        {
+            if (b == null) continue;
+            var h = b.GetComponent<Health>();
+            if (h == null || h.IsDead) continue;
+
+            float distSq = (b.transform.position - transform.position).sqrMagnitude;
+            if (distSq < nearestDistSq)
+            {
+                nearestDistSq = distSq;
+                nearest = h;
+            }
+        }
+        return nearest;
+    }
+
+    private Health FindEnemyCastle(int enemyTeam)
+    {
         Castle[] castles = FindObjectsByType<Castle>(FindObjectsSortMode.None);
         foreach (var c in castles)
         {
