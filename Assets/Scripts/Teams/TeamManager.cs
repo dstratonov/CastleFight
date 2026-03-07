@@ -1,0 +1,77 @@
+using UnityEngine;
+using System.Collections.Generic;
+using System.Linq;
+
+public class TeamManager : MonoBehaviour
+{
+    public static TeamManager Instance { get; private set; }
+
+    public const int TeamCount = 2;
+
+    private readonly List<HashSet<int>> teams = new()
+    {
+        new HashSet<int>(),
+        new HashSet<int>()
+    };
+
+    private readonly Dictionary<int, int> playerTeamMap = new();
+
+    private void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
+    }
+
+    public void AddPlayerToTeam(int playerId, int teamId)
+    {
+        if (teamId < 0 || teamId >= TeamCount) return;
+        teams[teamId].Add(playerId);
+        playerTeamMap[playerId] = teamId;
+    }
+
+    public void RemovePlayerFromTeam(int playerId, int teamId)
+    {
+        if (teamId < 0 || teamId >= TeamCount) return;
+        teams[teamId].Remove(playerId);
+        playerTeamMap.Remove(playerId);
+    }
+
+    public int GetTeamWithFewestPlayers()
+    {
+        return teams[0].Count <= teams[1].Count ? 0 : 1;
+    }
+
+    public int GetTeamPlayerCount(int teamId)
+    {
+        if (teamId < 0 || teamId >= TeamCount) return 0;
+        return teams[teamId].Count;
+    }
+
+    public int GetPlayerTeam(int playerId)
+    {
+        return playerTeamMap.TryGetValue(playerId, out int team) ? team : -1;
+    }
+
+    public IReadOnlyCollection<int> GetTeamPlayers(int teamId)
+    {
+        if (teamId < 0 || teamId >= TeamCount) return System.Array.Empty<int>();
+        return teams[teamId];
+    }
+
+    public bool AreOnSameTeam(int playerA, int playerB)
+    {
+        if (!playerTeamMap.TryGetValue(playerA, out int teamA)) return false;
+        if (!playerTeamMap.TryGetValue(playerB, out int teamB)) return false;
+        return teamA == teamB;
+    }
+
+    public int GetEnemyTeamId(int teamId)
+    {
+        return teamId == 0 ? 1 : 0;
+    }
+}
