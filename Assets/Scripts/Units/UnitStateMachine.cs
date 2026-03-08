@@ -19,6 +19,7 @@ public class UnitStateMachine : NetworkBehaviour
     private Health health;
     private UnitAnimator unitAnimator;
     private bool animatorNeedsRetry;
+    private int retryFramesLeft = 120;
 
     public UnitState CurrentState => currentState;
 
@@ -75,8 +76,9 @@ public class UnitStateMachine : NetworkBehaviour
 
     private void Update()
     {
-        if (animatorNeedsRetry)
+        if (animatorNeedsRetry && retryFramesLeft > 0)
         {
+            retryFramesLeft--;
             SetupAnimator();
             if (!animatorNeedsRetry)
                 ApplyAnimation(currentState);
@@ -117,7 +119,8 @@ public class UnitStateMachine : NetworkBehaviour
 
     private void OnStateChanged(UnitState oldState, UnitState newState)
     {
-        ApplyAnimation(newState);
+        if (!isServer)
+            ApplyAnimation(newState);
     }
 
     private void ApplyAnimation(UnitState state)

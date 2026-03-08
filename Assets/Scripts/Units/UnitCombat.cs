@@ -217,12 +217,6 @@ public class UnitCombat : NetworkBehaviour
         if (lookDir.sqrMagnitude > 0.001f)
             transform.forward = lookDir.normalized;
 
-        RpcPlayAttackAnimation();
-    }
-
-    [ClientRpc]
-    private void RpcPlayAttackAnimation()
-    {
         var unitAnim = GetComponent<UnitAnimator>();
         if (unitAnim != null)
             unitAnim.PlayAttack();

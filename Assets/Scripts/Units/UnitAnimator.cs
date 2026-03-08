@@ -11,38 +11,17 @@ public class UnitAnimator : MonoBehaviour
     private int resolvedDeath = -1;
     private int resolvedHit = -1;
 
-    private int activeLoopHash;
+    private int desiredLoop;
+    private int currentLoopHash;
+    private int oneShotHash;
+    private bool oneShotActive;
+    private float oneShotFallbackTimer;
     private bool isDead;
-    private bool playingOneShot;
-    private float oneShotTimer;
-    private float attackClipLength = 1f;
-    private float hitClipLength = 0.5f;
 
     private const float BlendTime = 0.15f;
+    private const float MaxOneShotDuration = 5f;
 
-    // --- Heroic Fantasy Creatures Pack naming conventions ---
-    // Goblin/Orc: idleSwordShield, walkNormalSwordShield, attack1SwordShield, deathSwordShield
-    // Troll/Harpy: idle, walk, attack1, death (all lowercase)
-    // Werewolf/Vampire: idleBreathe, walk, clawsAttackLeft, death
-    // Spider: IdleNormal, CrawlNormal, Bite, DeathNormal
-    // Viper: Idle, Crawl, JumpBite, Death
-    // Dragonide: IdleUnarmed, WalkUnarmed, DeathUnarmed
-    // LizardWarrior: IdleSpear, WalkSpear, Attack1Spear, DeathSpear
-    // Undead: idleNormal, walkWeapon, attack1Weapon, death1
-    // Kobold: idleCombat, walkNormal, attack1, death
-    // Cyclops: idleLookAround, walk, leftHandAttackForward, death
-    // Griffin/MountainDragon: Idle, Walk, JumpBite/SpitFireBall, Death
-    // OakTreeEnt: IdleBreathe, Walk, ClawsAttackL, Death
-    // Chimera: idle, walk, ramAttack, death
-    // Ghoul/Mummy: Idle, Walk, Attack1, Death
-    // Hydra: IdleBreathe, Walk, Bite3HitCombo, Death
-    //
-    // --- Monsters Ultimate Pack 11 naming conventions ---
-    // Mushroom: Idle/Idle 0-5, Walk Forward In Place, Head Attack, Die
-    // Bee: Idle/Idle 0-6, Fly Forward In Place, Sting Projectile Attack, Die
-    // Plant Monster: Idle/Idle 0-7, Move Forward In Place, Projectile Attack, Die
-    // Dark Wizard: Idle/Idle 0-6, Fly Forward In Place, Slash Attack, Die
-    // Eyeball Monster: Idle/Idle 0-6, Fly Forward In Place, Projectile Attack, Die
+    #region State Name Tables
 
     private static readonly string[][] IdleNames =
     {
@@ -98,15 +77,12 @@ public class UnitAnimator : MonoBehaviour
     {
         new[]
         {
-            // Generic simple names (lowercase + capitalized)
             "attack1", "attack2", "attack3",
             "Attack1", "Attack2", "Attack3",
-            // Bite / jaw attacks
             "Bite", "BiteForward", "BiteAttack", "JumpBite",
             "JumpBiteNormal", "JumpBiteThreat",
             "snakeBiteAttack", "biteAttackBareHands",
             "Bite3HitCombo",
-            // Claw attacks (all naming variants)
             "clawsAttackLeft", "clawsAttackRight",
             "ClawsAttackLeft", "ClawsAttackRight",
             "clawsAttackL", "clawsAttackR",
@@ -114,25 +90,21 @@ public class UnitAnimator : MonoBehaviour
             "LeftClawsAttack", "RightClawsAttack",
             "clawsAttack2HitCombo",
             "ClawsLeftAttackCombat", "ClawsRightAttackCombat",
-            // Weapon-specific attacks
             "attack1SwordShield", "attack1Daggers",
             "attack1Weapon", "attack2Weapon", "attack3Weapon",
             "Attack1Spear", "Attack2Spear", "Attack3Spear",
             "throwSpear", "TongueAttackSpear",
-            // Combos
             "2HitComboSwordShield", "2HitComboDaggers",
             "2HitComboAttack", "3HitComboAttack",
             "2HitComboA", "2HitComboB",
             "3HitComboA", "3HitComboB",
             "2HitComboForward",
-            // Ranged / spell / projectile
             "Head Attack", "Projectile Attack", "Sting Projectile Attack",
             "Poison AOE Attack", "Cast Spell",
             "SpitFireBall", "SpitVenom", "3toxicSpitCombo",
             "shootSlingshot",
             "Slash Attack", "Dash Attack In Place",
             "Tentacles Attack", "Eyebeam Attack",
-            // Heavy / special attacks
             "SpinningTailAttack", "StingerAttackCombat",
             "ramAttack", "StompAttack", "smashAttackForward",
             "ThrowRock", "ThrowSpiderWebNormal", "ThrowSpiderWebThreat",
@@ -171,6 +143,17 @@ public class UnitAnimator : MonoBehaviour
         }
     };
 
+    private static readonly string[] IdleKeywords = { "idle", "breathe", "lookaround", "rest", "stand" };
+    private static readonly string[] WalkKeywords = { "walk", "move", "crawl", "fly forward", "gallop" };
+    private static readonly string[] RunKeywords = { "run", "sprint" };
+    private static readonly string[] AttackKeywords = { "attack", "bite", "claw", "slash", "hit combo", "spit", "sting", "stomp", "smash", "throw", "cast", "projectile" };
+    private static readonly string[] DeathKeywords = { "die", "death" };
+    private static readonly string[] HitKeywords = { "hit", "damage", "hurt" };
+
+    #endregion
+
+    #region Initialization
+
     public void Initialize(Animator anim)
     {
         animator = anim;
@@ -191,7 +174,10 @@ public class UnitAnimator : MonoBehaviour
         if (resolvedWalk < 0 && resolvedRun >= 0) resolvedWalk = resolvedRun;
         if (resolvedRun < 0 && resolvedWalk >= 0) resolvedRun = resolvedWalk;
 
-        CacheClipLengths();
+        desiredLoop = resolvedIdle;
+        currentLoopHash = 0;
+        oneShotActive = false;
+        isDead = false;
 
         if (resolvedIdle < 0)
         {
@@ -205,39 +191,17 @@ public class UnitAnimator : MonoBehaviour
     }
 
     private HashSet<string> clipNames;
-    private Dictionary<int, float> clipLengthByHash;
 
     private void CacheClipNames()
     {
         clipNames = new HashSet<string>();
-        clipLengthByHash = new Dictionary<int, float>();
         if (animator.runtimeAnimatorController == null) return;
         foreach (var clip in animator.runtimeAnimatorController.animationClips)
         {
             if (clip != null)
-            {
                 clipNames.Add(clip.name);
-                int hash = Animator.StringToHash(clip.name);
-                clipLengthByHash[hash] = clip.length;
-            }
         }
     }
-
-    private void CacheClipLengths()
-    {
-        if (clipLengthByHash == null) return;
-        if (resolvedAttack >= 0 && clipLengthByHash.TryGetValue(resolvedAttack, out float atkLen))
-            attackClipLength = atkLen;
-        if (resolvedHit >= 0 && clipLengthByHash.TryGetValue(resolvedHit, out float hitLen))
-            hitClipLength = hitLen;
-    }
-
-    private static readonly string[] IdleKeywords = { "idle", "breathe", "lookaround", "rest", "stand" };
-    private static readonly string[] WalkKeywords = { "walk", "move", "crawl", "fly forward", "gallop" };
-    private static readonly string[] RunKeywords = { "run", "sprint" };
-    private static readonly string[] AttackKeywords = { "attack", "bite", "claw", "slash", "hit combo", "spit", "sting", "stomp", "smash", "throw", "cast", "projectile" };
-    private static readonly string[] DeathKeywords = { "die", "death" };
-    private static readonly string[] HitKeywords = { "hit", "damage", "hurt" };
 
     private int ResolveState(string[][] nameGroups, string[] fallbackKeywords = null)
     {
@@ -253,7 +217,6 @@ public class UnitAnimator : MonoBehaviour
             }
         }
 
-        // Fallback: try every clip name as a potential state name if it matches keywords
         if (clipNames != null && fallbackKeywords != null)
         {
             foreach (var clipName in clipNames)
@@ -275,90 +238,157 @@ public class UnitAnimator : MonoBehaviour
         return -1;
     }
 
-    private void LateUpdate()
-    {
-        if (animator == null || isDead) return;
+    #endregion
 
-        if (playingOneShot)
-        {
-            oneShotTimer -= Time.deltaTime;
-            if (oneShotTimer <= 0f)
-            {
-                playingOneShot = false;
-                if (activeLoopHash != 0)
-                    animator.CrossFadeInFixedTime(activeLoopHash, BlendTime, 0);
-                else if (resolvedIdle >= 0)
-                    StartLoop(resolvedIdle);
-            }
-            return;
-        }
+    #region Public API
 
-        if (activeLoopHash != 0 && !animator.IsInTransition(0))
-        {
-            var info = animator.GetCurrentAnimatorStateInfo(0);
-            if (info.normalizedTime >= 1f)
-                animator.Play(activeLoopHash, 0, 0f);
-        }
-    }
-
+    /// <summary>
+    /// Sets desired loop to idle. Safe to call any time -- will NOT interrupt one-shots.
+    /// </summary>
     public void PlayIdle()
     {
         if (resolvedIdle >= 0)
-        {
-            playingOneShot = false;
-            StartLoop(resolvedIdle);
-        }
+            desiredLoop = resolvedIdle;
     }
 
+    /// <summary>
+    /// Sets desired loop to walk. Safe to call any time -- will NOT interrupt one-shots.
+    /// </summary>
     public void PlayWalk()
     {
         int target = resolvedWalk >= 0 ? resolvedWalk : resolvedRun;
         if (target >= 0)
-        {
-            playingOneShot = false;
-            StartLoop(target);
-        }
+            desiredLoop = target;
     }
 
+    /// <summary>
+    /// Triggers a one-shot attack animation. Ignores call if another one-shot is active.
+    /// </summary>
     public void PlayAttack()
     {
-        if (resolvedAttack < 0) return;
-        if (playingOneShot) return;
+        if (resolvedAttack < 0 || isDead) return;
+        if (oneShotActive) return;
 
-        activeLoopHash = resolvedIdle >= 0 ? resolvedIdle : 0;
-        playingOneShot = true;
-        oneShotTimer = attackClipLength + BlendTime;
-        animator.CrossFadeInFixedTime(resolvedAttack, BlendTime, 0);
+        oneShotHash = resolvedAttack;
+        oneShotActive = true;
+        oneShotFallbackTimer = MaxOneShotDuration;
+        animator.Play(resolvedAttack, 0, 0f);
     }
 
+    /// <summary>
+    /// Triggers a one-shot hit reaction. Ignores call if another one-shot is active.
+    /// </summary>
+    public void PlayHit()
+    {
+        if (resolvedHit < 0 || isDead) return;
+        if (oneShotActive) return;
+
+        oneShotHash = resolvedHit;
+        oneShotActive = true;
+        oneShotFallbackTimer = MaxOneShotDuration;
+        animator.Play(resolvedHit, 0, 0f);
+    }
+
+    /// <summary>
+    /// Plays death animation. Overrides everything.
+    /// </summary>
     public void PlayDeath()
     {
         if (resolvedDeath < 0) return;
         isDead = true;
-        playingOneShot = false;
-        activeLoopHash = 0;
-        animator.CrossFadeInFixedTime(resolvedDeath, BlendTime, 0);
+        oneShotActive = false;
+        desiredLoop = 0;
+        currentLoopHash = 0;
+        animator.Play(resolvedDeath, 0, 0f);
     }
 
-    public void PlayHit()
+    #endregion
+
+    #region LateUpdate -- Animation Reconciliation
+
+    private void LateUpdate()
     {
-        if (resolvedHit < 0 || isDead || playingOneShot) return;
-        playingOneShot = true;
+        if (animator == null || isDead) return;
 
-        oneShotTimer = hitClipLength + BlendTime;
-        animator.CrossFadeInFixedTime(resolvedHit, BlendTime * 0.5f, 0);
+        if (oneShotActive)
+        {
+            UpdateOneShot();
+            return;
+        }
+
+        UpdateLoop();
     }
 
-    private void StartLoop(int stateHash)
+    private void UpdateOneShot()
     {
-        if (activeLoopHash == stateHash && !playingOneShot) return;
-        activeLoopHash = stateHash;
-        animator.CrossFadeInFixedTime(stateHash, BlendTime, 0);
+        oneShotFallbackTimer -= Time.deltaTime;
+
+        if (!animator.IsInTransition(0))
+        {
+            var info = animator.GetCurrentAnimatorStateInfo(0);
+            if (info.shortNameHash == oneShotHash && info.normalizedTime >= 1f)
+            {
+                FinishOneShot();
+                return;
+            }
+
+            // Animator may have transitioned away from our one-shot via controller logic.
+            // If the current state doesn't match the one-shot hash and we're not in
+            // transition, the controller overrode us -- treat the one-shot as done.
+            if (info.shortNameHash != oneShotHash && oneShotFallbackTimer < MaxOneShotDuration - 0.1f)
+            {
+                FinishOneShot();
+                return;
+            }
+        }
+
+        if (oneShotFallbackTimer <= 0f)
+            FinishOneShot();
     }
+
+    private void FinishOneShot()
+    {
+        oneShotActive = false;
+        oneShotHash = 0;
+        ApplyDesiredLoop();
+    }
+
+    private void UpdateLoop()
+    {
+        if (desiredLoop <= 0) return;
+
+        if (currentLoopHash != desiredLoop)
+        {
+            ApplyDesiredLoop();
+            return;
+        }
+
+        // Re-loop non-looping clips when they finish
+        if (!animator.IsInTransition(0))
+        {
+            var info = animator.GetCurrentAnimatorStateInfo(0);
+            if (info.shortNameHash == currentLoopHash && info.normalizedTime >= 1f)
+                animator.Play(currentLoopHash, 0, 0f);
+        }
+    }
+
+    private void ApplyDesiredLoop()
+    {
+        if (desiredLoop <= 0) return;
+        currentLoopHash = desiredLoop;
+        animator.CrossFadeInFixedTime(desiredLoop, BlendTime, 0);
+    }
+
+    #endregion
+
+    #region Public State Queries
 
     public bool HasAnimator => animator != null && animator.runtimeAnimatorController != null;
     public bool HasIdleAnim => resolvedIdle >= 0;
     public bool HasWalkAnim => resolvedWalk >= 0;
     public bool HasAttackAnim => resolvedAttack >= 0;
     public bool HasDeathAnim => resolvedDeath >= 0;
+    public bool IsPlayingOneShot => oneShotActive;
+
+    #endregion
 }
