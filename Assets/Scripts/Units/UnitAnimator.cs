@@ -163,6 +163,7 @@ public class UnitAnimator : MonoBehaviour
         animator.speed = 1f;
 
         CacheClipNames();
+        CacheLayerName();
 
         resolvedIdle = ResolveState(IdleNames, IdleKeywords);
         resolvedWalk = ResolveState(WalkNames, WalkKeywords);
@@ -173,6 +174,29 @@ public class UnitAnimator : MonoBehaviour
 
         if (resolvedWalk < 0 && resolvedRun >= 0) resolvedWalk = resolvedRun;
         if (resolvedRun < 0 && resolvedWalk >= 0) resolvedRun = resolvedWalk;
+
+        // Fallback: capture the Animator's default entry state as idle
+        if (resolvedIdle < 0)
+        {
+            var defaultInfo = animator.GetCurrentAnimatorStateInfo(0);
+            if (defaultInfo.shortNameHash != 0 && defaultInfo.length > 0)
+            {
+                resolvedIdle = defaultInfo.shortNameHash;
+                Debug.Log($"[UnitAnimator] Using Animator default state as idle for {gameObject.name}");
+            }
+        }
+
+        // Fallback: use walk/run as idle if still unresolved
+        if (resolvedIdle < 0 && resolvedWalk >= 0)
+        {
+            resolvedIdle = resolvedWalk;
+            Debug.Log($"[UnitAnimator] Using walk as idle fallback for {gameObject.name}");
+        }
+        if (resolvedIdle < 0 && resolvedRun >= 0)
+        {
+            resolvedIdle = resolvedRun;
+            Debug.Log($"[UnitAnimator] Using run as idle fallback for {gameObject.name}");
+        }
 
         desiredLoop = resolvedIdle;
         currentLoopHash = 0;
@@ -203,6 +227,30 @@ public class UnitAnimator : MonoBehaviour
         }
     }
 
+    private string animatorLayerName;
+
+    private void CacheLayerName()
+    {
+        if (animator != null && animator.layerCount > 0)
+            animatorLayerName = animator.GetLayerName(0);
+    }
+
+    private int CheckState(string stateName)
+    {
+        int shortHash = Animator.StringToHash(stateName);
+        if (animator.HasState(0, shortHash))
+            return shortHash;
+
+        if (!string.IsNullOrEmpty(animatorLayerName))
+        {
+            int fullHash = Animator.StringToHash(animatorLayerName + "." + stateName);
+            if (animator.HasState(0, fullHash))
+                return shortHash;
+        }
+
+        return -1;
+    }
+
     private int ResolveState(string[][] nameGroups, string[] fallbackKeywords = null)
     {
         if (animator == null || animator.runtimeAnimatorController == null) return -1;
@@ -211,9 +259,8 @@ public class UnitAnimator : MonoBehaviour
         {
             foreach (var name in group)
             {
-                int hash = Animator.StringToHash(name);
-                if (animator.HasState(0, hash))
-                    return hash;
+                int result = CheckState(name);
+                if (result >= 0) return result;
             }
         }
 
@@ -226,9 +273,8 @@ public class UnitAnimator : MonoBehaviour
                 {
                     if (lower.Contains(keyword))
                     {
-                        int hash = Animator.StringToHash(clipName);
-                        if (animator.HasState(0, hash))
-                            return hash;
+                        int result = CheckState(clipName);
+                        if (result >= 0) return result;
                         break;
                     }
                 }
@@ -237,6 +283,7 @@ public class UnitAnimator : MonoBehaviour
 
         return -1;
     }
+
 
     #endregion
 

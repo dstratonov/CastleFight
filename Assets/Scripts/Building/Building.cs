@@ -27,6 +27,38 @@ public class Building : NetworkBehaviour
     {
         health = GetComponent<Health>();
         spawner = GetComponent<Spawner>();
+        StripModelColliders();
+    }
+
+    private void StripModelColliders()
+    {
+        var model = transform.Find("Model");
+        if (model == null) return;
+
+        foreach (var col in model.GetComponentsInChildren<BoxCollider>(true))
+            Destroy(col);
+
+        FitRootColliderToModel();
+    }
+
+    private void FitRootColliderToModel()
+    {
+        var renderers = GetComponentsInChildren<Renderer>();
+        if (renderers.Length == 0) return;
+
+        Bounds worldBounds = renderers[0].bounds;
+        for (int i = 1; i < renderers.Length; i++)
+            worldBounds.Encapsulate(renderers[i].bounds);
+
+        var box = GetComponent<BoxCollider>();
+        if (box == null) box = gameObject.AddComponent<BoxCollider>();
+
+        box.center = transform.InverseTransformPoint(worldBounds.center);
+        box.size = new Vector3(
+            worldBounds.size.x / transform.lossyScale.x,
+            worldBounds.size.y / transform.lossyScale.y,
+            worldBounds.size.z / transform.lossyScale.z
+        );
     }
 
     [Server]

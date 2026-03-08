@@ -13,6 +13,8 @@ public class SelectionManager : MonoBehaviour
     private GameObject currentSelection;
     private GameObject selectionIndicator;
     private Material selectionMaterial;
+    private float selectionGroundY;
+    private Vector3 selectionCenterOffset;
 
     public GameObject CurrentSelection => currentSelection;
 
@@ -24,7 +26,11 @@ public class SelectionManager : MonoBehaviour
 
     private void OnDestroy()
     {
-        CleanupMaterial();
+        if (selectionMaterial != null)
+        {
+            Destroy(selectionMaterial);
+            selectionMaterial = null;
+        }
         if (Instance == this) Instance = null;
     }
 
@@ -73,6 +79,15 @@ public class SelectionManager : MonoBehaviour
         }
     }
 
+    private void LateUpdate()
+    {
+        if (selectionIndicator == null || currentSelection == null) return;
+
+        Vector3 pos = currentSelection.transform.position + selectionCenterOffset;
+        pos.y = selectionGroundY;
+        selectionIndicator.transform.position = pos;
+    }
+
     public void Select(GameObject target)
     {
         if (currentSelection == target) return;
@@ -104,34 +119,94 @@ public class SelectionManager : MonoBehaviour
     {
         if (currentSelection == null) return;
 
-        selectionIndicator = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        selectionIndicator.name = "SelectionRing";
-        selectionIndicator.transform.SetParent(currentSelection.transform, false);
-        selectionIndicator.transform.localPosition = new Vector3(0, 0.05f, 0);
-        selectionIndicator.transform.localScale = new Vector3(2.5f, 0.02f, 2.5f);
+        float diameter;
+        Vector3 boundsCenter;
+        ComputeSelectionBounds(currentSelection, out diameter, out selectionGroundY, out boundsCenter);
 
-        var col = selectionIndicator.GetComponent<Collider>();
-        if (col != null) Object.Destroy(col);
+        selectionCenterOffset = boundsCenter - currentSelection.transform.position;
+        selectionCenterOffset.y = 0f;
 
-        var renderer = selectionIndicator.GetComponent<Renderer>();
-        if (renderer != null)
+        selectionIndicator = CreateRingQuad(diameter);
+
+        Vector3 pos = currentSelection.transform.position + selectionCenterOffset;
+        pos.y = selectionGroundY;
+        selectionIndicator.transform.position = pos;
+    }
+
+    private void ComputeSelectionBounds(GameObject target, out float diameter, out float groundY, out Vector3 boundsCenter)
+    {
+        diameter = 2.5f;
+        groundY = target.transform.position.y + 0.05f;
+        boundsCenter = target.transform.position;
+
+        var renderers = target.GetComponentsInChildren<Renderer>();
+        if (renderers.Length == 0) return;
+
+        Bounds combined = renderers[0].bounds;
+        for (int i = 1; i < renderers.Length; i++)
+            combined.Encapsulate(renderers[i].bounds);
+
+        diameter = Mathf.Max(combined.size.x, combined.size.z) * 1.15f;
+        diameter = Mathf.Clamp(diameter, 1.5f, 60f);
+        groundY = Mathf.Max(combined.min.y + 0.25f, target.transform.position.y + 0.05f);
+        boundsCenter = combined.center;
+    }
+
+    private GameObject CreateRingQuad(float diameter)
+    {
+        var go = new GameObject("SelectionRing");
+
+        var mf = go.AddComponent<MeshFilter>();
+        mf.sharedMesh = CreateQuadMesh();
+
+        var mr = go.AddComponent<MeshRenderer>();
+        mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        mr.receiveShadows = false;
+
+        if (selectionMaterial != null) Destroy(selectionMaterial);
+
+        var shader = Shader.Find("Custom/SelectionRing");
+        if (shader == null)
         {
-            var shader = Shader.Find("Universal Render Pipeline/Unlit");
-            if (shader == null) shader = Shader.Find("Unlit/Color");
-            if (shader != null)
-            {
-                if (selectionMaterial != null) Destroy(selectionMaterial);
-                selectionMaterial = new Material(shader);
-                selectionMaterial.color = new Color(0.2f, 1f, 0.3f, 0.5f);
-                selectionMaterial.SetFloat("_Surface", 1);
-                selectionMaterial.SetFloat("_Blend", 0);
-                selectionMaterial.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-                selectionMaterial.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-                selectionMaterial.SetInt("_ZWrite", 0);
-                selectionMaterial.renderQueue = 3000;
-                renderer.material = selectionMaterial;
-            }
+            shader = Shader.Find("Unlit/Color");
+            Debug.LogWarning("[SelectionManager] Custom/SelectionRing shader not found, using fallback");
         }
+
+        selectionMaterial = new Material(shader);
+        selectionMaterial.color = new Color(0.2f, 1f, 0.3f, 0.55f);
+        mr.material = selectionMaterial;
+
+        go.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+        go.transform.localScale = new Vector3(diameter, diameter, 1f);
+
+        return go;
+    }
+
+    private static Mesh _sharedQuadMesh;
+
+    private static Mesh CreateQuadMesh()
+    {
+        if (_sharedQuadMesh != null) return _sharedQuadMesh;
+
+        _sharedQuadMesh = new Mesh { name = "SelectionQuad" };
+        _sharedQuadMesh.vertices = new[]
+        {
+            new Vector3(-0.5f, -0.5f, 0f),
+            new Vector3( 0.5f, -0.5f, 0f),
+            new Vector3( 0.5f,  0.5f, 0f),
+            new Vector3(-0.5f,  0.5f, 0f)
+        };
+        _sharedQuadMesh.uv = new[]
+        {
+            new Vector2(0f, 0f),
+            new Vector2(1f, 0f),
+            new Vector2(1f, 1f),
+            new Vector2(0f, 1f)
+        };
+        _sharedQuadMesh.triangles = new[] { 0, 2, 1, 0, 3, 2 };
+        _sharedQuadMesh.RecalculateNormals();
+        _sharedQuadMesh.RecalculateBounds();
+        return _sharedQuadMesh;
     }
 
     private void RemoveHighlight()
@@ -140,15 +215,6 @@ public class SelectionManager : MonoBehaviour
         {
             Destroy(selectionIndicator);
             selectionIndicator = null;
-        }
-    }
-
-    private void CleanupMaterial()
-    {
-        if (selectionMaterial != null)
-        {
-            Destroy(selectionMaterial);
-            selectionMaterial = null;
         }
     }
 }

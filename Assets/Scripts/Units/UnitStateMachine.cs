@@ -19,7 +19,7 @@ public class UnitStateMachine : NetworkBehaviour
     private Health health;
     private UnitAnimator unitAnimator;
     private bool animatorNeedsRetry;
-    private int retryFramesLeft = 120;
+    private int retryFramesLeft = 10;
 
     public UnitState CurrentState => currentState;
 
