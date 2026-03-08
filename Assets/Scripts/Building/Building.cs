@@ -43,12 +43,7 @@ public class Building : NetworkBehaviour
 
     private void FitRootColliderToModel()
     {
-        var renderers = GetComponentsInChildren<Renderer>();
-        if (renderers.Length == 0) return;
-
-        Bounds worldBounds = renderers[0].bounds;
-        for (int i = 1; i < renderers.Length; i++)
-            worldBounds.Encapsulate(renderers[i].bounds);
+        if (!BoundsHelper.TryGetCombinedBounds(gameObject, out Bounds worldBounds)) return;
 
         var box = GetComponent<BoxCollider>();
         if (box == null) box = gameObject.AddComponent<BoxCollider>();

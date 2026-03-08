@@ -76,8 +76,12 @@ public class UnitMovement : NetworkBehaviour
         Vector3 toTarget = target - pos;
         toTarget.y = 0;
 
+        float effectiveThreshold = waypointThreshold;
+        if (unit != null)
+            effectiveThreshold = Mathf.Max(waypointThreshold, unit.EffectiveRadius * 0.8f);
+
         float distToWaypoint = toTarget.magnitude;
-        if (distToWaypoint < waypointThreshold)
+        if (distToWaypoint < effectiveThreshold)
         {
             waypointIndex++;
             if (waypointIndex >= waypoints.Count)
@@ -155,7 +159,10 @@ public class UnitMovement : NetworkBehaviour
             }
 
             if (dist < combinedRadius * 1.5f)
-                force += offset.normalized * (1f - dist / effectiveRadius);
+            {
+                float sizeRatio = Mathf.Clamp(otherRadius / myRadius, 0.1f, 3f);
+                force += offset.normalized * (1f - dist / effectiveRadius) * sizeRatio;
+            }
         }
 
         return force;

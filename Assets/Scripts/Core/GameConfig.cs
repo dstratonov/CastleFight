@@ -19,4 +19,7 @@ public class GameConfig : ScriptableObject
 
     [Header("Match")]
     public float matchStartCountdown = 5f;
+
+    [Header("Castle")]
+    public int castleMaxHealth = 5000;
 }

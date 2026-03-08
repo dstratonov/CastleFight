@@ -159,8 +159,8 @@ public class InfoPanelUI : MonoBehaviour
         }
 
         bool isEnemy = NetworkPlayer.Local != null && unit.TeamId != NetworkPlayer.Local.TeamId;
-        SetPortrait(theme != null ? theme.iconUnit : null,
-            isEnemy ? new Color(1f, 0.3f, 0.3f) : new Color(0.3f, 1f, 0.5f));
+        Sprite portrait = data != null && data.icon != null ? data.icon : theme?.iconUnit;
+        SetPortrait(portrait, isEnemy ? new Color(1f, 0.3f, 0.3f) : new Color(0.3f, 1f, 0.5f));
         UpdateHealthBar();
     }
 
@@ -187,8 +187,8 @@ public class InfoPanelUI : MonoBehaviour
         }
 
         bool isEnemy = NetworkPlayer.Local != null && building.TeamId != NetworkPlayer.Local.TeamId;
-        SetPortrait(theme != null ? theme.iconBuild : null,
-            isEnemy ? new Color(1f, 0.4f, 0.2f) : new Color(0.4f, 0.8f, 1f));
+        Sprite portrait = data != null && data.icon != null ? data.icon : theme?.iconBuild;
+        SetPortrait(portrait, isEnemy ? new Color(1f, 0.4f, 0.2f) : new Color(0.4f, 0.8f, 1f));
         UpdateHealthBar();
     }
 

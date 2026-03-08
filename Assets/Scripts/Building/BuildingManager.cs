@@ -110,29 +110,6 @@ public class BuildingManager : NetworkBehaviour
 
     public static Bounds ComputeBuildingBounds(GameObject buildingObj)
     {
-        var renderers = buildingObj.GetComponentsInChildren<Renderer>();
-        if (renderers.Length == 0)
-            return new Bounds(buildingObj.transform.position, Vector3.one * 2f);
-
-        Bounds combined = default;
-        bool first = true;
-        foreach (var r in renderers)
-        {
-            if (r is ParticleSystemRenderer) continue;
-            if (first)
-            {
-                combined = r.bounds;
-                first = false;
-            }
-            else
-            {
-                combined.Encapsulate(r.bounds);
-            }
-        }
-
-        if (first)
-            return new Bounds(buildingObj.transform.position, Vector3.one * 2f);
-
-        return combined;
+        return BoundsHelper.GetCombinedBounds(buildingObj);
     }
 }

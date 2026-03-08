@@ -79,6 +79,8 @@ public class UnitCombat : NetworkBehaviour
         {
             float dist = DistanceToTarget(targetHealth);
             float range = unit.Data != null ? unit.Data.attackRange : 2f;
+            float myRadius = unit != null ? unit.EffectiveRadius : 0.5f;
+            float effectiveRange = range + myRadius;
 
             bool reachedDestination = movement != null && !movement.IsMoving && !movement.HasPath;
             bool isStructure = targetHealth.GetComponent<Castle>() != null ||
@@ -89,14 +91,14 @@ public class UnitCombat : NetworkBehaviour
             if (isStructure && stillPathing)
                 inRange = false;
             else if (reachedDestination)
-                inRange = dist <= range * 2.5f;
+                inRange = dist <= effectiveRange * 2.5f;
             else
-                inRange = dist <= range;
+                inRange = dist <= effectiveRange;
 
             if (inRange)
             {
                 if (!wasInRange)
-                    Debug.Log($"{UnitTag()} IN RANGE of {targetHealth.name} dist={dist:F2} range={range:F2} reached={reachedDestination}");
+                    Debug.Log($"{UnitTag()} IN RANGE of {targetHealth.name} dist={dist:F2} effRange={effectiveRange:F2} reached={reachedDestination}");
                 wasInRange = true;
                 movement?.Stop();
                 stateMachine?.SetState(UnitState.Fighting);
@@ -105,12 +107,12 @@ public class UnitCombat : NetworkBehaviour
             else
             {
                 if (wasInRange)
-                    Debug.Log($"{UnitTag()} LEFT RANGE of {targetHealth.name} dist={dist:F2} range={range:F2}");
+                    Debug.Log($"{UnitTag()} LEFT RANGE of {targetHealth.name} dist={dist:F2} effRange={effectiveRange:F2}");
                 wasInRange = false;
                 if (movement != null && !movement.IsMoving)
                 {
                     if (ShouldLog())
-                        Debug.Log($"{UnitTag()} OUT OF RANGE of {targetHealth.name} dist={dist:F2} range={range:F2}, not moving -> re-path");
+                        Debug.Log($"{UnitTag()} OUT OF RANGE of {targetHealth.name} dist={dist:F2} effRange={effectiveRange:F2}, not moving -> re-path");
                     MoveTowardTarget();
                 }
             }
@@ -135,7 +137,8 @@ public class UnitCombat : NetworkBehaviour
         if (targetHealth != null && !targetHealth.IsDead)
         {
             float dist = DistanceToTarget(targetHealth);
-            float scanRange = unit.Data != null ? unit.Data.attackRange * 2f : 10f;
+            float myRadius = unit != null ? unit.EffectiveRadius : 0.5f;
+            float scanRange = (unit.Data != null ? unit.Data.attackRange * 2f : 10f) + myRadius;
             if (dist <= scanRange)
             {
                 if (log)
@@ -146,7 +149,8 @@ public class UnitCombat : NetworkBehaviour
                 Debug.Log($"{UnitTag()} SCAN: target {targetHealth.name} too far dist={dist:F2} > scanRange={scanRange:F2}, rescanning");
         }
 
-        float range = unit.Data != null ? unit.Data.attackRange * 2f : 10f;
+        float unitRad = unit != null ? unit.EffectiveRadius : 0.5f;
+        float range = (unit.Data != null ? unit.Data.attackRange * 2f : 10f) + unitRad;
         int enemyTeam = GetEnemyTeam();
 
         Health bestTarget = FindBestEnemyUnit(range);
@@ -238,26 +242,7 @@ public class UnitCombat : NetworkBehaviour
 
     private Vector3 ClosestPointOnTarget(Health target)
     {
-        var renderers = target.GetComponentsInChildren<Renderer>();
-        if (renderers.Length > 0)
-        {
-            Bounds combined = default;
-            bool first = true;
-            foreach (var r in renderers)
-            {
-                if (r is ParticleSystemRenderer) continue;
-                if (first) { combined = r.bounds; first = false; }
-                else combined.Encapsulate(r.bounds);
-            }
-            if (!first)
-                return combined.ClosestPoint(transform.position);
-        }
-
-        var col = target.GetComponent<Collider>();
-        if (col != null)
-            return col.ClosestPoint(transform.position);
-
-        return target.transform.position;
+        return BoundsHelper.ClosestPoint(target.gameObject, transform.position);
     }
 
     private int GetEnemyTeam()
@@ -316,14 +301,22 @@ public class UnitCombat : NetworkBehaviour
         float unitRadius = unit != null ? unit.EffectiveRadius : 0.5f;
         Vector3 destination;
 
-        if (engageCount <= 1 || targetRadius < 1f)
         {
-            destination = ClosestPointOnTarget(targetHealth);
-            destination.y = transform.position.y;
-        }
-        else
-        {
-            float angle = GetInstanceAngle();
+            Vector3 toMe = transform.position - targetCenter;
+            toMe.y = 0;
+            if (toMe.sqrMagnitude < 0.01f)
+                toMe = Vector3.right;
+            float baseAngle = Mathf.Atan2(toMe.z, toMe.x);
+
+            float spreadOffset = 0f;
+            if (engageCount > 1)
+            {
+                int id = gameObject.GetInstanceID();
+                float hash = ((id * 2654435761u) & 0xFFFFFF) / (float)0xFFFFFF;
+                spreadOffset = (hash - 0.5f) * Mathf.PI * 0.5f;
+            }
+            float angle = baseAngle + spreadOffset;
+
             float approachDist = targetRadius + attackRange * 0.5f + unitRadius;
             destination = targetCenter + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * approachDist;
             destination.y = transform.position.y;
@@ -340,7 +333,7 @@ public class UnitCombat : NetworkBehaviour
             Debug.Log($"{UnitTag()} MOVE -> {targetHealth.name}" +
                 $"\n  myPos={transform.position}" +
                 $"\n  targetCenter={targetCenter} radius={targetRadius:F1}" +
-                $"\n  engagers={engageCount} angle={GetInstanceAngle() * Mathf.Rad2Deg:F0}deg" +
+                $"\n  engagers={engageCount} unitRadius={unitRadius:F2}" +
                 $"\n  preSnap={preSnap}" +
                 $"\n  afterWalkSnap={destination} (moved {snapDelta:F2})" +
                 $"\n  finalDist={Vector3.Distance(transform.position, destination):F2}");
@@ -351,51 +344,12 @@ public class UnitCombat : NetworkBehaviour
 
     private Vector3 GetTargetCenter(Health target)
     {
-        var renderers = target.GetComponentsInChildren<Renderer>();
-        if (renderers.Length > 0)
-        {
-            Bounds combined = default;
-            bool first = true;
-            foreach (var r in renderers)
-            {
-                if (r is ParticleSystemRenderer) continue;
-                if (first) { combined = r.bounds; first = false; }
-                else combined.Encapsulate(r.bounds);
-            }
-            if (!first)
-            {
-                Vector3 c = combined.center;
-                c.y = target.transform.position.y;
-                return c;
-            }
-        }
-        return target.transform.position;
+        return BoundsHelper.GetCenter(target.gameObject);
     }
 
     private float GetTargetRadius(Health target)
     {
-        var renderers = target.GetComponentsInChildren<Renderer>();
-        if (renderers.Length > 0)
-        {
-            Bounds combined = default;
-            bool first = true;
-            foreach (var r in renderers)
-            {
-                if (r is ParticleSystemRenderer) continue;
-                if (first) { combined = r.bounds; first = false; }
-                else combined.Encapsulate(r.bounds);
-            }
-            if (!first)
-                return Mathf.Max(combined.extents.x, combined.extents.z);
-        }
-        return 0.5f;
-    }
-
-    private float GetInstanceAngle()
-    {
-        int id = gameObject.GetInstanceID();
-        float hash = ((id * 2654435761u) & 0xFFFFFF) / (float)0xFFFFFF;
-        return hash * Mathf.PI * 2f;
+        return BoundsHelper.GetRadius(target.gameObject);
     }
 
     [Server]

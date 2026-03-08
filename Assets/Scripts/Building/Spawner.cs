@@ -43,10 +43,11 @@ public class Spawner : NetworkBehaviour
 
         Vector3 pos = basePos;
         var grid = GridSystem.Instance;
+        float spawnSpread = unitData.unitRadius > 0.5f ? unitData.unitRadius * 2f : 1.5f;
         bool foundWalkable = false;
         for (int attempt = 0; attempt < 5; attempt++)
         {
-            Vector3 offset = new Vector3(Random.Range(-1.5f, 1.5f), 0, Random.Range(-1.5f, 1.5f));
+            Vector3 offset = new Vector3(Random.Range(-spawnSpread, spawnSpread), 0, Random.Range(-spawnSpread, spawnSpread));
             Vector3 candidate = basePos + offset;
             if (grid == null || grid.IsWalkable(grid.WorldToCell(candidate)))
             {

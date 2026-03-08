@@ -23,14 +23,16 @@ public class Castle : NetworkBehaviour
         if (teamId < 0)
         {
             int team = gameObject.name.Contains("Team0") ? 0 : 1;
-            Initialize(team, 5000);
+            var config = Resources.Load<GameConfig>("GameConfig");
+            int hp = config != null ? config.castleMaxHealth : 5000;
+            Initialize(team, hp);
         }
 
         RegisterGridCells();
     }
 
     [Server]
-    public void Initialize(int team, int maxHp = 5000)
+    public void Initialize(int team, int maxHp)
     {
         teamId = team;
         health.Initialize(maxHp, team);

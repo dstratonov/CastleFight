@@ -139,12 +139,7 @@ public class SelectionManager : MonoBehaviour
         groundY = target.transform.position.y + 0.05f;
         boundsCenter = target.transform.position;
 
-        var renderers = target.GetComponentsInChildren<Renderer>();
-        if (renderers.Length == 0) return;
-
-        Bounds combined = renderers[0].bounds;
-        for (int i = 1; i < renderers.Length; i++)
-            combined.Encapsulate(renderers[i].bounds);
+        if (!BoundsHelper.TryGetCombinedBounds(target, out Bounds combined)) return;
 
         diameter = Mathf.Max(combined.size.x, combined.size.z) * 1.15f;
         diameter = Mathf.Clamp(diameter, 1.5f, 60f);

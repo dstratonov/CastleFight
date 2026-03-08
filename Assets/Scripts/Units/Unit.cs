@@ -31,18 +31,7 @@ public class Unit : NetworkBehaviour
 
     private float ComputeRadiusFromBounds()
     {
-        var renderers = GetComponentsInChildren<Renderer>();
-        if (renderers.Length == 0) return 0.5f;
-        Bounds combined = default;
-        bool first = true;
-        foreach (var r in renderers)
-        {
-            if (r is ParticleSystemRenderer) continue;
-            if (first) { combined = r.bounds; first = false; }
-            else combined.Encapsulate(r.bounds);
-        }
-        if (first) return 0.5f;
-        return Mathf.Max(combined.extents.x, combined.extents.z);
+        return BoundsHelper.GetRadius(gameObject);
     }
 
     private void Awake()
