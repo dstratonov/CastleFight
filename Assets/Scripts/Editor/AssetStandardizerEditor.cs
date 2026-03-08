@@ -99,6 +99,12 @@ public static class AssetStandardizerEditor
         EditorUtility.ClearProgressBar();
 
         Debug.Log($"[Standardizer] Done. Fixed loop settings on {fixCount} clips across {pathsToReimport.Count} files");
+
+        if (pathsToReimport.Count > 0)
+        {
+            Debug.Log("[Standardizer] Regenerating override controllers to match updated clip IDs...");
+            StandardizeAnimationsOnly();
+        }
     }
 
     static int CollectLoopFix(AnimationClip clip, bool shouldLoop, HashSet<string> pathsToReimport)
