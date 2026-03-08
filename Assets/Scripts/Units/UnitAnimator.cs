@@ -307,10 +307,11 @@ public class UnitAnimator : MonoBehaviour
         activeLoopHash = resolvedIdle >= 0 ? resolvedIdle : 0;
         playingOneShot = true;
 
-        animator.Play(resolvedAttack, 0, 0f);
+        animator.CrossFadeInFixedTime(resolvedAttack, BlendTime, 0);
         animator.Update(0f);
         var info = animator.GetCurrentAnimatorStateInfo(0);
-        oneShotTimer = info.length > 0f ? info.length : 1f;
+        float clipLen = info.length > 0f ? info.length : 1f;
+        oneShotTimer = clipLen + BlendTime;
     }
 
     public void PlayDeath()
@@ -327,10 +328,11 @@ public class UnitAnimator : MonoBehaviour
         if (resolvedHit < 0 || isDead || playingOneShot) return;
         playingOneShot = true;
 
-        animator.Play(resolvedHit, 0, 0f);
+        animator.CrossFadeInFixedTime(resolvedHit, BlendTime * 0.5f, 0);
         animator.Update(0f);
         var info = animator.GetCurrentAnimatorStateInfo(0);
-        oneShotTimer = info.length > 0f ? info.length : 0.5f;
+        float clipLen = info.length > 0f ? info.length : 0.5f;
+        oneShotTimer = clipLen + BlendTime;
     }
 
     private void StartLoop(int stateHash)

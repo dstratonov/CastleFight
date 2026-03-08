@@ -127,13 +127,11 @@ public class UnitStateMachine : NetworkBehaviour
         switch (state)
         {
             case UnitState.Idle:
+            case UnitState.Fighting:
                 unitAnimator.PlayIdle();
                 break;
             case UnitState.Moving:
                 unitAnimator.PlayWalk();
-                break;
-            case UnitState.Fighting:
-                unitAnimator.PlayAttack();
                 break;
             case UnitState.Dying:
                 unitAnimator.PlayDeath();
