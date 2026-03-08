@@ -15,6 +15,8 @@ public class UnitAnimator : MonoBehaviour
     private bool isDead;
     private bool playingOneShot;
     private float oneShotTimer;
+    private float attackClipLength = 1f;
+    private float hitClipLength = 0.5f;
 
     private const float BlendTime = 0.15f;
 
@@ -189,6 +191,8 @@ public class UnitAnimator : MonoBehaviour
         if (resolvedWalk < 0 && resolvedRun >= 0) resolvedWalk = resolvedRun;
         if (resolvedRun < 0 && resolvedWalk >= 0) resolvedRun = resolvedWalk;
 
+        CacheClipLengths();
+
         if (resolvedIdle < 0)
         {
             string available = clipNames != null ? string.Join(", ", clipNames) : "none";
@@ -201,16 +205,31 @@ public class UnitAnimator : MonoBehaviour
     }
 
     private HashSet<string> clipNames;
+    private Dictionary<int, float> clipLengthByHash;
 
     private void CacheClipNames()
     {
         clipNames = new HashSet<string>();
+        clipLengthByHash = new Dictionary<int, float>();
         if (animator.runtimeAnimatorController == null) return;
         foreach (var clip in animator.runtimeAnimatorController.animationClips)
         {
             if (clip != null)
+            {
                 clipNames.Add(clip.name);
+                int hash = Animator.StringToHash(clip.name);
+                clipLengthByHash[hash] = clip.length;
+            }
         }
+    }
+
+    private void CacheClipLengths()
+    {
+        if (clipLengthByHash == null) return;
+        if (resolvedAttack >= 0 && clipLengthByHash.TryGetValue(resolvedAttack, out float atkLen))
+            attackClipLength = atkLen;
+        if (resolvedHit >= 0 && clipLengthByHash.TryGetValue(resolvedHit, out float hitLen))
+            hitClipLength = hitLen;
     }
 
     private static readonly string[] IdleKeywords = { "idle", "breathe", "lookaround", "rest", "stand" };
@@ -304,14 +323,12 @@ public class UnitAnimator : MonoBehaviour
     public void PlayAttack()
     {
         if (resolvedAttack < 0) return;
+        if (playingOneShot) return;
+
         activeLoopHash = resolvedIdle >= 0 ? resolvedIdle : 0;
         playingOneShot = true;
-
+        oneShotTimer = attackClipLength + BlendTime;
         animator.CrossFadeInFixedTime(resolvedAttack, BlendTime, 0);
-        animator.Update(0f);
-        var info = animator.GetCurrentAnimatorStateInfo(0);
-        float clipLen = info.length > 0f ? info.length : 1f;
-        oneShotTimer = clipLen + BlendTime;
     }
 
     public void PlayDeath()
@@ -328,11 +345,8 @@ public class UnitAnimator : MonoBehaviour
         if (resolvedHit < 0 || isDead || playingOneShot) return;
         playingOneShot = true;
 
+        oneShotTimer = hitClipLength + BlendTime;
         animator.CrossFadeInFixedTime(resolvedHit, BlendTime * 0.5f, 0);
-        animator.Update(0f);
-        var info = animator.GetCurrentAnimatorStateInfo(0);
-        float clipLen = info.length > 0f ? info.length : 0.5f;
-        oneShotTimer = clipLen + BlendTime;
     }
 
     private void StartLoop(int stateHash)
