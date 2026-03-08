@@ -19,11 +19,14 @@ public class Spawner : NetworkBehaviour
         teamId = team;
         spawnTimer = spawnInterval;
         initialized = true;
+        if (GameDebug.Spawning)
+            Debug.Log($"[Spawn] Spawner on {gameObject.name} initialized: unit={data?.unitName} interval={interval}s team={team}");
     }
 
     private void Update()
     {
         if (!isServer || !initialized || unitData == null) return;
+        if (GameManager.Instance != null && GameManager.Instance.CurrentState == GameState.GameOver) return;
 
         spawnTimer -= Time.deltaTime;
         if (spawnTimer <= 0f)
@@ -43,11 +46,12 @@ public class Spawner : NetworkBehaviour
 
         Vector3 pos = basePos;
         var grid = GridSystem.Instance;
-        float spawnSpread = unitData.unitRadius > 0.5f ? unitData.unitRadius * 2f : 1.5f;
+        float spawnSpread = Mathf.Max(3f, unitData.unitRadius * 3f);
         bool foundWalkable = false;
-        for (int attempt = 0; attempt < 5; attempt++)
+        for (int attempt = 0; attempt < 10; attempt++)
         {
-            Vector3 offset = new Vector3(Random.Range(-spawnSpread, spawnSpread), 0, Random.Range(-spawnSpread, spawnSpread));
+            float spread = spawnSpread + attempt * 0.5f;
+            Vector3 offset = new Vector3(Random.Range(-spread, spread), 0, Random.Range(-spread, spread));
             Vector3 candidate = basePos + offset;
             if (grid == null || grid.IsWalkable(grid.WorldToCell(candidate)))
             {
@@ -63,8 +67,14 @@ public class Spawner : NetworkBehaviour
         var unitObj = UnitManager.Instance?.SpawnUnit(unitData, pos, rot, teamId);
         if (unitObj != null)
         {
+            if (GameDebug.Spawning)
+                Debug.Log($"[Spawn] {unitData.unitName} at {pos:F1} team={teamId} walkable={foundWalkable}");
             var movement = unitObj.GetComponent<UnitMovement>();
             movement?.SetDestinationToEnemyCastle();
+        }
+        else if (GameDebug.Spawning)
+        {
+            Debug.LogWarning($"[Spawn] FAILED to spawn {unitData.unitName} at {pos:F1}");
         }
     }
 }

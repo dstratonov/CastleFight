@@ -128,10 +128,14 @@ public class GridSystem : MonoBehaviour
             if (IsInBounds(cell))
                 cells[cell.x, cell.y] = state;
         }
+        if (GameDebug.Building)
+            Debug.Log($"[Grid] Marked {cellList.Count} cells as {state}");
     }
 
     public void ClearCells(List<Vector2Int> cellList)
     {
+        if (GameDebug.Building)
+            Debug.Log($"[Grid] Clearing {cellList.Count} cells");
         MarkCells(cellList, CellState.Empty);
     }
 

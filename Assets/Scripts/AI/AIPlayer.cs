@@ -25,17 +25,23 @@ public class AIPlayer : MonoBehaviour
     private Bounds buildZoneBounds;
     private bool hasBuildZone;
     private bool initialized;
+    private float summaryTimer;
 
-    private const int AIPlayerId = -100;
+    private static int nextAIPlayerId = -100;
+    private int aiPlayerId;
     private readonly List<string> ownedBuildingIds = new();
 
     public int Gold => gold;
     public int TeamId => teamId;
     public string RaceId => raceId;
 
+    private string Tag => $"[AI t{teamId}]";
+
     public void Initialize(int team, string race)
     {
         teamId = team;
+        aiPlayerId = nextAIPlayerId--;
+
 
         var config = Resources.Load<GameConfig>("GameConfig");
         gold = config != null ? config.startingGold : 500;
@@ -45,7 +51,7 @@ public class AIPlayer : MonoBehaviour
         var raceDb = RaceDatabase.Instance;
         if (raceDb == null)
         {
-            Debug.LogError("[AI] RaceDatabase not found");
+            Debug.LogError($"{Tag} RaceDatabase not found");
             return;
         }
 
@@ -60,7 +66,7 @@ public class AIPlayer : MonoBehaviour
 
         if (raceData == null)
         {
-            Debug.LogError($"[AI] Race '{raceId}' not found in database");
+            Debug.LogError($"{Tag} Race '{raceId}' not found in database");
             return;
         }
 
@@ -70,7 +76,7 @@ public class AIPlayer : MonoBehaviour
         incomeTimer = incomeTickInterval;
         initialized = true;
 
-        Debug.Log($"[AI] Initialized on team {teamId}, race={raceData.raceName}, gold={gold}, income={income}/tick" +
+        Debug.Log($"{Tag} Initialized race={raceData.raceName}, gold={gold}, income={income}/tick" +
             (hasBuildZone ? $", buildZone center={buildZoneBounds.center} size={buildZoneBounds.size}" : ", NO build zone found"));
     }
 
@@ -90,18 +96,31 @@ public class AIPlayer : MonoBehaviour
                 }
             }
         }
-        Debug.LogWarning($"[AI] No BuildZone found for team {teamId}");
+        Debug.LogWarning($"{Tag} No BuildZone found for team {teamId}");
     }
 
     private void Update()
     {
         if (!initialized) return;
+        if (GameManager.Instance != null && GameManager.Instance.CurrentState == GameState.GameOver) return;
 
         incomeTimer -= Time.deltaTime;
         if (incomeTimer <= 0f)
         {
             gold += income;
             incomeTimer = incomeTickInterval;
+            if (GameDebug.Economy)
+                Debug.Log($"{Tag} Income +{income}, gold={gold}");
+        }
+
+        if (teamId == 0)
+        {
+            summaryTimer -= Time.deltaTime;
+            if (summaryTimer <= 0f)
+            {
+                summaryTimer = 15f;
+                LogGameSummary();
+            }
         }
 
         buildTimer -= Time.deltaTime;
@@ -127,24 +146,24 @@ public class AIPlayer : MonoBehaviour
         Vector3? pos = FindValidPosition();
         if (!pos.HasValue)
         {
-            Debug.LogWarning("[AI] Could not find valid build position");
+            Debug.LogWarning($"{Tag} Could not find valid build position");
             return;
         }
 
         gold -= chosen.cost;
         var obj = BuildingManager.Instance.PlaceBuilding(
-            chosen, pos.Value, Quaternion.identity, teamId, AIPlayerId);
+            chosen, pos.Value, Quaternion.identity, teamId, aiPlayerId);
 
         if (obj != null)
         {
             ownedBuildingIds.Add(chosen.buildingId);
-            Debug.Log($"[AI] Built {chosen.buildingName} at {pos.Value:F1} " +
-                $"(cost={chosen.cost}, gold remaining={gold}, total buildings={currentCount + 1})");
+            Debug.Log($"{Tag} Built {chosen.buildingName} at {pos.Value:F1} " +
+                $"(cost={chosen.cost}, gold={gold}, buildings={currentCount + 1})");
         }
         else
         {
             gold += chosen.cost;
-            Debug.LogWarning($"[AI] PlaceBuilding returned null for {chosen.buildingName}");
+            Debug.LogWarning($"{Tag} PlaceBuilding returned null for {chosen.buildingName}");
         }
     }
 
@@ -166,6 +185,8 @@ public class AIPlayer : MonoBehaviour
             if (!IsTechUnlocked(building)) continue;
 
             float score = ScoreBuilding(building, copies, gameTime);
+            if (GameDebug.AI)
+                Debug.Log($"{Tag} score {building.buildingName}: {score:F1} (copies={copies}, cost={building.cost})");
             if (score > bestScore)
             {
                 bestScore = score;
@@ -173,6 +194,8 @@ public class AIPlayer : MonoBehaviour
             }
         }
 
+        if (GameDebug.AI && best != null)
+            Debug.Log($"{Tag} Chose {best.buildingName} score={bestScore:F1}");
         return best;
     }
 
@@ -277,5 +300,35 @@ public class AIPlayer : MonoBehaviour
         }
 
         return null;
+    }
+
+    private void LogGameSummary()
+    {
+        int u0 = 0, u1 = 0;
+        if (UnitManager.Instance != null)
+        {
+            u0 = UnitManager.Instance.GetTeamUnits(0).Count;
+            u1 = UnitManager.Instance.GetTeamUnits(1).Count;
+        }
+
+        int b0 = 0, b1 = 0;
+        if (BuildingManager.Instance != null)
+        {
+            b0 = BuildingManager.Instance.GetTeamBuildings(0).Count;
+            b1 = BuildingManager.Instance.GetTeamBuildings(1).Count;
+        }
+
+        float c0hp = -1, c0max = -1, c1hp = -1, c1max = -1;
+        var castles = FindObjectsByType<Castle>(FindObjectsSortMode.None);
+        foreach (var c in castles)
+        {
+            if (c.Health == null) continue;
+            if (c.TeamId == 0) { c0hp = c.Health.CurrentHealth; c0max = c.Health.MaxHealth; }
+            else if (c.TeamId == 1) { c1hp = c.Health.CurrentHealth; c1max = c.Health.MaxHealth; }
+        }
+
+        Debug.Log($"[Summary] t={Time.timeSinceLevelLoad:F0}s" +
+            $" | T0: units={u0} bld={b0} castle={c0hp:F0}/{c0max:F0}" +
+            $" | T1: units={u1} bld={b1} castle={c1hp:F0}/{c1max:F0}");
     }
 }

@@ -66,6 +66,8 @@ public class BuildingManager : NetworkBehaviour
 
         NetworkServer.Spawn(obj);
         EventBus.Raise(new BuildingPlacedEvent(obj, playerId, teamId));
+        if (GameDebug.Building)
+            Debug.Log($"[Build] Placed {data.buildingName} at {position:F1} team={teamId} player={playerId}");
         return obj;
     }
 
@@ -106,6 +108,9 @@ public class BuildingManager : NetworkBehaviour
         {
             grid.ClearCells(new List<Vector2Int>(building.OccupiedCells));
         }
+
+        if (GameDebug.Building)
+            Debug.Log($"[Build] Removed {evt.Building?.name} team={evt.TeamId} cells freed={building.OccupiedCells.Count}");
     }
 
     public static Bounds ComputeBuildingBounds(GameObject buildingObj)

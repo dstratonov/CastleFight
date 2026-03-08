@@ -19,6 +19,7 @@ public class UnitMovement : NetworkBehaviour
     private float repathTimer;
     private bool isStopped;
     private Animator cachedAnimator;
+    private int consecutivePathFails;
 
     public bool IsMoving => !isStopped && waypoints != null && waypointIndex < waypoints.Count;
     public bool HasPath => waypoints != null && waypointIndex < waypoints.Count;
@@ -86,6 +87,8 @@ public class UnitMovement : NetworkBehaviour
             waypointIndex++;
             if (waypointIndex >= waypoints.Count)
             {
+                if (GameDebug.Movement)
+                    Debug.Log($"[Move:{gameObject.name}] reached destination at {transform.position:F1}");
                 waypoints = null;
                 worldTarget = null;
                 OnReachedDestination?.Invoke();
@@ -99,15 +102,21 @@ public class UnitMovement : NetworkBehaviour
 
         Vector3 moveDir = toTarget.normalized;
         Vector3 separation = CalculateSeparation();
-        moveDir = (moveDir + separation * separationWeight).normalized;
+        Vector3 wallRepulsion = CalculateWallRepulsion();
+        moveDir = (moveDir + separation * separationWeight + wallRepulsion).normalized;
 
         Vector3 newPos = pos + moveDir * speed * Time.deltaTime;
         newPos.y = grid.GridOrigin.y;
+
+        newPos = ValidatePosition(pos, newPos);
+
         transform.position = newPos;
 
-        if (moveDir.sqrMagnitude > 0.001f)
+        Vector3 actualDir = newPos - pos;
+        actualDir.y = 0;
+        if (actualDir.sqrMagnitude > 0.0001f)
         {
-            Quaternion targetRot = Quaternion.LookRotation(moveDir);
+            Quaternion targetRot = Quaternion.LookRotation(actualDir);
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationSpeed * Time.deltaTime);
         }
 
@@ -120,6 +129,59 @@ public class UnitMovement : NetworkBehaviour
             repathTimer = repathInterval;
             CalculatePath();
         }
+    }
+
+    private Vector3 ValidatePosition(Vector3 oldPos, Vector3 newPos)
+    {
+        Vector2Int newCell = grid.WorldToCell(newPos);
+        if (grid.IsInBounds(newCell) && grid.IsWalkable(newCell))
+            return newPos;
+
+        Vector3 slideX = new Vector3(newPos.x, newPos.y, oldPos.z);
+        Vector2Int cellX = grid.WorldToCell(slideX);
+        if (grid.IsInBounds(cellX) && grid.IsWalkable(cellX))
+            return slideX;
+
+        Vector3 slideZ = new Vector3(oldPos.x, newPos.y, newPos.z);
+        Vector2Int cellZ = grid.WorldToCell(slideZ);
+        if (grid.IsInBounds(cellZ) && grid.IsWalkable(cellZ))
+            return slideZ;
+
+        return oldPos;
+    }
+
+    private Vector3 CalculateWallRepulsion()
+    {
+        if (grid == null) return Vector3.zero;
+
+        Vector3 pos = transform.position;
+        Vector2Int myCell = grid.WorldToCell(pos);
+        float cellSize = grid.CellSize;
+        Vector3 force = Vector3.zero;
+        float checkRadius = cellSize * 1.5f;
+
+        for (int dx = -2; dx <= 2; dx++)
+        {
+            for (int dz = -2; dz <= 2; dz++)
+            {
+                if (dx == 0 && dz == 0) continue;
+                Vector2Int neighbor = new(myCell.x + dx, myCell.y + dz);
+                if (!grid.IsInBounds(neighbor) || grid.IsWalkable(neighbor)) continue;
+
+                Vector3 wallPos = grid.CellToWorld(neighbor);
+                Vector3 offset = pos - wallPos;
+                offset.y = 0;
+                float dist = offset.magnitude;
+
+                if (dist < checkRadius && dist > 0.01f)
+                {
+                    float strength = 1f - (dist / checkRadius);
+                    force += offset.normalized * strength * 2f;
+                }
+            }
+        }
+
+        return force;
     }
 
     private float GetEffectiveSeparationRadius()
@@ -175,7 +237,12 @@ public class UnitMovement : NetworkBehaviour
         {
             Vector2Int cell = grid.WorldToCell(target);
             if (!grid.IsInBounds(cell) || !grid.IsWalkable(cell))
-                target = grid.FindNearestWalkablePosition(target, transform.position);
+            {
+                Vector3 corrected = grid.FindNearestWalkablePosition(target, transform.position);
+                if (GameDebug.Movement)
+                    Debug.Log($"[Move:{gameObject.name}] dest {target:F1} not walkable, corrected to {corrected:F1}");
+                target = corrected;
+            }
         }
 
         worldTarget = target;
@@ -211,6 +278,16 @@ public class UnitMovement : NetworkBehaviour
         waypointIndex = 0;
         worldTarget = null;
         isStopped = true;
+
+        if (grid != null)
+        {
+            Vector2Int cell = grid.WorldToCell(transform.position);
+            if (!grid.IsInBounds(cell) || !grid.IsWalkable(cell))
+            {
+                Vector3 safe = grid.FindNearestWalkablePosition(transform.position, transform.position);
+                transform.position = safe;
+            }
+        }
     }
 
     [Server]
@@ -233,10 +310,20 @@ public class UnitMovement : NetworkBehaviour
         if (!grid.IsInBounds(goalCell))
             goalCell = ClampToGrid(goalCell);
 
+        if (!grid.IsWalkable(startCell))
+        {
+            Vector3 nearest = grid.FindNearestWalkablePosition(transform.position, transform.position);
+            if (GameDebug.Movement)
+                Debug.Log($"[Move:{gameObject.name}] start cell {startCell} non-walkable, relocating to {nearest:F1}");
+            transform.position = nearest;
+            startCell = grid.WorldToCell(nearest);
+        }
+
         var result = GridPathfinding.FindPath(startCell, goalCell, grid);
 
         if (result.HasPath)
         {
+            consecutivePathFails = 0;
             waypoints = GridPathfinding.SmoothPath(result.Path, grid);
 
             if (result.IsComplete && waypoints.Count > 1)
@@ -244,9 +331,24 @@ public class UnitMovement : NetworkBehaviour
 
             waypointIndex = 0;
             SkipPassedWaypoints();
+
+            if (GameDebug.Movement)
+                Debug.Log($"[Move:{gameObject.name}] path {startCell}->{goalCell} cells={result.Path.Count} wp={waypoints.Count} complete={result.IsComplete}");
         }
         else
         {
+            consecutivePathFails++;
+            if (GameDebug.Movement)
+                Debug.Log($"[Move:{gameObject.name}] path FAILED {startCell}->{goalCell} (fails={consecutivePathFails})");
+
+            if (consecutivePathFails >= 5)
+            {
+                if (GameDebug.Movement)
+                    Debug.Log($"[Move:{gameObject.name}] path blocked, giving up on target");
+                worldTarget = null;
+                consecutivePathFails = 0;
+            }
+
             waypoints = null;
         }
     }

@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections.Generic;
 
 public struct PathResult
+
 {
     public List<Vector2Int> Path;
     public bool IsComplete;
@@ -70,6 +71,8 @@ public static class GridPathfinding
                 result.Path = ReconstructPath(cameFrom, current);
                 result.IsComplete = true;
                 result.ClosestReachableCell = goal;
+                if (GameDebug.Pathfinding)
+                    Debug.Log($"[Path] {start}->{goal} COMPLETE len={result.Path.Count} iter={iterations}");
                 return result;
             }
 
@@ -131,6 +134,13 @@ public static class GridPathfinding
         {
             result.Path = ReconstructPath(cameFrom, closestNode);
             result.IsComplete = false;
+            if (GameDebug.Pathfinding)
+                Debug.Log($"[Path] {start}->{goal} PARTIAL closest={closestNode} len={result.Path.Count} iter={iterations}");
+        }
+        else
+        {
+            if (GameDebug.Pathfinding)
+                Debug.Log($"[Path] {start}->{goal} FAILED iter={iterations}");
         }
 
         return result;

@@ -69,6 +69,9 @@ public class Building : NetworkBehaviour
         {
             spawner.Initialize(data.spawnedUnit, data.spawnInterval, team);
         }
+
+        if (GameDebug.Building)
+            Debug.Log($"[Build] {gameObject.name} initialized: type={data.buildingName} team={team} owner={owner} hp={data.maxHealth} pos={transform.position:F1}");
     }
 
     private void OnEnable()
@@ -85,6 +88,8 @@ public class Building : NetworkBehaviour
 
     private void HandleDeath(GameObject killer)
     {
+        if (GameDebug.Building)
+            Debug.Log($"[Build] {gameObject.name} DESTROYED by {(killer != null ? killer.name : "null")} team={teamId}");
         EventBus.Raise(new BuildingDestroyedEvent(gameObject, teamId));
 
         if (isServer)

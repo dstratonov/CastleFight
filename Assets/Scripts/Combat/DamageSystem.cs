@@ -15,7 +15,12 @@ public static class DamageSystem
         if (damageTable != null)
             typeMultiplier = damageTable.GetMultiplier(attackType, armorType);
 
-        return baseDamage * typeMultiplier * bonusMultiplier;
+        float result = baseDamage * typeMultiplier * bonusMultiplier;
+
+        if (GameDebug.Combat && typeMultiplier != 1f)
+            Debug.Log($"[Dmg] {attackType} vs {armorType} mult={typeMultiplier:F2} base={baseDamage:F0} -> {result:F1}");
+
+        return result;
     }
 
 }

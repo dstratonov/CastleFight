@@ -40,13 +40,16 @@ public class Health : NetworkBehaviour
     {
         if (IsDead || amount <= 0) return;
 
+        lastAttacker = attacker;
         currentHealth = Mathf.Max(0, currentHealth - amount);
+
+        if (GameDebug.Health)
+            Debug.Log($"[Health] {gameObject.name} took {amount:F1} dmg from {(attacker != null ? attacker.name : "null")} -> {currentHealth:F0}/{maxHealth:F0}");
+
         OnDamaged?.Invoke(amount, attacker);
 
-        if (currentHealth <= 0)
-        {
-            lastAttacker = attacker;
-        }
+        if (currentHealth <= 0 && GameDebug.Health)
+            Debug.Log($"[Health] {gameObject.name} DIED, killer={attacker?.name}");
     }
 
     [Server]

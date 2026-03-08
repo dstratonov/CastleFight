@@ -49,6 +49,7 @@ public class GameManager : NetworkBehaviour
     {
         if (currentState == newState) return;
         var old = currentState;
+        Debug.Log($"[Game] State: {old} -> {newState}");
         currentState = newState;
     }
 
@@ -61,6 +62,7 @@ public class GameManager : NetworkBehaviour
     [Server]
     public void EndMatch(int winningTeamId)
     {
+        Debug.Log($"[Game] Match ended! Team {winningTeamId} wins at t={Time.timeSinceLevelLoad:F0}s");
         SetState(GameState.GameOver);
         RpcNotifyGameOver(winningTeamId);
     }

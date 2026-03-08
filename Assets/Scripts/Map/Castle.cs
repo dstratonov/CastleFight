@@ -65,6 +65,7 @@ public class Castle : NetworkBehaviour
 
     private void HandleCastleDestroyed(GameObject killer)
     {
+        Debug.Log($"[Castle] {gameObject.name} DESTROYED by {(killer != null ? killer.name : "unknown")}!");
         EventBus.Raise(new CastleDestroyedEvent(teamId));
 
         if (isServer)
@@ -76,6 +77,7 @@ public class Castle : NetworkBehaviour
             int winningTeam = TeamManager.Instance != null
                 ? TeamManager.Instance.GetEnemyTeamId(teamId)
                 : (teamId == 0 ? 1 : 0);
+            Debug.Log($"[Castle] GAME OVER! Team {winningTeam} wins!");
             GameManager.Instance?.EndMatch(winningTeam);
         }
     }

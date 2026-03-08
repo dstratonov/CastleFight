@@ -12,10 +12,12 @@ public class NetworkGameManager : NetworkManager
 
     [Header("AI")]
     [SerializeField] private bool enableAI = true;
+    [SerializeField] private bool aiVsAiMode = true;
     [SerializeField] private string aiRaceId = "";
 
     private readonly Dictionary<int, NetworkPlayer> players = new();
-    private AIPlayer aiPlayer;
+    private AIPlayer aiPlayerTeam0;
+    private AIPlayer aiPlayerTeam1;
 
     public IReadOnlyDictionary<int, NetworkPlayer> Players => players;
 
@@ -41,10 +43,25 @@ public class NetworkGameManager : NetworkManager
 
     private void SpawnAIPlayer()
     {
-        var aiObj = new GameObject("AIPlayer");
-        aiPlayer = aiObj.AddComponent<AIPlayer>();
-        aiPlayer.Initialize(1, aiRaceId);
-        Debug.Log("[NetworkGameManager] AI opponent spawned on team 1");
+        if (aiVsAiMode)
+        {
+            var aiObj0 = new GameObject("AIPlayer_Team0");
+            aiPlayerTeam0 = aiObj0.AddComponent<AIPlayer>();
+            aiPlayerTeam0.Initialize(0, "");
+
+            var aiObj1 = new GameObject("AIPlayer_Team1");
+            aiPlayerTeam1 = aiObj1.AddComponent<AIPlayer>();
+            aiPlayerTeam1.Initialize(1, "");
+
+            Debug.Log("[NetworkGameManager] AI vs AI mode: spawned bots on both teams");
+        }
+        else
+        {
+            var aiObj = new GameObject("AIPlayer_Team1");
+            aiPlayerTeam1 = aiObj.AddComponent<AIPlayer>();
+            aiPlayerTeam1.Initialize(1, aiRaceId);
+            Debug.Log("[NetworkGameManager] AI opponent spawned on team 1");
+        }
     }
 
     private void RegisterUnitPrefabs()
@@ -88,6 +105,15 @@ public class NetworkGameManager : NetworkManager
 
     public override void OnServerAddPlayer(NetworkConnectionToClient conn)
     {
+        if (aiVsAiMode)
+        {
+            var spectator = new GameObject("Spectator");
+            spectator.AddComponent<NetworkIdentity>();
+            NetworkServer.AddPlayerForConnection(conn, spectator);
+            Debug.Log("[NetworkGameManager] AI vs AI mode: added spectator (no hero)");
+            return;
+        }
+
         if (TeamManager.Instance == null)
         {
             Debug.LogError("[NetworkGameManager] TeamManager.Instance is null when adding player");

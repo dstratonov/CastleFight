@@ -10,6 +10,9 @@ public class UnitAnimator : MonoBehaviour
     private static readonly int HashDeath = Animator.StringToHash("Death");
     private static readonly int HashHit = Animator.StringToHash("Hit");
 
+    private int idleHash;
+    private int walkHash;
+
     private int desiredLoop;
     private int currentLoopHash;
     private int oneShotHash;
@@ -21,6 +24,9 @@ public class UnitAnimator : MonoBehaviour
 
     private const float BlendTime = 0.15f;
     private const float MaxOneShotDuration = 5f;
+
+    private int animLogThrottle;
+    private const int AnimLogInterval = 30;
 
     public void Initialize(Animator anim)
     {
@@ -37,7 +43,7 @@ public class UnitAnimator : MonoBehaviour
 
         if (animator.runtimeAnimatorController == null)
         {
-            Debug.LogWarning($"[UnitAnimator] No AnimatorController on {gameObject.name} - animations disabled");
+            Debug.LogWarning($"[Anim:{gameObject.name}] No AnimatorController - animations disabled");
             return;
         }
 
@@ -47,38 +53,72 @@ public class UnitAnimator : MonoBehaviour
         hasDeath = animator.HasState(0, HashDeath);
         hasHit = animator.HasState(0, HashHit);
 
-        if (!hasWalk && hasIdle) hasWalk = true;
-        if (!hasIdle && hasWalk) hasIdle = true;
+        idleHash = hasIdle ? HashIdle : 0;
+        walkHash = hasWalk ? HashWalk : 0;
 
-        desiredLoop = hasIdle ? HashIdle : 0;
+        if (!hasWalk && hasIdle)
+        {
+            hasWalk = true;
+            walkHash = HashIdle;
+        }
+        if (!hasIdle && hasWalk)
+        {
+            hasIdle = true;
+            idleHash = HashWalk;
+        }
+
+        desiredLoop = hasIdle ? idleHash : 0;
         currentLoopHash = 0;
         oneShotActive = false;
         isDead = false;
 
+        if (GameDebug.Animation)
+            Debug.Log($"[Anim:{gameObject.name}] Init idle={hasIdle} walk={hasWalk} atk={hasAttack} death={hasDeath} hit={hasHit}" +
+                $" idleHash={idleHash} walkHash={walkHash}");
+
         if (!hasIdle)
-            Debug.LogWarning($"[UnitAnimator] No Idle state on {gameObject.name}");
+            Debug.LogWarning($"[Anim:{gameObject.name}] No Idle state");
         if (!hasWalk)
-            Debug.LogWarning($"[UnitAnimator] No Walk state on {gameObject.name}");
+            Debug.LogWarning($"[Anim:{gameObject.name}] No Walk state");
         if (!hasAttack)
-            Debug.LogWarning($"[UnitAnimator] No Attack state on {gameObject.name}");
+            Debug.LogWarning($"[Anim:{gameObject.name}] No Attack state");
     }
 
     #region Public API
 
     public void PlayIdle()
     {
-        if (hasIdle) desiredLoop = HashIdle;
+        if (hasIdle) desiredLoop = idleHash;
+    }
+
+    public void CancelOneShot()
+    {
+        if (!oneShotActive) return;
+        if (GameDebug.Animation)
+            Debug.Log($"[Anim:{gameObject.name}] CancelOneShot (was hash={oneShotHash})");
+        oneShotActive = false;
+        oneShotHash = 0;
     }
 
     public void PlayWalk()
     {
-        if (hasWalk) desiredLoop = HashWalk;
-        else if (hasIdle) desiredLoop = HashIdle;
+        if (hasWalk) desiredLoop = walkHash;
+        else if (hasIdle) desiredLoop = idleHash;
     }
 
     public void PlayAttack()
     {
-        if (!hasAttack || isDead || oneShotActive) return;
+        if (!hasAttack || isDead) return;
+
+        if (oneShotActive && oneShotHash == HashHit)
+        {
+            if (GameDebug.Animation)
+                Debug.Log($"[Anim:{gameObject.name}] PlayAttack overriding hit anim");
+        }
+
+        if (GameDebug.Animation && !oneShotActive)
+            Debug.Log($"[Anim:{gameObject.name}] PlayAttack");
+
         oneShotHash = HashAttack;
         oneShotActive = true;
         oneShotFallbackTimer = MaxOneShotDuration;
@@ -88,6 +128,8 @@ public class UnitAnimator : MonoBehaviour
     public void PlayHit()
     {
         if (!hasHit || isDead || oneShotActive) return;
+        if (GameDebug.Animation)
+            Debug.Log($"[Anim:{gameObject.name}] PlayHit");
         oneShotHash = HashHit;
         oneShotActive = true;
         oneShotFallbackTimer = MaxOneShotDuration;
@@ -97,6 +139,8 @@ public class UnitAnimator : MonoBehaviour
     public void PlayDeath()
     {
         if (!hasDeath) return;
+        if (GameDebug.Animation)
+            Debug.Log($"[Anim:{gameObject.name}] PlayDeath");
         isDead = true;
         oneShotActive = false;
         desiredLoop = 0;
@@ -124,18 +168,26 @@ public class UnitAnimator : MonoBehaviour
             var info = animator.GetCurrentAnimatorStateInfo(0);
             if (info.shortNameHash == oneShotHash && info.normalizedTime >= 1f)
             {
+                if (GameDebug.Animation)
+                    Debug.Log($"[Anim:{gameObject.name}] OneShot completed normally t={info.normalizedTime:F2}");
                 FinishOneShot();
                 return;
             }
             if (info.shortNameHash != oneShotHash && oneShotFallbackTimer < MaxOneShotDuration - 0.1f)
             {
+                if (GameDebug.Animation)
+                    Debug.Log($"[Anim:{gameObject.name}] OneShot state mismatch (expected hash={oneShotHash}, got={info.shortNameHash}) -> finishing");
                 FinishOneShot();
                 return;
             }
         }
 
         if (oneShotFallbackTimer <= 0f)
+        {
+            if (GameDebug.Animation)
+                Debug.LogWarning($"[Anim:{gameObject.name}] OneShot TIMEOUT ({MaxOneShotDuration}s) -> forcing finish");
             FinishOneShot();
+        }
     }
 
     private void FinishOneShot()
@@ -151,16 +203,13 @@ public class UnitAnimator : MonoBehaviour
 
         if (currentLoopHash != desiredLoop)
         {
+            if (GameDebug.Animation && animLogThrottle % AnimLogInterval == 0)
+                Debug.Log($"[Anim:{gameObject.name}] Loop switch {currentLoopHash} -> {desiredLoop}");
             ApplyDesiredLoop();
             return;
         }
 
-        if (!animator.IsInTransition(0))
-        {
-            var info = animator.GetCurrentAnimatorStateInfo(0);
-            if (info.shortNameHash == currentLoopHash && info.normalizedTime >= 1f)
-                animator.Play(currentLoopHash, 0, 0f);
-        }
+        animLogThrottle++;
     }
 
     private void ApplyDesiredLoop()

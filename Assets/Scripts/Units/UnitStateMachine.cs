@@ -108,6 +108,10 @@ public class UnitStateMachine : NetworkBehaviour
     public void SetState(UnitState newState)
     {
         if (currentState == newState) return;
+        var oldState = currentState;
+        if (GameDebug.StateMachine)
+            Debug.Log($"[State:{gameObject.name} t{unit?.TeamId}] {oldState} -> {newState}" +
+                (unitAnimator != null ? $" oneShot={unitAnimator.IsPlayingOneShot}" : ""));
         currentState = newState;
         ApplyAnimation(newState);
     }
@@ -125,6 +129,9 @@ public class UnitStateMachine : NetworkBehaviour
         switch (state)
         {
             case UnitState.Idle:
+                unitAnimator.CancelOneShot();
+                unitAnimator.PlayIdle();
+                break;
             case UnitState.Fighting:
                 unitAnimator.PlayIdle();
                 break;

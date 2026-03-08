@@ -67,6 +67,7 @@ public class UnitCombat : NetworkBehaviour
     private void Update()
     {
         if (!isServer || unit == null || unit.IsDead) return;
+        if (GameManager.Instance != null && GameManager.Instance.CurrentState == GameState.GameOver) return;
 
         scanTimer -= Time.deltaTime;
         if (scanTimer <= 0f)
@@ -97,7 +98,7 @@ public class UnitCombat : NetworkBehaviour
 
             if (inRange)
             {
-                if (!wasInRange)
+                if (!wasInRange && GameDebug.Combat)
                     Debug.Log($"{UnitTag()} IN RANGE of {targetHealth.name} dist={dist:F2} effRange={effectiveRange:F2} reached={reachedDestination}");
                 wasInRange = true;
                 movement?.Stop();
@@ -106,12 +107,12 @@ public class UnitCombat : NetworkBehaviour
             }
             else
             {
-                if (wasInRange)
+                if (wasInRange && GameDebug.Combat)
                     Debug.Log($"{UnitTag()} LEFT RANGE of {targetHealth.name} dist={dist:F2} effRange={effectiveRange:F2}");
                 wasInRange = false;
                 if (movement != null && !movement.IsMoving)
                 {
-                    if (ShouldLog())
+                    if (ShouldLog() && GameDebug.Combat)
                         Debug.Log($"{UnitTag()} OUT OF RANGE of {targetHealth.name} dist={dist:F2} effRange={effectiveRange:F2}, not moving -> re-path");
                     MoveTowardTarget();
                 }
@@ -122,7 +123,8 @@ public class UnitCombat : NetworkBehaviour
             wasInRange = false;
             if (stateMachine != null && stateMachine.CurrentState == UnitState.Fighting)
             {
-                Debug.Log($"{UnitTag()} Target lost/dead -> Idle");
+                if (GameDebug.Combat)
+                    Debug.Log($"{UnitTag()} Target lost/dead -> Idle");
                 stateMachine.SetState(UnitState.Idle);
             }
         }
@@ -132,7 +134,7 @@ public class UnitCombat : NetworkBehaviour
     private void ScanForTarget()
     {
         debugLogCounter++;
-        bool log = ShouldLog();
+        bool log = ShouldLog() && GameDebug.Combat;
 
         if (targetHealth != null && !targetHealth.IsDead)
         {
@@ -187,11 +189,13 @@ public class UnitCombat : NetworkBehaviour
             return;
         }
 
-        if (log)
-            Debug.Log($"{UnitTag()} SCAN: NO TARGET found, hasPath={movement?.HasPath} isMoving={movement?.IsMoving} -> fallback to castle march");
         RegisterToTarget(null);
         if (movement != null && !movement.HasPath && !movement.IsMoving)
+        {
+            if (log)
+                Debug.Log($"{UnitTag()} SCAN: NO TARGET found, starting castle march");
             movement.SetDestinationToEnemyCastle();
+        }
     }
 
     private const int MaxEngagersPerUnit = 4;
@@ -291,17 +295,27 @@ public class UnitCombat : NetworkBehaviour
     private void MoveTowardTarget()
     {
         if (targetHealth == null || movement == null) return;
-        bool log = ShouldLog();
+        bool log = ShouldLog() && GameDebug.Combat;
 
         Vector3 targetCenter = GetTargetCenter(targetHealth);
         float targetRadius = GetTargetRadius(targetHealth);
         float attackRange = unit.Data != null ? unit.Data.attackRange : 2f;
-
-        int engageCount = GetEngageCount(targetHealth);
         float unitRadius = unit != null ? unit.EffectiveRadius : 0.5f;
+
+        var grid = GridSystem.Instance;
+        bool isStructure = targetHealth.GetComponent<Castle>() != null ||
+                           targetHealth.GetComponent<Building>() != null;
+
         Vector3 destination;
 
+        if (isStructure && grid != null)
         {
+            destination = FindWalkableApproachPoint(grid, targetCenter, targetRadius, attackRange, unitRadius);
+        }
+        else
+        {
+            int engageCount = GetEngageCount(targetHealth);
+
             Vector3 toMe = transform.position - targetCenter;
             toMe.y = 0;
             if (toMe.sqrMagnitude < 0.01f)
@@ -320,26 +334,64 @@ public class UnitCombat : NetworkBehaviour
             float approachDist = targetRadius + attackRange * 0.5f + unitRadius;
             destination = targetCenter + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * approachDist;
             destination.y = transform.position.y;
-        }
 
-        var grid = GridSystem.Instance;
-        Vector3 preSnap = destination;
-        if (grid != null)
-            destination = grid.FindNearestWalkablePosition(destination, transform.position);
+            if (grid != null)
+                destination = grid.FindNearestWalkablePosition(destination, transform.position);
+        }
 
         if (log)
         {
-            float snapDelta = Vector3.Distance(preSnap, destination);
             Debug.Log($"{UnitTag()} MOVE -> {targetHealth.name}" +
-                $"\n  myPos={transform.position}" +
-                $"\n  targetCenter={targetCenter} radius={targetRadius:F1}" +
-                $"\n  engagers={engageCount} unitRadius={unitRadius:F2}" +
-                $"\n  preSnap={preSnap}" +
-                $"\n  afterWalkSnap={destination} (moved {snapDelta:F2})" +
-                $"\n  finalDist={Vector3.Distance(transform.position, destination):F2}");
+                $" myPos={transform.position:F1}" +
+                $" dest={destination:F1}" +
+                $" dist={Vector3.Distance(transform.position, destination):F1}" +
+                $" struct={isStructure}");
         }
 
         movement.SetDestinationWorld(destination);
+    }
+
+    private Vector3 FindWalkableApproachPoint(GridSystem grid, Vector3 targetCenter, float targetRadius, float attackRange, float unitRadius)
+    {
+        Vector2Int centerCell = grid.WorldToCell(targetCenter);
+        int searchRadius = Mathf.CeilToInt((targetRadius + attackRange) / grid.CellSize) + 2;
+
+        Vector3 myPos = transform.position;
+        Vector3 bestPos = myPos;
+        float bestScore = float.MaxValue;
+        bool found = false;
+
+        for (int dx = -searchRadius; dx <= searchRadius; dx++)
+        {
+            for (int dz = -searchRadius; dz <= searchRadius; dz++)
+            {
+                Vector2Int cell = new(centerCell.x + dx, centerCell.y + dz);
+                if (!grid.IsInBounds(cell) || !grid.IsWalkable(cell)) continue;
+
+                Vector3 cellWorld = grid.CellToWorld(cell);
+                float distToTarget = Vector3.Distance(cellWorld, targetCenter);
+
+                float idealDist = targetRadius + attackRange * 0.3f;
+                if (distToTarget > targetRadius + attackRange * 2f) continue;
+                if (distToTarget < targetRadius * 0.5f) continue;
+
+                float distToMe = Vector3.Distance(cellWorld, myPos);
+                float distFromIdeal = Mathf.Abs(distToTarget - idealDist);
+                float score = distToMe * 0.6f + distFromIdeal * 0.4f;
+
+                if (score < bestScore)
+                {
+                    bestScore = score;
+                    bestPos = cellWorld;
+                    found = true;
+                }
+            }
+        }
+
+        if (!found)
+            bestPos = grid.FindNearestWalkablePosition(targetCenter, myPos);
+
+        return bestPos;
     }
 
     private Vector3 GetTargetCenter(Health target)
@@ -379,6 +431,9 @@ public class UnitCombat : NetworkBehaviour
 
         float damage = DamageSystem.CalculateDamage(baseDamage, atkType, defArmor);
         targetHealth.TakeDamage(damage, gameObject);
+
+        if (GameDebug.Combat)
+            Debug.Log($"{UnitTag()} ATTACK {targetHealth.name} base={baseDamage:F0} {atkType}vs{defArmor} final={damage:F1} targetHP={targetHealth.CurrentHealth:F0}/{targetHealth.MaxHealth:F0}");
 
         Vector3 lookTarget = ClosestPointOnTarget(targetHealth);
         Vector3 lookDir = (lookTarget - transform.position);

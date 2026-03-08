@@ -58,7 +58,14 @@ public class UnitManager : NetworkBehaviour
 
         NetworkServer.Spawn(obj);
         EventBus.Raise(new UnitSpawnedEvent(obj, teamId));
-        Debug.Log($"[UnitManager] Spawned {data.unitName} (team {teamId}) at {position}");
+        if (GameDebug.Spawning)
+        {
+            int t0 = teamUnits.TryGetValue(0, out var l0) ? l0.Count : 0;
+            int t1 = teamUnits.TryGetValue(1, out var l1) ? l1.Count : 0;
+            Debug.Log($"[Spawn] UnitManager created {data.unitName} team={teamId} at {position:F1} " +
+                $"hp={data.maxHealth} atk={data.attackDamage} spd={data.moveSpeed} rad={data.unitRadius:F2} " +
+                $"| alive t0={t0} t1={t1}");
+        }
         return obj;
     }
 
@@ -137,7 +144,15 @@ public class UnitManager : NetworkBehaviour
     {
         var unit = evt.Unit?.GetComponent<Unit>();
         if (unit != null)
+        {
             UnregisterUnit(unit);
+            if (GameDebug.Spawning)
+            {
+                int t0 = teamUnits.TryGetValue(0, out var l0) ? l0.Count : 0;
+                int t1 = teamUnits.TryGetValue(1, out var l1) ? l1.Count : 0;
+                Debug.Log($"[Spawn] Unit killed: {unit.gameObject.name} team={unit.TeamId} | alive t0={t0} t1={t1}");
+            }
+        }
     }
 
     private void LateUpdate()
