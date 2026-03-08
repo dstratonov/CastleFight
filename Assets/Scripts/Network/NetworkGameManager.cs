@@ -10,7 +10,12 @@ public class NetworkGameManager : NetworkManager
     [SerializeField] private Transform[] team2SpawnPoints;
     [SerializeField] private DamageTable damageTable;
 
+    [Header("AI")]
+    [SerializeField] private bool enableAI = true;
+    [SerializeField] private string aiRaceId = "";
+
     private readonly Dictionary<int, NetworkPlayer> players = new();
+    private AIPlayer aiPlayer;
 
     public IReadOnlyDictionary<int, NetworkPlayer> Players => players;
 
@@ -29,6 +34,17 @@ public class NetworkGameManager : NetworkManager
         InitializeDamageSystem();
 
         GameManager.Instance?.SetState(GameState.Playing);
+
+        if (enableAI)
+            SpawnAIPlayer();
+    }
+
+    private void SpawnAIPlayer()
+    {
+        var aiObj = new GameObject("AIPlayer");
+        aiPlayer = aiObj.AddComponent<AIPlayer>();
+        aiPlayer.Initialize(1, aiRaceId);
+        Debug.Log("[NetworkGameManager] AI opponent spawned on team 1");
     }
 
     private void RegisterUnitPrefabs()
