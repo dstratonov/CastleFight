@@ -18,6 +18,7 @@ public class UnitMovement : NetworkBehaviour
     private Vector3? worldTarget;
     private float repathTimer;
     private bool isStopped;
+    private Animator cachedAnimator;
 
     public bool IsMoving => !isStopped && waypoints != null && waypointIndex < waypoints.Count;
     public bool HasPath => waypoints != null && waypointIndex < waypoints.Count;
@@ -38,6 +39,10 @@ public class UnitMovement : NetworkBehaviour
         grid = GridSystem.Instance;
         if (grid == null)
             Debug.LogError($"[UnitMovement] GridSystem.Instance is NULL on {gameObject.name}!");
+
+        cachedAnimator = GetComponentInChildren<Animator>();
+        if (cachedAnimator != null)
+            cachedAnimator.applyRootMotion = false;
     }
 
     private void Update()
@@ -63,6 +68,9 @@ public class UnitMovement : NetworkBehaviour
 
     private void MoveTowardWaypoint()
     {
+        if (cachedAnimator != null && cachedAnimator.applyRootMotion)
+            cachedAnimator.applyRootMotion = false;
+
         Vector3 target = waypoints[waypointIndex];
         Vector3 pos = transform.position;
         Vector3 toTarget = target - pos;
@@ -110,16 +118,32 @@ public class UnitMovement : NetworkBehaviour
         }
     }
 
+    private float GetEffectiveSeparationRadius()
+    {
+        if (unit != null)
+            return Mathf.Max(separationRadius, unit.EffectiveRadius * 3f);
+        return separationRadius;
+    }
+
     private Vector3 CalculateSeparation()
     {
         if (UnitManager.Instance == null) return Vector3.zero;
 
+        float myRadius = unit != null ? unit.EffectiveRadius : 0.5f;
+        float effectiveRadius = GetEffectiveSeparationRadius();
         Vector3 force = Vector3.zero;
-        var nearby = UnitManager.Instance.GetUnitsInRadius(transform.position, separationRadius);
+        var nearby = UnitManager.Instance.GetUnitsInRadius(transform.position, effectiveRadius);
 
         foreach (var other in nearby)
         {
             if (other == null || other.gameObject == gameObject) continue;
+
+            float otherRadius = 0.5f;
+            var otherUnit = other.GetComponent<Unit>();
+            if (otherUnit != null)
+                otherRadius = otherUnit.EffectiveRadius;
+
+            float combinedRadius = myRadius + otherRadius;
 
             Vector3 offset = transform.position - other.transform.position;
             offset.y = 0;
@@ -130,7 +154,8 @@ public class UnitMovement : NetworkBehaviour
                 dist = 0.1f;
             }
 
-            force += offset.normalized * (1f - dist / separationRadius);
+            if (dist < combinedRadius * 1.5f)
+                force += offset.normalized * (1f - dist / effectiveRadius);
         }
 
         return force;
@@ -139,6 +164,13 @@ public class UnitMovement : NetworkBehaviour
     [Server]
     public void SetDestinationWorld(Vector3 target)
     {
+        if (grid != null)
+        {
+            Vector2Int cell = grid.WorldToCell(target);
+            if (!grid.IsInBounds(cell) || !grid.IsWalkable(cell))
+                target = grid.FindNearestWalkablePosition(target, transform.position);
+        }
+
         worldTarget = target;
         isStopped = false;
         CalculatePath();
@@ -158,48 +190,11 @@ public class UnitMovement : NetworkBehaviour
         {
             if (c.TeamId == enemyTeam)
             {
-                Vector3 target = FindWalkablePositionNear(c.transform.position);
+                Vector3 target = grid.FindNearestWalkablePosition(c.transform.position, transform.position);
                 SetDestinationWorld(target);
                 return;
             }
         }
-    }
-
-    private Vector3 FindWalkablePositionNear(Vector3 worldPos)
-    {
-        Vector2Int center = grid.WorldToCell(worldPos);
-        if (grid.IsInBounds(center) && grid.IsWalkable(center))
-            return worldPos;
-
-        for (int radius = 1; radius <= 10; radius++)
-        {
-            Vector2Int best = center;
-            float bestDist = float.MaxValue;
-            bool found = false;
-
-            for (int dx = -radius; dx <= radius; dx++)
-            {
-                for (int dz = -radius; dz <= radius; dz++)
-                {
-                    if (Mathf.Abs(dx) != radius && Mathf.Abs(dz) != radius) continue;
-                    Vector2Int cell = new(center.x + dx, center.y + dz);
-                    if (!grid.IsInBounds(cell) || !grid.IsWalkable(cell)) continue;
-
-                    float dist = (transform.position - grid.CellToWorld(cell)).sqrMagnitude;
-                    if (dist < bestDist)
-                    {
-                        bestDist = dist;
-                        best = cell;
-                        found = true;
-                    }
-                }
-            }
-
-            if (found)
-                return grid.CellToWorld(best);
-        }
-
-        return worldPos;
     }
 
     [Server]

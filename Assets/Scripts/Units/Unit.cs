@@ -10,9 +10,40 @@ public class Unit : NetworkBehaviour
     private UnitData data;
     private Health health;
 
+    private float cachedRadius = -1f;
+
     public UnitData Data => data;
     public int TeamId => teamId;
     public bool IsDead => health != null && health.IsDead;
+
+    public float EffectiveRadius
+    {
+        get
+        {
+            if (data != null && data.unitRadius > 0.5f)
+                return data.unitRadius;
+            if (cachedRadius > 0f)
+                return cachedRadius;
+            cachedRadius = ComputeRadiusFromBounds();
+            return cachedRadius;
+        }
+    }
+
+    private float ComputeRadiusFromBounds()
+    {
+        var renderers = GetComponentsInChildren<Renderer>();
+        if (renderers.Length == 0) return 0.5f;
+        Bounds combined = default;
+        bool first = true;
+        foreach (var r in renderers)
+        {
+            if (r is ParticleSystemRenderer) continue;
+            if (first) { combined = r.bounds; first = false; }
+            else combined.Encapsulate(r.bounds);
+        }
+        if (first) return 0.5f;
+        return Mathf.Max(combined.extents.x, combined.extents.z);
+    }
 
     private void Awake()
     {

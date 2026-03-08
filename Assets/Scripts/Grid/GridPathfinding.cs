@@ -170,7 +170,6 @@ public static class GridPathfinding
 
     private static bool IsPassable(Vector2Int cell, Vector2Int goal, GridSystem grid)
     {
-        if (cell == goal) return true;
         return grid.IsWalkable(cell);
     }
 

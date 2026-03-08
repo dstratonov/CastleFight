@@ -162,6 +162,11 @@ public class UnitAnimator : MonoBehaviour
         animator.applyRootMotion = false;
         animator.speed = 1f;
 
+        var blocker = animator.GetComponent<RootMotionBlocker>();
+        if (blocker == null)
+            blocker = animator.gameObject.AddComponent<RootMotionBlocker>();
+        blocker.Lock();
+
         CacheClipNames();
         CacheLayerName();
 
@@ -438,4 +443,24 @@ public class UnitAnimator : MonoBehaviour
     public bool IsPlayingOneShot => oneShotActive;
 
     #endregion
+}
+
+public class RootMotionBlocker : MonoBehaviour
+{
+    private Vector3 lockedLocalPos;
+    private bool initialized;
+
+    public void Lock()
+    {
+        lockedLocalPos = transform.localPosition;
+        initialized = true;
+    }
+
+    private void OnAnimatorMove() { }
+
+    private void LateUpdate()
+    {
+        if (initialized)
+            transform.localPosition = lockedLocalPos;
+    }
 }

@@ -4,8 +4,8 @@ using UnityEngine;
 public class GameConfig : ScriptableObject
 {
     [Header("Economy")]
-    public int startingGold = 100;
-    public int passiveIncomeAmount = 10;
+    public int startingGold = 500;
+    public int passiveIncomeAmount = 25;
     public float incomeTickInterval = 5f;
 
     [Header("Hero")]

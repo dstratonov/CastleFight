@@ -165,6 +165,43 @@ public class GridSystem : MonoBehaviour
         return result;
     }
 
+    public Vector3 FindNearestWalkablePosition(Vector3 desiredWorldPos, Vector3 referencePos)
+    {
+        Vector2Int center = WorldToCell(desiredWorldPos);
+        if (IsInBounds(center) && IsWalkable(center))
+            return desiredWorldPos;
+
+        for (int radius = 1; radius <= 15; radius++)
+        {
+            Vector2Int best = center;
+            float bestDist = float.MaxValue;
+            bool found = false;
+
+            for (int dx = -radius; dx <= radius; dx++)
+            {
+                for (int dz = -radius; dz <= radius; dz++)
+                {
+                    if (Mathf.Abs(dx) != radius && Mathf.Abs(dz) != radius) continue;
+                    Vector2Int cell = new(center.x + dx, center.y + dz);
+                    if (!IsInBounds(cell) || !IsWalkable(cell)) continue;
+
+                    float dist = (referencePos - CellToWorld(cell)).sqrMagnitude;
+                    if (dist < bestDist)
+                    {
+                        bestDist = dist;
+                        best = cell;
+                        found = true;
+                    }
+                }
+            }
+
+            if (found)
+                return CellToWorld(best);
+        }
+
+        return desiredWorldPos;
+    }
+
     public bool HasWalkableNeighbor(Vector2Int cell)
     {
         foreach (var dir in EightDirections)

@@ -28,6 +28,15 @@ public class UnitStateMachine : NetworkBehaviour
         unit = GetComponent<Unit>();
         movement = GetComponent<UnitMovement>();
         health = GetComponent<Health>();
+
+        DisableRootMotionEarly();
+    }
+
+    private void DisableRootMotionEarly()
+    {
+        var animator = GetComponentInChildren<Animator>();
+        if (animator != null)
+            animator.applyRootMotion = false;
     }
 
     public override void OnStartClient()

@@ -14,6 +14,8 @@ public class UnitData : ScriptableObject
 
     [Header("Movement")]
     public float moveSpeed = 3.5f;
+    [Tooltip("Physical radius of this unit for separation/spacing. Larger for big creatures like Cyclops.")]
+    public float unitRadius = 0.5f;
 
     [Header("Combat")]
     public float attackDamage = 10f;
