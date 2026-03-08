@@ -35,6 +35,7 @@ public class UnitAnimator : MonoBehaviour
 
         animator.applyRootMotion = false;
         animator.speed = 1f;
+        animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
 
         var blocker = animator.GetComponent<RootMotionBlocker>();
         if (blocker == null)
@@ -206,6 +207,7 @@ public class UnitAnimator : MonoBehaviour
             if (GameDebug.Animation && animLogThrottle % AnimLogInterval == 0)
                 Debug.Log($"[Anim:{gameObject.name}] Loop switch {currentLoopHash} -> {desiredLoop}");
             ApplyDesiredLoop();
+            animLogThrottle = 0;
             return;
         }
 

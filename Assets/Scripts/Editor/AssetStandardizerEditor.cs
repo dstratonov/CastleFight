@@ -63,6 +63,88 @@ public static class AssetStandardizerEditor
         Debug.Log($"[Standardizer] Animations standardized: {count} overrides created");
     }
 
+    [MenuItem("CastleFight/Fix Animation Loop Settings")]
+    public static void FixAnimationLoopSettings()
+    {
+        var creatures = GatherCreatures();
+        var placeholders = CreatePlaceholderClips();
+        var baseController = AssetDatabase.LoadAssetAtPath<AnimatorController>(BaseControllerPath);
+
+        int fixCount = 0;
+        var pathsToReimport = new HashSet<string>();
+
+        foreach (var creature in creatures)
+        {
+            var clips = FindAnimationClips(creature.creatureFolder);
+            if (clips.Count == 0) continue;
+
+            var bestIdle = FindBestClip(clips, IdleKeywords);
+            var bestWalk = FindBestClip(clips, WalkKeywords);
+            if (bestWalk == null) bestWalk = bestIdle;
+            if (bestIdle == null) bestIdle = bestWalk;
+
+            fixCount += CollectLoopFix(bestIdle, true, pathsToReimport);
+            fixCount += CollectLoopFix(bestWalk, true, pathsToReimport);
+        }
+
+        Debug.Log($"[Standardizer] Queued loop fixes for {fixCount} clips across {pathsToReimport.Count} files. Reimporting...");
+
+        int progress = 0;
+        foreach (var path in pathsToReimport)
+        {
+            progress++;
+            EditorUtility.DisplayProgressBar("Fixing Animation Loops", $"Reimporting {progress}/{pathsToReimport.Count}: {System.IO.Path.GetFileName(path)}", (float)progress / pathsToReimport.Count);
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+        }
+        EditorUtility.ClearProgressBar();
+
+        Debug.Log($"[Standardizer] Done. Fixed loop settings on {fixCount} clips across {pathsToReimport.Count} files");
+    }
+
+    static int CollectLoopFix(AnimationClip clip, bool shouldLoop, HashSet<string> pathsToReimport)
+    {
+        if (clip == null) return 0;
+
+        string clipPath = AssetDatabase.GetAssetPath(clip);
+        if (string.IsNullOrEmpty(clipPath) || pathsToReimport.Contains(clipPath)) return 0;
+
+        var importer = AssetImporter.GetAtPath(clipPath) as ModelImporter;
+        if (importer == null) return 0;
+
+        var clips = importer.clipAnimations;
+        ModelImporterClipAnimation[] toApply;
+
+        if (clips == null || clips.Length == 0)
+        {
+            toApply = importer.defaultClipAnimations;
+            if (toApply == null || toApply.Length == 0) return 0;
+        }
+        else
+        {
+            toApply = clips;
+        }
+
+        bool needsUpdate = false;
+        foreach (var c in toApply)
+        {
+            if (c.loopTime != shouldLoop)
+            {
+                c.loopTime = shouldLoop;
+                needsUpdate = true;
+            }
+        }
+
+        if (needsUpdate)
+        {
+            importer.clipAnimations = toApply;
+            pathsToReimport.Add(clipPath);
+            Debug.Log($"[Standardizer] Queued loop={shouldLoop} for {clip.name} in {clipPath}");
+            return 1;
+        }
+
+        return 0;
+    }
+
     [MenuItem("CastleFight/Standardize Colliders Only")]
     public static void StandardizeCollidersOnly()
     {
@@ -232,7 +314,7 @@ public static class AssetStandardizerEditor
         new[] { "idle", "breathe", "lookaround", "rest", "stand" }
     };
     static readonly string[][] WalkKeywords = {
-        new[] { "walk", "move forward", "crawl", "gallop" }
+        new[] { "walk", "move forward", "crawl", "gallop", "fly forward", "fly", "run forward", "run" }
     };
     static readonly string[][] AttackKeywords = {
         new[] { "attack", "bite", "claw", "slash", "combo", "spit", "sting", "stomp", "smash", "throw", "cast", "projectile", "head attack", "pounce" }
@@ -330,6 +412,9 @@ public static class AssetStandardizerEditor
 
             int score = 100;
             if (name.Contains("in place")) score += 20;
+            if (name.Contains("walk")) score += 15;
+            else if (name.Contains("fly")) score += 5;
+            else if (name.Contains("run")) score -= 5;
             if (name.Contains("swordshield") || name.Contains("daggers") || name.Contains("slingshot") ||
                 name.Contains("spear") || name.Contains("weapon") || name.Contains("unarmed"))
                 score -= 30;

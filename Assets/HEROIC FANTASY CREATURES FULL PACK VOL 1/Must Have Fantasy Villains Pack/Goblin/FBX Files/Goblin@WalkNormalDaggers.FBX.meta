@@ -1,121 +1,349 @@
 fileFormatVersion: 2
 guid: 0cc0bf60f44f02f46aa631cbfecdc991
+AssetOrigin:
+  serializedVersion: 1
+  productId: 5730
+  packageName: HEROIC FANTASY CREATURES FULL PACK Volume 1
+  packageVersion: 2.5
+  assetPath: Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Must Have Fantasy Villains
+    Pack/Goblin/FBX Files/Goblin@WalkNormalDaggers.FBX
+  uploadId: 868080
 ModelImporter:
-  serializedVersion: 23
-  fileIDToRecycleName:
-    100000: Factice005
-    100002: //RootNode
-    100004: GOBLIN_
-    100006: GOBLIN_ Head
-    100008: GOBLIN_ L Calf
-    100010: GOBLIN_ L Clavicle
-    100012: GOBLIN_ L Finger0
-    100014: GOBLIN_ L Finger01
-    100016: GOBLIN_ L Finger02
-    100018: GOBLIN_ L Finger1
-    100020: GOBLIN_ L Finger11
-    100022: GOBLIN_ L Finger12
-    100024: GOBLIN_ L Finger2
-    100026: GOBLIN_ L Finger21
-    100028: GOBLIN_ L Finger22
-    100030: GOBLIN_ L Finger3
-    100032: GOBLIN_ L Finger31
-    100034: GOBLIN_ L Finger32
-    100036: GOBLIN_ L Foot
-    100038: GOBLIN_ L Forearm
-    100040: GOBLIN_ L Hand
-    100042: GOBLIN_ L Thigh
-    100044: GOBLIN_ L Toe0
-    100046: GOBLIN_ L UpperArm
-    100048: GOBLIN_ Neck
-    100050: GOBLIN_ Pelvis
-    100052: GOBLIN_ Queue de cheval 1
-    100054: GOBLIN_ R Calf
-    100056: GOBLIN_ R Clavicle
-    100058: GOBLIN_ R Finger0
-    100060: GOBLIN_ R Finger01
-    100062: GOBLIN_ R Finger02
-    100064: GOBLIN_ R Finger1
-    100066: GOBLIN_ R Finger11
-    100068: GOBLIN_ R Finger12
-    100070: GOBLIN_ R Finger2
-    100072: GOBLIN_ R Finger21
-    100074: GOBLIN_ R Finger22
-    100076: GOBLIN_ R Finger3
-    100078: GOBLIN_ R Finger31
-    100080: GOBLIN_ R Finger32
-    100082: GOBLIN_ R Foot
-    100084: GOBLIN_ R Forearm
-    100086: GOBLIN_ R Hand
-    100088: GOBLIN_ R Thigh
-    100090: GOBLIN_ R Toe0
-    100092: GOBLIN_ R UpperArm
-    100094: GOBLIN_ Spine
-    100096: GOBLIN_ Spine1
-    100098: root
-    100100: slingshot_body
-    100102: slingshot_rope_L
-    100104: slingshot_rope_middle
-    100106: slingshot_rope_R
-    400000: Factice005
-    400002: //RootNode
-    400004: GOBLIN_
-    400006: GOBLIN_ Head
-    400008: GOBLIN_ L Calf
-    400010: GOBLIN_ L Clavicle
-    400012: GOBLIN_ L Finger0
-    400014: GOBLIN_ L Finger01
-    400016: GOBLIN_ L Finger02
-    400018: GOBLIN_ L Finger1
-    400020: GOBLIN_ L Finger11
-    400022: GOBLIN_ L Finger12
-    400024: GOBLIN_ L Finger2
-    400026: GOBLIN_ L Finger21
-    400028: GOBLIN_ L Finger22
-    400030: GOBLIN_ L Finger3
-    400032: GOBLIN_ L Finger31
-    400034: GOBLIN_ L Finger32
-    400036: GOBLIN_ L Foot
-    400038: GOBLIN_ L Forearm
-    400040: GOBLIN_ L Hand
-    400042: GOBLIN_ L Thigh
-    400044: GOBLIN_ L Toe0
-    400046: GOBLIN_ L UpperArm
-    400048: GOBLIN_ Neck
-    400050: GOBLIN_ Pelvis
-    400052: GOBLIN_ Queue de cheval 1
-    400054: GOBLIN_ R Calf
-    400056: GOBLIN_ R Clavicle
-    400058: GOBLIN_ R Finger0
-    400060: GOBLIN_ R Finger01
-    400062: GOBLIN_ R Finger02
-    400064: GOBLIN_ R Finger1
-    400066: GOBLIN_ R Finger11
-    400068: GOBLIN_ R Finger12
-    400070: GOBLIN_ R Finger2
-    400072: GOBLIN_ R Finger21
-    400074: GOBLIN_ R Finger22
-    400076: GOBLIN_ R Finger3
-    400078: GOBLIN_ R Finger31
-    400080: GOBLIN_ R Finger32
-    400082: GOBLIN_ R Foot
-    400084: GOBLIN_ R Forearm
-    400086: GOBLIN_ R Hand
-    400088: GOBLIN_ R Thigh
-    400090: GOBLIN_ R Toe0
-    400092: GOBLIN_ R UpperArm
-    400094: GOBLIN_ Spine
-    400096: GOBLIN_ Spine1
-    400098: root
-    400100: slingshot_body
-    400102: slingshot_rope_L
-    400104: slingshot_rope_middle
-    400106: slingshot_rope_R
-    7400000: Take 001
-    9500000: //RootNode
+  serializedVersion: 24200
+  internalIDToNameTable:
+  - first:
+      1: 100000
+    second: Factice005
+  - first:
+      1: 100002
+    second: //RootNode
+  - first:
+      1: 100004
+    second: GOBLIN_
+  - first:
+      1: 100006
+    second: GOBLIN_ Head
+  - first:
+      1: 100008
+    second: GOBLIN_ L Calf
+  - first:
+      1: 100010
+    second: GOBLIN_ L Clavicle
+  - first:
+      1: 100012
+    second: GOBLIN_ L Finger0
+  - first:
+      1: 100014
+    second: GOBLIN_ L Finger01
+  - first:
+      1: 100016
+    second: GOBLIN_ L Finger02
+  - first:
+      1: 100018
+    second: GOBLIN_ L Finger1
+  - first:
+      1: 100020
+    second: GOBLIN_ L Finger11
+  - first:
+      1: 100022
+    second: GOBLIN_ L Finger12
+  - first:
+      1: 100024
+    second: GOBLIN_ L Finger2
+  - first:
+      1: 100026
+    second: GOBLIN_ L Finger21
+  - first:
+      1: 100028
+    second: GOBLIN_ L Finger22
+  - first:
+      1: 100030
+    second: GOBLIN_ L Finger3
+  - first:
+      1: 100032
+    second: GOBLIN_ L Finger31
+  - first:
+      1: 100034
+    second: GOBLIN_ L Finger32
+  - first:
+      1: 100036
+    second: GOBLIN_ L Foot
+  - first:
+      1: 100038
+    second: GOBLIN_ L Forearm
+  - first:
+      1: 100040
+    second: GOBLIN_ L Hand
+  - first:
+      1: 100042
+    second: GOBLIN_ L Thigh
+  - first:
+      1: 100044
+    second: GOBLIN_ L Toe0
+  - first:
+      1: 100046
+    second: GOBLIN_ L UpperArm
+  - first:
+      1: 100048
+    second: GOBLIN_ Neck
+  - first:
+      1: 100050
+    second: GOBLIN_ Pelvis
+  - first:
+      1: 100052
+    second: GOBLIN_ Queue de cheval 1
+  - first:
+      1: 100054
+    second: GOBLIN_ R Calf
+  - first:
+      1: 100056
+    second: GOBLIN_ R Clavicle
+  - first:
+      1: 100058
+    second: GOBLIN_ R Finger0
+  - first:
+      1: 100060
+    second: GOBLIN_ R Finger01
+  - first:
+      1: 100062
+    second: GOBLIN_ R Finger02
+  - first:
+      1: 100064
+    second: GOBLIN_ R Finger1
+  - first:
+      1: 100066
+    second: GOBLIN_ R Finger11
+  - first:
+      1: 100068
+    second: GOBLIN_ R Finger12
+  - first:
+      1: 100070
+    second: GOBLIN_ R Finger2
+  - first:
+      1: 100072
+    second: GOBLIN_ R Finger21
+  - first:
+      1: 100074
+    second: GOBLIN_ R Finger22
+  - first:
+      1: 100076
+    second: GOBLIN_ R Finger3
+  - first:
+      1: 100078
+    second: GOBLIN_ R Finger31
+  - first:
+      1: 100080
+    second: GOBLIN_ R Finger32
+  - first:
+      1: 100082
+    second: GOBLIN_ R Foot
+  - first:
+      1: 100084
+    second: GOBLIN_ R Forearm
+  - first:
+      1: 100086
+    second: GOBLIN_ R Hand
+  - first:
+      1: 100088
+    second: GOBLIN_ R Thigh
+  - first:
+      1: 100090
+    second: GOBLIN_ R Toe0
+  - first:
+      1: 100092
+    second: GOBLIN_ R UpperArm
+  - first:
+      1: 100094
+    second: GOBLIN_ Spine
+  - first:
+      1: 100096
+    second: GOBLIN_ Spine1
+  - first:
+      1: 100098
+    second: root
+  - first:
+      1: 100100
+    second: slingshot_body
+  - first:
+      1: 100102
+    second: slingshot_rope_L
+  - first:
+      1: 100104
+    second: slingshot_rope_middle
+  - first:
+      1: 100106
+    second: slingshot_rope_R
+  - first:
+      4: 400000
+    second: Factice005
+  - first:
+      4: 400002
+    second: //RootNode
+  - first:
+      4: 400004
+    second: GOBLIN_
+  - first:
+      4: 400006
+    second: GOBLIN_ Head
+  - first:
+      4: 400008
+    second: GOBLIN_ L Calf
+  - first:
+      4: 400010
+    second: GOBLIN_ L Clavicle
+  - first:
+      4: 400012
+    second: GOBLIN_ L Finger0
+  - first:
+      4: 400014
+    second: GOBLIN_ L Finger01
+  - first:
+      4: 400016
+    second: GOBLIN_ L Finger02
+  - first:
+      4: 400018
+    second: GOBLIN_ L Finger1
+  - first:
+      4: 400020
+    second: GOBLIN_ L Finger11
+  - first:
+      4: 400022
+    second: GOBLIN_ L Finger12
+  - first:
+      4: 400024
+    second: GOBLIN_ L Finger2
+  - first:
+      4: 400026
+    second: GOBLIN_ L Finger21
+  - first:
+      4: 400028
+    second: GOBLIN_ L Finger22
+  - first:
+      4: 400030
+    second: GOBLIN_ L Finger3
+  - first:
+      4: 400032
+    second: GOBLIN_ L Finger31
+  - first:
+      4: 400034
+    second: GOBLIN_ L Finger32
+  - first:
+      4: 400036
+    second: GOBLIN_ L Foot
+  - first:
+      4: 400038
+    second: GOBLIN_ L Forearm
+  - first:
+      4: 400040
+    second: GOBLIN_ L Hand
+  - first:
+      4: 400042
+    second: GOBLIN_ L Thigh
+  - first:
+      4: 400044
+    second: GOBLIN_ L Toe0
+  - first:
+      4: 400046
+    second: GOBLIN_ L UpperArm
+  - first:
+      4: 400048
+    second: GOBLIN_ Neck
+  - first:
+      4: 400050
+    second: GOBLIN_ Pelvis
+  - first:
+      4: 400052
+    second: GOBLIN_ Queue de cheval 1
+  - first:
+      4: 400054
+    second: GOBLIN_ R Calf
+  - first:
+      4: 400056
+    second: GOBLIN_ R Clavicle
+  - first:
+      4: 400058
+    second: GOBLIN_ R Finger0
+  - first:
+      4: 400060
+    second: GOBLIN_ R Finger01
+  - first:
+      4: 400062
+    second: GOBLIN_ R Finger02
+  - first:
+      4: 400064
+    second: GOBLIN_ R Finger1
+  - first:
+      4: 400066
+    second: GOBLIN_ R Finger11
+  - first:
+      4: 400068
+    second: GOBLIN_ R Finger12
+  - first:
+      4: 400070
+    second: GOBLIN_ R Finger2
+  - first:
+      4: 400072
+    second: GOBLIN_ R Finger21
+  - first:
+      4: 400074
+    second: GOBLIN_ R Finger22
+  - first:
+      4: 400076
+    second: GOBLIN_ R Finger3
+  - first:
+      4: 400078
+    second: GOBLIN_ R Finger31
+  - first:
+      4: 400080
+    second: GOBLIN_ R Finger32
+  - first:
+      4: 400082
+    second: GOBLIN_ R Foot
+  - first:
+      4: 400084
+    second: GOBLIN_ R Forearm
+  - first:
+      4: 400086
+    second: GOBLIN_ R Hand
+  - first:
+      4: 400088
+    second: GOBLIN_ R Thigh
+  - first:
+      4: 400090
+    second: GOBLIN_ R Toe0
+  - first:
+      4: 400092
+    second: GOBLIN_ R UpperArm
+  - first:
+      4: 400094
+    second: GOBLIN_ Spine
+  - first:
+      4: 400096
+    second: GOBLIN_ Spine1
+  - first:
+      4: 400098
+    second: root
+  - first:
+      4: 400100
+    second: slingshot_body
+  - first:
+      4: 400102
+    second: slingshot_rope_L
+  - first:
+      4: 400104
+    second: slingshot_rope_middle
+  - first:
+      4: 400106
+    second: slingshot_rope_R
+  - first:
+      74: 7400000
+    second: Take 001
+  - first:
+      95: 9500000
+    second: //RootNode
   externalObjects: {}
   materials:
-    importMaterials: 1
+    materialImportMode: 1
     materialName: 0
     materialSearch: 1
     materialLocation: 1
@@ -124,9 +352,8 @@ ModelImporter:
     bakeSimulation: 0
     resampleCurves: 1
     optimizeGameObjects: 0
+    removeConstantScaleCurves: 0
     motionNodeName: 
-    rigImportErrors: 
-    rigImportWarnings: 
     animationImportErrors: 
     animationImportWarnings: 
     animationRetargetingWarnings: 
@@ -140,7 +367,36 @@ ModelImporter:
     animationWrapMode: 0
     extraExposedTransformPaths: []
     extraUserProperties: []
-    clipAnimations: []
+    clipAnimations:
+    - serializedVersion: 16
+      name: WalkNormalDaggers
+      takeName: Take 001
+      internalID: 1827226128182048838
+      firstFrame: 0
+      lastFrame: 30
+      wrapMode: 0
+      orientationOffsetY: 0
+      level: 0
+      cycleOffset: 0
+      loop: 0
+      hasAdditiveReferencePose: 0
+      loopTime: 1
+      loopBlend: 0
+      loopBlendOrientation: 0
+      loopBlendPositionY: 0
+      loopBlendPositionXZ: 0
+      keepOriginalOrientation: 0
+      keepOriginalPositionY: 1
+      keepOriginalPositionXZ: 0
+      heightFromFeet: 0
+      mirror: 0
+      bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
+      curves: []
+      events: []
+      transformMask: []
+      maskType: 3
+      maskSource: {instanceID: 0}
+      additiveReferencePoseFrame: 0
     isReadable: 1
   meshes:
     lODScreenPercentages: []
@@ -148,25 +404,39 @@ ModelImporter:
     meshCompression: 0
     addColliders: 0
     useSRGBMaterialColor: 1
+    sortHierarchyByName: 1
+    importPhysicalCameras: 1
     importVisibility: 1
     importBlendShapes: 1
     importCameras: 1
     importLights: 1
+    nodeNameCollisionStrategy: 0
+    fileIdsGeneration: 1
     swapUVChannels: 0
     generateSecondaryUV: 0
     useFileUnits: 1
-    optimizeMeshForGPU: 1
     keepQuads: 0
     weldVertices: 1
+    bakeAxisConversion: 0
     preserveHierarchy: 0
+    skinWeightsMode: 0
+    maxBonesPerVertex: 4
+    minBoneWeight: 0.001
+    optimizeBones: 1
+    generateMeshLods: 0
+    meshLodGenerationFlags: 0
+    maximumMeshLod: -1
+    meshOptimizationFlags: -1
     indexFormat: 0
     secondaryUVAngleDistortion: 8
     secondaryUVAreaDistortion: 15.000001
     secondaryUVHardAngle: 88
+    secondaryUVMarginMethod: 0
+    secondaryUVMinLightmapResolution: 40
+    secondaryUVMinObjectScale: 1
     secondaryUVPackMargin: 4
     useFileScale: 1
-    previousCalculatedGlobalScale: 0.01
-    hasPreviousCalculatedGlobalScale: 1
+    strictVertexDataChecks: 0
   tangentSpace:
     normalSmoothAngle: 60
     normalImportMode: 0
@@ -175,10 +445,10 @@ ModelImporter:
     legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: 0
     blendShapeNormalImportMode: 1
     normalSmoothingSource: 0
+  referencedClips: []
   importAnimation: 1
-  copyAvatar: 1
   humanDescription:
-    serializedVersion: 2
+    serializedVersion: 3
     human: []
     skeleton: []
     armTwist: 0.5
@@ -188,23 +458,20 @@ ModelImporter:
     armStretch: 0.05
     legStretch: 0.05
     feetSpacing: 0
+    globalScale: 1
     rootMotionBoneName: root
     hasTranslationDoF: 0
     hasExtraRoot: 0
     skeletonHasParents: 1
-  lastHumanDescriptionAvatarSource: {fileID: 9000000, guid: b8ca1bd87f93169459d0c9ae1ae9bcec,
-    type: 3}
+  lastHumanDescriptionAvatarSource: {fileID: 9000000, guid: b8ca1bd87f93169459d0c9ae1ae9bcec, type: 3}
+  autoGenerateAvatarMappingIfUnspecified: 1
   animationType: 2
   humanoidOversampling: 1
+  avatarSetup: 2
+  addHumanoidExtraRootOnlyWhenUsingAvatar: 0
+  importBlendShapeDeformPercent: 0
+  remapMaterialsIfMaterialImportModeIsNone: 1
   additionalBone: 0
   userData: 
   assetBundleName: 
   assetBundleVariant: 
-AssetOrigin:
-  serializedVersion: 1
-  productId: 5730
-  packageName: HEROIC FANTASY CREATURES FULL PACK Volume 1
-  packageVersion: 2.5
-  assetPath: Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Must Have Fantasy Villains
-    Pack/Goblin/FBX Files/Goblin@WalkNormalDaggers.FBX
-  uploadId: 868080
