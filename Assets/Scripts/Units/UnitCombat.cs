@@ -17,6 +17,11 @@ public class UnitCombat : NetworkBehaviour
     private int debugLogCounter;
     private const int DebugLogInterval = 16;
     private bool wasInRange;
+    private float stuckTimer;
+
+    private Health cachedApproachTarget;
+    private Vector3 cachedApproachPos;
+    private bool hasApproachCache;
 
     public Transform AttackTarget => targetHealth != null && !targetHealth.IsDead ? targetHealth.transform : null;
 
@@ -40,11 +45,20 @@ public class UnitCombat : NetworkBehaviour
         if (newTarget == targetHealth) return;
         UnregisterFromTarget();
         targetHealth = newTarget;
+        wasInRange = false;
+        stuckTimer = 0f;
+        InvalidateApproachCache();
         if (targetHealth != null)
         {
             targetEngageCounts.TryGetValue(targetHealth, out int count);
             targetEngageCounts[targetHealth] = count + 1;
         }
+    }
+
+    private void InvalidateApproachCache()
+    {
+        hasApproachCache = false;
+        cachedApproachTarget = null;
     }
 
     private void UnregisterFromTarget()
@@ -83,23 +97,38 @@ public class UnitCombat : NetworkBehaviour
             float myRadius = unit != null ? unit.EffectiveRadius : 0.5f;
             float effectiveRange = range + myRadius;
 
-            bool reachedDestination = movement != null && !movement.IsMoving && !movement.HasPath;
-            bool isStructure = targetHealth.GetComponent<Castle>() != null ||
-                               targetHealth.GetComponent<Building>() != null;
-            bool stillPathing = movement != null && (movement.IsMoving || movement.HasPath);
+            bool isStructure = IsStructure(targetHealth);
+            if (isStructure)
+                effectiveRange += GetTargetRadius(targetHealth) * 0.3f;
 
-            bool inRange;
-            if (isStructure && stillPathing)
-                inRange = false;
-            else if (reachedDestination)
-                inRange = dist <= effectiveRange * 2.5f;
-            else
-                inRange = dist <= effectiveRange;
+            bool inRange = dist <= effectiveRange;
+
+            bool pathDone = movement != null && !movement.IsMoving && !movement.HasPath;
+            if (!inRange && pathDone)
+            {
+                stuckTimer += Time.deltaTime;
+                if (stuckTimer > 1f)
+                {
+                    inRange = dist <= effectiveRange * 1.5f;
+                    if (!inRange)
+                    {
+                        if (GameDebug.Combat)
+                            Debug.Log($"{UnitTag()} can't reach {targetHealth.name} dist={dist:F2} effRange={effectiveRange:F2}, re-pathing");
+                        stuckTimer = 0f;
+                        InvalidateApproachCache();
+                        MoveTowardTarget();
+                    }
+                }
+            }
+            else if (inRange || (movement != null && movement.IsMoving))
+            {
+                stuckTimer = 0f;
+            }
 
             if (inRange)
             {
                 if (!wasInRange && GameDebug.Combat)
-                    Debug.Log($"{UnitTag()} IN RANGE of {targetHealth.name} dist={dist:F2} effRange={effectiveRange:F2} reached={reachedDestination}");
+                    Debug.Log($"{UnitTag()} IN RANGE of {targetHealth.name} dist={dist:F2} effRange={effectiveRange:F2}");
                 wasInRange = true;
                 movement?.Stop();
                 stateMachine?.SetState(UnitState.Fighting);
@@ -111,16 +140,13 @@ public class UnitCombat : NetworkBehaviour
                     Debug.Log($"{UnitTag()} LEFT RANGE of {targetHealth.name} dist={dist:F2} effRange={effectiveRange:F2}");
                 wasInRange = false;
                 if (movement != null && !movement.IsMoving)
-                {
-                    if (ShouldLog() && GameDebug.Combat)
-                        Debug.Log($"{UnitTag()} OUT OF RANGE of {targetHealth.name} dist={dist:F2} effRange={effectiveRange:F2}, not moving -> re-path");
                     MoveTowardTarget();
-                }
             }
         }
         else
         {
             wasInRange = false;
+            stuckTimer = 0f;
             if (stateMachine != null && stateMachine.CurrentState == UnitState.Fighting)
             {
                 if (GameDebug.Combat)
@@ -136,41 +162,61 @@ public class UnitCombat : NetworkBehaviour
         debugLogCounter++;
         bool log = ShouldLog() && GameDebug.Combat;
 
-        if (targetHealth != null && !targetHealth.IsDead)
+        float myRadius = unit != null ? unit.EffectiveRadius : 0.5f;
+        float aggroRange = (unit.Data != null ? unit.Data.attackRange * 2f : 10f) + myRadius;
+        aggroRange = Mathf.Max(aggroRange, 8f);
+        int enemyTeam = GetEnemyTeam();
+
+        bool currentTargetIsStructure = targetHealth != null && !targetHealth.IsDead && IsStructure(targetHealth);
+
+        if (currentTargetIsStructure)
+        {
+            Health nearbyUnit = FindBestEnemyUnit(aggroRange);
+            if (nearbyUnit != null)
+            {
+                if (log)
+                    Debug.Log($"{UnitTag()} PRIORITY SWITCH: dropping building {targetHealth.name} for unit {nearbyUnit.name}");
+                RegisterToTarget(nearbyUnit);
+                MoveTowardTarget();
+                return;
+            }
+
+            float dist = DistanceToTarget(targetHealth);
+            float scanRange = aggroRange;
+            if (dist <= scanRange)
+                return;
+        }
+
+        if (targetHealth != null && !targetHealth.IsDead && !currentTargetIsStructure)
         {
             float dist = DistanceToTarget(targetHealth);
-            float myRadius = unit != null ? unit.EffectiveRadius : 0.5f;
-            float scanRange = (unit.Data != null ? unit.Data.attackRange * 2f : 10f) + myRadius;
+            float scanRange = aggroRange;
             if (dist <= scanRange)
             {
                 if (log)
-                    Debug.Log($"{UnitTag()} SCAN: keeping target {targetHealth.name} dist={dist:F2} scanRange={scanRange:F2} engagers={GetEngageCount(targetHealth)}");
+                    Debug.Log($"{UnitTag()} SCAN: keeping target {targetHealth.name} dist={dist:F2} scanRange={scanRange:F2}");
                 return;
             }
             if (log)
-                Debug.Log($"{UnitTag()} SCAN: target {targetHealth.name} too far dist={dist:F2} > scanRange={scanRange:F2}, rescanning");
+                Debug.Log($"{UnitTag()} SCAN: target {targetHealth.name} too far dist={dist:F2}, rescanning");
         }
 
-        float unitRad = unit != null ? unit.EffectiveRadius : 0.5f;
-        float range = (unit.Data != null ? unit.Data.attackRange * 2f : 10f) + unitRad;
-        int enemyTeam = GetEnemyTeam();
-
-        Health bestTarget = FindBestEnemyUnit(range);
-        if (bestTarget != null)
+        Health bestUnit = FindBestEnemyUnit(aggroRange);
+        if (bestUnit != null)
         {
             if (log)
-                Debug.Log($"{UnitTag()} SCAN: found enemy UNIT {bestTarget.name} dist={DistanceToTarget(bestTarget):F2} engagers={GetEngageCount(bestTarget)} range={range:F2}");
-            RegisterToTarget(bestTarget);
+                Debug.Log($"{UnitTag()} SCAN: found enemy UNIT {bestUnit.name} dist={DistanceToTarget(bestUnit):F2}");
+            RegisterToTarget(bestUnit);
             MoveTowardTarget();
             return;
         }
 
-        Health nearestBuildingHealth = FindNearestEnemyBuilding(enemyTeam, range);
-        if (nearestBuildingHealth != null)
+        Health nearestBuilding = FindNearestEnemyBuilding(enemyTeam, aggroRange);
+        if (nearestBuilding != null)
         {
             if (log)
-                Debug.Log($"{UnitTag()} SCAN: found enemy BUILDING {nearestBuildingHealth.name} dist={DistanceToTarget(nearestBuildingHealth):F2} engagers={GetEngageCount(nearestBuildingHealth)}");
-            RegisterToTarget(nearestBuildingHealth);
+                Debug.Log($"{UnitTag()} SCAN: found enemy BUILDING {nearestBuilding.name} dist={DistanceToTarget(nearestBuilding):F2}");
+            RegisterToTarget(nearestBuilding);
             MoveTowardTarget();
             return;
         }
@@ -182,8 +228,7 @@ public class UnitCombat : NetworkBehaviour
             float castleDist = DistanceToTarget(castleHealth);
             float attackRange = unit.Data != null ? unit.Data.attackRange : 2f;
             if (log)
-                Debug.Log($"{UnitTag()} SCAN: targeting CASTLE {castleHealth.name} dist={castleDist:F2} atkRange={attackRange:F2} engagers={GetEngageCount(castleHealth)}" +
-                    (castleDist > attackRange ? " -> moving" : " -> in range"));
+                Debug.Log($"{UnitTag()} SCAN: targeting CASTLE {castleHealth.name} dist={castleDist:F2}");
             if (castleDist > attackRange)
                 MoveTowardTarget();
             return;
@@ -204,10 +249,7 @@ public class UnitCombat : NetworkBehaviour
     {
         if (UnitManager.Instance == null) return null;
 
-        int enemyTeam = TeamManager.Instance != null
-            ? TeamManager.Instance.GetEnemyTeamId(unit.TeamId)
-            : (unit.TeamId == 0 ? 1 : 0);
-
+        int enemyTeam = GetEnemyTeam();
         var enemies = UnitManager.Instance.GetTeamUnits(enemyTeam);
         float maxRangeSq = maxRange * maxRange;
 
@@ -256,6 +298,11 @@ public class UnitCombat : NetworkBehaviour
             : (unit.TeamId == 0 ? 1 : 0);
     }
 
+    private bool IsStructure(Health h)
+    {
+        return h.GetComponent<Castle>() != null || h.GetComponent<Building>() != null;
+    }
+
     private Health FindNearestEnemyBuilding(int enemyTeam, float maxRange)
     {
         if (BuildingManager.Instance == null) return null;
@@ -297,51 +344,39 @@ public class UnitCombat : NetworkBehaviour
         if (targetHealth == null || movement == null) return;
         bool log = ShouldLog() && GameDebug.Combat;
 
-        Vector3 targetCenter = GetTargetCenter(targetHealth);
-        float targetRadius = GetTargetRadius(targetHealth);
-        float attackRange = unit.Data != null ? unit.Data.attackRange : 2f;
-        float unitRadius = unit != null ? unit.EffectiveRadius : 0.5f;
+        if (hasApproachCache && cachedApproachTarget == targetHealth)
+        {
+            float distToCached = Vector3.Distance(transform.position, cachedApproachPos);
+            if (distToCached > 1.5f)
+            {
+                if (log)
+                    Debug.Log($"{UnitTag()} MOVE(cached) -> {targetHealth.name} dest={cachedApproachPos:F1} distToDest={distToCached:F1}");
+                movement.SetDestinationWorld(cachedApproachPos);
+                return;
+            }
+        }
 
         var grid = GridSystem.Instance;
-        bool isStructure = targetHealth.GetComponent<Castle>() != null ||
-                           targetHealth.GetComponent<Building>() != null;
+        bool isStructure = IsStructure(targetHealth);
 
         Vector3 destination;
 
         if (isStructure && grid != null)
         {
-            destination = FindWalkableApproachPoint(grid, targetCenter, targetRadius, attackRange, unitRadius);
+            destination = FindStructureApproachSlot(grid);
         }
         else
         {
-            int engageCount = GetEngageCount(targetHealth);
-
-            Vector3 toMe = transform.position - targetCenter;
-            toMe.y = 0;
-            if (toMe.sqrMagnitude < 0.01f)
-                toMe = Vector3.right;
-            float baseAngle = Mathf.Atan2(toMe.z, toMe.x);
-
-            float spreadOffset = 0f;
-            if (engageCount > 1)
-            {
-                int id = gameObject.GetInstanceID();
-                float hash = ((id * 2654435761u) & 0xFFFFFF) / (float)0xFFFFFF;
-                spreadOffset = (hash - 0.5f) * Mathf.PI * 0.5f;
-            }
-            float angle = baseAngle + spreadOffset;
-
-            float approachDist = targetRadius + attackRange * 0.5f + unitRadius;
-            destination = targetCenter + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * approachDist;
-            destination.y = transform.position.y;
-
-            if (grid != null)
-                destination = grid.FindNearestWalkablePosition(destination, transform.position);
+            destination = FindUnitApproachPoint(grid);
         }
+
+        cachedApproachTarget = targetHealth;
+        cachedApproachPos = destination;
+        hasApproachCache = true;
 
         if (log)
         {
-            Debug.Log($"{UnitTag()} MOVE -> {targetHealth.name}" +
+            Debug.Log($"{UnitTag()} MOVE(new) -> {targetHealth.name}" +
                 $" myPos={transform.position:F1}" +
                 $" dest={destination:F1}" +
                 $" dist={Vector3.Distance(transform.position, destination):F1}" +
@@ -351,15 +386,17 @@ public class UnitCombat : NetworkBehaviour
         movement.SetDestinationWorld(destination);
     }
 
-    private Vector3 FindWalkableApproachPoint(GridSystem grid, Vector3 targetCenter, float targetRadius, float attackRange, float unitRadius)
+    private Vector3 FindStructureApproachSlot(GridSystem grid)
     {
-        Vector2Int centerCell = grid.WorldToCell(targetCenter);
-        int searchRadius = Mathf.CeilToInt((targetRadius + attackRange) / grid.CellSize) + 2;
+        Vector3 targetCenter = GetTargetCenter(targetHealth);
+        float targetRadius = GetTargetRadius(targetHealth);
+        float attackRange = unit.Data != null ? unit.Data.attackRange : 2f;
+        float unitRadius = unit != null ? unit.EffectiveRadius : 0.5f;
 
-        Vector3 myPos = transform.position;
-        Vector3 bestPos = myPos;
-        float bestScore = float.MaxValue;
-        bool found = false;
+        Vector2Int centerCell = grid.WorldToCell(targetCenter);
+        int searchRadius = Mathf.CeilToInt((targetRadius + attackRange + unitRadius) / grid.CellSize) + 2;
+
+        var borderCells = new List<(Vector3 pos, float angle)>();
 
         for (int dx = -searchRadius; dx <= searchRadius; dx++)
         {
@@ -368,30 +405,64 @@ public class UnitCombat : NetworkBehaviour
                 Vector2Int cell = new(centerCell.x + dx, centerCell.y + dz);
                 if (!grid.IsInBounds(cell) || !grid.IsWalkable(cell)) continue;
 
+                bool touchesStructure = false;
+                for (int nx = -1; nx <= 1 && !touchesStructure; nx++)
+                {
+                    for (int nz = -1; nz <= 1 && !touchesStructure; nz++)
+                    {
+                        if (nx == 0 && nz == 0) continue;
+                        Vector2Int neighbor = new(cell.x + nx, cell.y + nz);
+                        if (grid.IsInBounds(neighbor) && !grid.IsWalkable(neighbor))
+                            touchesStructure = true;
+                    }
+                }
+
+                if (!touchesStructure) continue;
+
                 Vector3 cellWorld = grid.CellToWorld(cell);
                 float distToTarget = Vector3.Distance(cellWorld, targetCenter);
+                if (distToTarget > targetRadius + attackRange * 3f) continue;
 
-                float idealDist = targetRadius + attackRange * 0.3f;
-                if (distToTarget > targetRadius + attackRange * 2f) continue;
-                if (distToTarget < targetRadius * 0.5f) continue;
-
-                float distToMe = Vector3.Distance(cellWorld, myPos);
-                float distFromIdeal = Mathf.Abs(distToTarget - idealDist);
-                float score = distToMe * 0.6f + distFromIdeal * 0.4f;
-
-                if (score < bestScore)
-                {
-                    bestScore = score;
-                    bestPos = cellWorld;
-                    found = true;
-                }
+                float angle = Mathf.Atan2(cellWorld.z - targetCenter.z, cellWorld.x - targetCenter.x);
+                borderCells.Add((cellWorld, angle));
             }
         }
 
-        if (!found)
-            bestPos = grid.FindNearestWalkablePosition(targetCenter, myPos);
+        if (borderCells.Count == 0)
+            return grid.FindNearestWalkablePosition(targetCenter, transform.position);
 
-        return bestPos;
+        borderCells.Sort((a, b) => a.angle.CompareTo(b.angle));
+
+        int mySlot = Mathf.Abs(gameObject.GetInstanceID()) % borderCells.Count;
+        return borderCells[mySlot].pos;
+    }
+
+    private Vector3 FindUnitApproachPoint(GridSystem grid)
+    {
+        Vector3 targetCenter = GetTargetCenter(targetHealth);
+        float targetRadius = GetTargetRadius(targetHealth);
+        float attackRange = unit.Data != null ? unit.Data.attackRange : 2f;
+        float unitRadius = unit != null ? unit.EffectiveRadius : 0.5f;
+
+        uint hash = (uint)Mathf.Abs(gameObject.GetInstanceID()) * 2654435761u;
+        float unitAngle = ((hash & 0xFFFF) / (float)0xFFFF) * Mathf.PI * 2f;
+
+        int engageCount = Mathf.Max(1, GetEngageCount(targetHealth));
+        int slot = Mathf.Abs(gameObject.GetInstanceID()) % engageCount;
+        float slotAngle = unitAngle + slot * (Mathf.PI * 2f / engageCount);
+
+        float approachDist = targetRadius + attackRange * 0.5f + unitRadius;
+        Vector3 destination = targetCenter + new Vector3(Mathf.Cos(slotAngle), 0f, Mathf.Sin(slotAngle)) * approachDist;
+        destination.y = transform.position.y;
+
+        if (grid != null)
+        {
+            Vector2Int cell = grid.WorldToCell(destination);
+            if (!grid.IsInBounds(cell) || !grid.IsWalkable(cell))
+                destination = grid.FindNearestWalkablePosition(destination, transform.position);
+        }
+
+        return destination;
     }
 
     private Vector3 GetTargetCenter(Health target)

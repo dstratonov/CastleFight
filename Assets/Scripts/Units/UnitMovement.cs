@@ -20,9 +20,11 @@ public class UnitMovement : NetworkBehaviour
     private bool isStopped;
     private Animator cachedAnimator;
     private int consecutivePathFails;
+    private bool isPathComplete;
 
     public bool IsMoving => !isStopped && waypoints != null && waypointIndex < waypoints.Count;
     public bool HasPath => waypoints != null && waypointIndex < waypoints.Count;
+    public bool IsPathComplete => isPathComplete;
     public Vector3? WorldTarget => worldTarget;
     public IReadOnlyList<Vector3> Waypoints => waypoints;
     public int WaypointIndex => waypointIndex;
@@ -324,6 +326,7 @@ public class UnitMovement : NetworkBehaviour
         if (result.HasPath)
         {
             consecutivePathFails = 0;
+            isPathComplete = result.IsComplete;
             waypoints = GridPathfinding.SmoothPath(result.Path, grid);
 
             if (result.IsComplete && waypoints.Count > 1)
@@ -338,6 +341,7 @@ public class UnitMovement : NetworkBehaviour
         else
         {
             consecutivePathFails++;
+            isPathComplete = false;
             if (GameDebug.Movement)
                 Debug.Log($"[Move:{gameObject.name}] path FAILED {startCell}->{goalCell} (fails={consecutivePathFails})");
 
