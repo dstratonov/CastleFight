@@ -22,6 +22,10 @@ public class UnitMovement : NetworkBehaviour
     private int consecutivePathFails;
     private bool isPathComplete;
 
+    private Vector3 lastProgressPos;
+    private float progressCheckTimer;
+    private float stallTime;
+
     public bool IsMoving => !isStopped && waypoints != null && waypointIndex < waypoints.Count;
     public bool HasPath => waypoints != null && waypointIndex < waypoints.Count;
     public bool IsPathComplete => isPathComplete;
@@ -86,6 +90,7 @@ public class UnitMovement : NetworkBehaviour
         float distToWaypoint = toTarget.magnitude;
         if (distToWaypoint < effectiveThreshold)
         {
+            stallTime = 0f;
             waypointIndex++;
             if (waypointIndex >= waypoints.Count)
             {
@@ -100,12 +105,42 @@ public class UnitMovement : NetworkBehaviour
             toTarget.y = 0;
         }
 
+        TrackProgress();
+
         float speed = (unit != null && unit.Data != null) ? unit.Data.moveSpeed : moveSpeed;
 
         Vector3 moveDir = toTarget.normalized;
         Vector3 separation = CalculateSeparation();
         Vector3 wallRepulsion = CalculateWallRepulsion();
-        moveDir = (moveDir + separation * separationWeight + wallRepulsion).normalized;
+
+        float forwardSep = Vector3.Dot(separation, moveDir);
+        bool blockedByUnits = forwardSep < -0.3f && separation.magnitude > 0.2f;
+
+        if (blockedByUnits || stallTime > 1f)
+        {
+            Vector3 perp = Vector3.Cross(Vector3.up, moveDir);
+            float lateralPush = Vector3.Dot(separation, perp);
+            float steerDir = lateralPush >= 0f ? 1f : -1f;
+
+            float steerStrength = Mathf.Clamp01(stallTime * 0.5f);
+            float fwd = Mathf.Lerp(0.7f, 0.2f, steerStrength);
+            float side = 1f - fwd;
+
+            moveDir = (moveDir * fwd + perp * steerDir * side).normalized;
+            moveDir = (moveDir + separation * separationWeight * 0.4f + wallRepulsion).normalized;
+        }
+        else
+        {
+            moveDir = (moveDir + separation * separationWeight + wallRepulsion).normalized;
+        }
+
+        if (stallTime > 3f && waypointIndex < waypoints.Count - 1)
+        {
+            waypointIndex++;
+            stallTime = 0f;
+            if (GameDebug.Movement)
+                Debug.Log($"[Move:{gameObject.name}] stalled, skipping waypoint -> {waypointIndex}");
+        }
 
         Vector3 newPos = pos + moveDir * speed * Time.deltaTime;
         newPos.y = grid.GridOrigin.y;
@@ -131,6 +166,22 @@ public class UnitMovement : NetworkBehaviour
             repathTimer = repathInterval;
             CalculatePath();
         }
+    }
+
+    private void TrackProgress()
+    {
+        progressCheckTimer -= Time.deltaTime;
+        if (progressCheckTimer > 0f) return;
+
+        progressCheckTimer = 0.4f;
+        float moved = Vector3.Distance(transform.position, lastProgressPos);
+
+        if (moved < 0.15f)
+            stallTime += 0.4f;
+        else
+            stallTime = Mathf.Max(0f, stallTime - 0.2f);
+
+        lastProgressPos = transform.position;
     }
 
     private Vector3 ValidatePosition(Vector3 oldPos, Vector3 newPos)
@@ -249,6 +300,8 @@ public class UnitMovement : NetworkBehaviour
 
         worldTarget = target;
         isStopped = false;
+        stallTime = 0f;
+        lastProgressPos = transform.position;
         CalculatePath();
     }
 
