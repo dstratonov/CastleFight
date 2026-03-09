@@ -7,7 +7,10 @@ public class UnitCombat : NetworkBehaviour
     [SerializeField] private float scanInterval = 0.25f;
 
     private static readonly Dictionary<Health, int> targetEngageCounts = new();
+    private static readonly Dictionary<Health, Dictionary<Vector2Int, UnitCombat>> slotReservations = new();
     private static float engageCleanupTimer;
+    private Vector2Int reservedSlotCell = new(-9999, -9999);
+    private Health reservedSlotTarget;
 
     private Unit unit;
     private UnitMovement movement;
@@ -38,6 +41,7 @@ public class UnitCombat : NetworkBehaviour
 
     private void OnDestroy()
     {
+        ReleaseSlotReservation();
         UnregisterFromTarget();
     }
 
@@ -60,6 +64,37 @@ public class UnitCombat : NetworkBehaviour
     {
         hasApproachCache = false;
         cachedApproachTarget = null;
+        ReleaseSlotReservation();
+    }
+
+    private void ReleaseSlotReservation()
+    {
+        if (reservedSlotTarget != null && slotReservations.TryGetValue(reservedSlotTarget, out var slots))
+        {
+            if (slots.TryGetValue(reservedSlotCell, out var owner) && owner == this)
+                slots.Remove(reservedSlotCell);
+            if (slots.Count == 0)
+                slotReservations.Remove(reservedSlotTarget);
+        }
+        reservedSlotTarget = null;
+        reservedSlotCell = new(-9999, -9999);
+    }
+
+    private void ReserveSlot(Health target, Vector2Int cell)
+    {
+        ReleaseSlotReservation();
+        if (!slotReservations.ContainsKey(target))
+            slotReservations[target] = new Dictionary<Vector2Int, UnitCombat>();
+        slotReservations[target][cell] = this;
+        reservedSlotTarget = target;
+        reservedSlotCell = cell;
+    }
+
+    private static bool IsSlotTaken(Health target, Vector2Int cell)
+    {
+        if (!slotReservations.TryGetValue(target, out var slots)) return false;
+        if (!slots.TryGetValue(cell, out var owner)) return false;
+        return owner != null;
     }
 
     private void UnregisterFromTarget()
@@ -85,14 +120,36 @@ public class UnitCombat : NetworkBehaviour
         if (engageCleanupTimer > 0f) return;
         engageCleanupTimer = 5f;
 
-        var stale = new List<Health>();
+        var staleEngages = new List<Health>();
         foreach (var kvp in targetEngageCounts)
         {
             if (kvp.Key == null || kvp.Key.IsDead)
-                stale.Add(kvp.Key);
+                staleEngages.Add(kvp.Key);
         }
-        foreach (var key in stale)
+        foreach (var key in staleEngages)
             targetEngageCounts.Remove(key);
+
+        var staleSlots = new List<Health>();
+        foreach (var kvp in slotReservations)
+        {
+            if (kvp.Key == null || kvp.Key.IsDead)
+            {
+                staleSlots.Add(kvp.Key);
+                continue;
+            }
+            var deadOwners = new List<Vector2Int>();
+            foreach (var slot in kvp.Value)
+            {
+                if (slot.Value == null)
+                    deadOwners.Add(slot.Key);
+            }
+            foreach (var cell in deadOwners)
+                kvp.Value.Remove(cell);
+            if (kvp.Value.Count == 0)
+                staleSlots.Add(kvp.Key);
+        }
+        foreach (var key in staleSlots)
+            slotReservations.Remove(key);
     }
 
     private void Update()
@@ -415,7 +472,8 @@ public class UnitCombat : NetworkBehaviour
         Vector2Int centerCell = grid.WorldToCell(targetCenter);
         int searchRadius = Mathf.CeilToInt((targetRadius + attackRange + unitRadius) / grid.CellSize) + 2;
 
-        var borderCells = new List<(Vector3 pos, float angle)>();
+        Vector3 myPos = transform.position;
+        var borderCells = new List<(Vector2Int cell, Vector3 pos, float distToMe)>();
 
         for (int dx = -searchRadius; dx <= searchRadius; dx++)
         {
@@ -442,18 +500,27 @@ public class UnitCombat : NetworkBehaviour
                 float distToTarget = Vector3.Distance(cellWorld, targetCenter);
                 if (distToTarget > targetRadius + attackRange * 3f) continue;
 
-                float angle = Mathf.Atan2(cellWorld.z - targetCenter.z, cellWorld.x - targetCenter.x);
-                borderCells.Add((cellWorld, angle));
+                float distToMe = Vector3.Distance(cellWorld, myPos);
+                borderCells.Add((cell, cellWorld, distToMe));
             }
         }
 
         if (borderCells.Count == 0)
-            return grid.FindNearestWalkablePosition(targetCenter, transform.position);
+            return grid.FindNearestWalkablePosition(targetCenter, myPos);
 
-        borderCells.Sort((a, b) => a.angle.CompareTo(b.angle));
+        borderCells.Sort((a, b) => a.distToMe.CompareTo(b.distToMe));
 
-        int mySlot = Mathf.Abs(gameObject.GetInstanceID()) % borderCells.Count;
-        return borderCells[mySlot].pos;
+        foreach (var (cell, pos, _) in borderCells)
+        {
+            if (!IsSlotTaken(targetHealth, cell))
+            {
+                ReserveSlot(targetHealth, cell);
+                return pos;
+            }
+        }
+
+        ReserveSlot(targetHealth, borderCells[0].cell);
+        return borderCells[0].pos;
     }
 
     private Vector3 FindUnitApproachPoint(GridSystem grid)
