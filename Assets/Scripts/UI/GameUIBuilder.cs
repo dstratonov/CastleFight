@@ -440,10 +440,60 @@ public class GameUIBuilder : MonoBehaviour
             theme != null ? theme.iconSpeed : null, "",
             out var extraText);
 
+        // Spawn timer bar (below portrait, only visible for spawner buildings)
+        var spawnTimerObj = CreatePanel("SpawnTimer", panelObj.transform);
+        var spawnTimerRect = spawnTimerObj.GetComponent<RectTransform>();
+        spawnTimerRect.anchorMin = new Vector2(0, 0);
+        spawnTimerRect.anchorMax = new Vector2(0, 0);
+        spawnTimerRect.pivot = new Vector2(0, 0);
+        spawnTimerRect.anchoredPosition = new Vector2(16, 12);
+        spawnTimerRect.sizeDelta = new Vector2(110, 22);
+        spawnTimerObj.SetActive(false);
+
+        var spawnBarBg = spawnTimerObj.AddComponent<Image>();
+        spawnBarBg.color = new Color(0.12f, 0.1f, 0.08f, 0.95f);
+
+        var spawnFillObj = CreatePanel("SpawnFill", spawnTimerObj.transform);
+        var spawnFillRect = spawnFillObj.GetComponent<RectTransform>();
+        spawnFillRect.anchorMin = new Vector2(0.03f, 0.1f);
+        spawnFillRect.anchorMax = new Vector2(0.97f, 0.9f);
+        spawnFillRect.offsetMin = Vector2.zero;
+        spawnFillRect.offsetMax = Vector2.zero;
+        var spawnFill = spawnFillObj.AddComponent<Image>();
+        spawnFill.color = new Color(0.3f, 0.75f, 0.95f);
+        spawnFill.type = Image.Type.Filled;
+        spawnFill.fillMethod = Image.FillMethod.Horizontal;
+        spawnFill.fillAmount = 0f;
+        if (theme != null && theme.hpFill != null)
+            spawnFill.sprite = theme.hpFill;
+
+        var spawnIconObj = CreatePanel("SpawnIcon", spawnTimerObj.transform);
+        var spawnIconRect = spawnIconObj.GetComponent<RectTransform>();
+        spawnIconRect.anchorMin = new Vector2(0, 0.5f);
+        spawnIconRect.anchorMax = new Vector2(0, 0.5f);
+        spawnIconRect.pivot = new Vector2(1, 0.5f);
+        spawnIconRect.anchoredPosition = new Vector2(-4, 0);
+        spawnIconRect.sizeDelta = new Vector2(20, 20);
+        var spawnIcon = spawnIconObj.AddComponent<Image>();
+        spawnIcon.preserveAspect = true;
+        spawnIcon.enabled = false;
+
+        var spawnText = CreateText("SpawnText", spawnTimerObj.transform, "", 11, TextAlignmentOptions.Center, 0);
+        var spawnTextRect = spawnText.GetComponent<RectTransform>();
+        spawnTextRect.anchorMin = Vector2.zero;
+        spawnTextRect.anchorMax = Vector2.one;
+        spawnTextRect.offsetMin = Vector2.zero;
+        spawnTextRect.offsetMax = Vector2.zero;
+        spawnText.color = Color.white;
+        spawnText.enableAutoSizing = true;
+        spawnText.fontSizeMin = 8;
+        spawnText.fontSizeMax = 11;
+
         infoPanelUI = panelObj.AddComponent<InfoPanelUI>();
         infoPanelUI.Init(panelObj, bgImg, portraitFrame, portraitIcon,
                          nameText, hpFrameImg, hpFill, hpText,
                          dmgIcon, dmgText, armIcon, armText, extraIcon, extraText);
+        infoPanelUI.SetSpawnTimerUI(spawnTimerObj, spawnFill, spawnText, spawnIcon);
     }
 
     private Image CreateStatRow(string name, Transform parent, Sprite icon,

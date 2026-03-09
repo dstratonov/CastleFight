@@ -28,9 +28,16 @@ public class InfoPanelUI : MonoBehaviour
     [SerializeField] private Image extraIcon;
     [SerializeField] private TextMeshProUGUI extraText;
 
+    [Header("Spawn Timer")]
+    [SerializeField] private GameObject spawnTimerRoot;
+    [SerializeField] private Image spawnBarFill;
+    [SerializeField] private TextMeshProUGUI spawnTimerText;
+    [SerializeField] private Image spawnUnitIcon;
+
     private UIThemeData theme;
     private GameObject trackedTarget;
     private Health trackedHealth;
+    private Spawner trackedSpawner;
     private bool showingHero;
 
     public void Init(GameObject panel, Image bg, Image portrait, Image portIcon,
@@ -54,6 +61,14 @@ public class InfoPanelUI : MonoBehaviour
         armorText = armTxt;
         extraIcon = extIcon;
         extraText = extTxt;
+    }
+
+    public void SetSpawnTimerUI(GameObject root, Image barFill, TextMeshProUGUI timerTxt, Image unitIcon)
+    {
+        spawnTimerRoot = root;
+        spawnBarFill = barFill;
+        spawnTimerText = timerTxt;
+        spawnUnitIcon = unitIcon;
     }
 
     private void Awake()
@@ -85,6 +100,7 @@ public class InfoPanelUI : MonoBehaviour
             TryShowHero();
 
         UpdateHealthBar();
+        UpdateSpawnTimer();
     }
 
     public void TryShowHero()
@@ -94,6 +110,7 @@ public class InfoPanelUI : MonoBehaviour
 
         trackedTarget = local.gameObject;
         trackedHealth = local.GetComponent<Health>();
+        trackedSpawner = null;
         showingHero = true;
 
         if (nameText != null) nameText.text = "Hero";
@@ -111,6 +128,7 @@ public class InfoPanelUI : MonoBehaviour
         }
 
         SetPortrait(theme != null ? theme.iconHero : null, new Color(0.3f, 0.7f, 1f));
+        HideSpawnTimer();
         UpdateHealthBar();
     }
 
@@ -142,6 +160,7 @@ public class InfoPanelUI : MonoBehaviour
     private void ShowUnit(Unit unit)
     {
         trackedHealth = unit.GetComponent<Health>();
+        trackedSpawner = null;
         var data = unit.Data;
 
         if (nameText != null)
@@ -161,12 +180,14 @@ public class InfoPanelUI : MonoBehaviour
         bool isEnemy = NetworkPlayer.Local != null && unit.TeamId != NetworkPlayer.Local.TeamId;
         Sprite portrait = data != null && data.icon != null ? data.icon : theme?.iconUnit;
         SetPortrait(portrait, isEnemy ? new Color(1f, 0.3f, 0.3f) : new Color(0.3f, 1f, 0.5f));
+        HideSpawnTimer();
         UpdateHealthBar();
     }
 
     private void ShowBuilding(Building building)
     {
         trackedHealth = building.GetComponent<Health>();
+        trackedSpawner = building.GetComponent<Spawner>();
         var data = building.Data;
 
         if (nameText != null)
@@ -189,12 +210,19 @@ public class InfoPanelUI : MonoBehaviour
         bool isEnemy = NetworkPlayer.Local != null && building.TeamId != NetworkPlayer.Local.TeamId;
         Sprite portrait = data != null && data.icon != null ? data.icon : theme?.iconBuild;
         SetPortrait(portrait, isEnemy ? new Color(1f, 0.4f, 0.2f) : new Color(0.4f, 0.8f, 1f));
+
+        if (trackedSpawner != null && data?.spawnedUnit != null)
+            ShowSpawnTimer(data.spawnedUnit);
+        else
+            HideSpawnTimer();
+
         UpdateHealthBar();
     }
 
     private void ShowCastle(Castle castle)
     {
         trackedHealth = castle.Health;
+        trackedSpawner = null;
 
         bool isEnemy = NetworkPlayer.Local != null && castle.TeamId != NetworkPlayer.Local.TeamId;
         if (nameText != null)
@@ -206,7 +234,48 @@ public class InfoPanelUI : MonoBehaviour
 
         SetPortrait(theme != null ? theme.iconCastle : null,
             isEnemy ? new Color(1f, 0.2f, 0.2f) : new Color(0.2f, 0.6f, 1f));
+        HideSpawnTimer();
         UpdateHealthBar();
+    }
+
+    private void ShowSpawnTimer(UnitData unitData)
+    {
+        if (spawnTimerRoot != null)
+            spawnTimerRoot.SetActive(true);
+
+        if (spawnUnitIcon != null && unitData.icon != null)
+        {
+            spawnUnitIcon.sprite = unitData.icon;
+            spawnUnitIcon.color = Color.white;
+            spawnUnitIcon.enabled = true;
+        }
+        else if (spawnUnitIcon != null)
+        {
+            spawnUnitIcon.enabled = false;
+        }
+    }
+
+    private void HideSpawnTimer()
+    {
+        trackedSpawner = null;
+        if (spawnTimerRoot != null)
+            spawnTimerRoot.SetActive(false);
+    }
+
+    private void UpdateSpawnTimer()
+    {
+        if (trackedSpawner == null) return;
+
+        float progress = trackedSpawner.SpawnProgress;
+
+        if (spawnBarFill != null)
+            spawnBarFill.fillAmount = progress;
+
+        if (spawnTimerText != null)
+        {
+            float remaining = trackedSpawner.SpawnInterval * (1f - progress);
+            spawnTimerText.text = $"{remaining:F1}s";
+        }
     }
 
     private void SetStatRow(Image icon, TextMeshProUGUI text, Sprite sprite, string value)
@@ -255,6 +324,7 @@ public class InfoPanelUI : MonoBehaviour
     {
         trackedHealth = null;
         trackedTarget = null;
+        trackedSpawner = null;
     }
 
     private void SetPortrait(Sprite icon, Color fallbackColor)

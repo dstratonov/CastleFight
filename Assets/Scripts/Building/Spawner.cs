@@ -11,6 +11,13 @@ public class Spawner : NetworkBehaviour
     private float spawnTimer;
     private bool initialized;
 
+    [SyncVar] private float syncedProgress;
+
+    public float SpawnProgress => syncedProgress;
+    public float SpawnInterval => spawnInterval;
+    public bool IsInitialized => initialized;
+    public UnitData UnitData => unitData;
+
     [Server]
     public void Initialize(UnitData data, float interval, int team)
     {
@@ -19,6 +26,7 @@ public class Spawner : NetworkBehaviour
         teamId = team;
         spawnTimer = spawnInterval;
         initialized = true;
+        syncedProgress = 0f;
         if (GameDebug.Spawning)
             Debug.Log($"[Spawn] Spawner on {gameObject.name} initialized: unit={data?.unitName} interval={interval}s team={team}");
     }
@@ -29,10 +37,13 @@ public class Spawner : NetworkBehaviour
         if (GameManager.Instance != null && GameManager.Instance.CurrentState == GameState.GameOver) return;
 
         spawnTimer -= Time.deltaTime;
+        syncedProgress = 1f - Mathf.Clamp01(spawnTimer / spawnInterval);
+
         if (spawnTimer <= 0f)
         {
             SpawnUnit();
             spawnTimer = spawnInterval;
+            syncedProgress = 0f;
         }
     }
 
