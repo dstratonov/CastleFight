@@ -22,11 +22,15 @@ public class UnitCombat : NetworkBehaviour
     private const int DebugLogInterval = 16;
     private bool wasInRange;
     private float stuckTimer;
+    private int stuckRetryCount;
 
     private Health cachedApproachTarget;
     private Vector3 cachedApproachPos;
     private bool hasApproachCache;
     private float approachRecalcCooldown;
+
+    private Health blacklistedTarget;
+    private float blacklistExpiry;
 
     public Transform AttackTarget => targetHealth != null && !targetHealth.IsDead ? targetHealth.transform : null;
 
@@ -68,6 +72,7 @@ public class UnitCombat : NetworkBehaviour
         targetHealth = newTarget;
         wasInRange = false;
         stuckTimer = 0f;
+        stuckRetryCount = 0;
         InvalidateApproachCache();
         if (targetHealth != null)
         {
@@ -186,6 +191,29 @@ public class UnitCombat : NetworkBehaviour
 
         if (targetHealth != null && !targetHealth.IsDead)
         {
+            if (movement != null && movement.IsDestinationUnreachable)
+            {
+                stuckRetryCount++;
+                if (GameDebug.Combat)
+                    Debug.Log($"{UnitTag()} movement reports unreachable for {targetHealth.name}, retry={stuckRetryCount}");
+
+                if (stuckRetryCount >= 3)
+                {
+                    if (GameDebug.Combat)
+                        Debug.Log($"{UnitTag()} giving up on unreachable target {targetHealth.name}");
+                    BlacklistTarget(targetHealth);
+                    RegisterToTarget(null);
+                    stateMachine?.SetState(UnitState.Idle);
+                    movement?.SetDestinationToEnemyCastle();
+                    return;
+                }
+
+                InvalidateApproachCache();
+                approachRecalcCooldown = 0f;
+                MoveTowardTarget();
+                return;
+            }
+
             float dist = DistanceToTarget(targetHealth);
             float range = GetAttackRange();
             float myRadius = unit != null ? unit.EffectiveRadius : 0.5f;
@@ -205,8 +233,20 @@ public class UnitCombat : NetworkBehaviour
                 }
                 else if (stuckTimer > 2.5f)
                 {
+                    stuckRetryCount++;
+                    if (stuckRetryCount >= 3)
+                    {
+                        if (GameDebug.Combat)
+                            Debug.Log($"{UnitTag()} stuck too many times on {targetHealth.name}, dropping target");
+                        BlacklistTarget(targetHealth);
+                        RegisterToTarget(null);
+                        stateMachine?.SetState(UnitState.Idle);
+                        movement?.SetDestinationToEnemyCastle();
+                        return;
+                    }
+
                     if (GameDebug.Combat)
-                        Debug.Log($"{UnitTag()} can't reach {targetHealth.name} dist={dist:F2} effRange={effectiveRange:F2}, re-pathing");
+                        Debug.Log($"{UnitTag()} can't reach {targetHealth.name} dist={dist:F2} effRange={effectiveRange:F2}, re-pathing (retry={stuckRetryCount})");
                     stuckTimer = 0f;
                     InvalidateApproachCache();
                     approachRecalcCooldown = 0f;
@@ -223,6 +263,7 @@ public class UnitCombat : NetworkBehaviour
                 if (!wasInRange && GameDebug.Combat)
                     Debug.Log($"{UnitTag()} IN RANGE of {targetHealth.name} dist={dist:F2} effRange={effectiveRange:F2}");
                 wasInRange = true;
+                stuckRetryCount = 0;
                 movement?.Stop();
                 stateMachine?.SetState(UnitState.Fighting);
                 TryAttack();
@@ -356,6 +397,7 @@ public class UnitCombat : NetworkBehaviour
 
             var h = enemy.GetComponent<Health>();
             if (h == null || h.IsDead) continue;
+            if (IsBlacklisted(h)) continue;
 
             candidates.Add((h, distSq));
         }
@@ -392,6 +434,22 @@ public class UnitCombat : NetworkBehaviour
             : (unit.TeamId == 0 ? 1 : 0);
     }
 
+    private void BlacklistTarget(Health target)
+    {
+        blacklistedTarget = target;
+        blacklistExpiry = Time.time + 8f;
+    }
+
+    private bool IsBlacklisted(Health target)
+    {
+        if (blacklistedTarget == null || Time.time > blacklistExpiry)
+        {
+            blacklistedTarget = null;
+            return false;
+        }
+        return target == blacklistedTarget;
+    }
+
     private bool IsStructure(Health h)
     {
         return h.GetComponent<Castle>() != null || h.GetComponent<Building>() != null;
@@ -410,6 +468,7 @@ public class UnitCombat : NetworkBehaviour
             if (b == null) continue;
             var h = b.GetComponent<Health>();
             if (h == null || h.IsDead) continue;
+            if (IsBlacklisted(h)) continue;
 
             float dist = DistanceToTarget(h);
             if (dist < nearestDist)

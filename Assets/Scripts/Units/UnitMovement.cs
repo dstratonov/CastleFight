@@ -29,6 +29,7 @@ public class UnitMovement : NetworkBehaviour
     public bool IsMoving => !isStopped && waypoints != null && waypointIndex < waypoints.Count;
     public bool HasPath => waypoints != null && waypointIndex < waypoints.Count;
     public bool IsPathComplete => isPathComplete;
+    public bool IsDestinationUnreachable { get; private set; }
     public Vector3? WorldTarget => worldTarget;
     public IReadOnlyList<Vector3> Waypoints => waypoints;
     public int WaypointIndex => waypointIndex;
@@ -301,6 +302,7 @@ public class UnitMovement : NetworkBehaviour
         worldTarget = target;
         isStopped = false;
         stallTime = 0f;
+        IsDestinationUnreachable = false;
         lastProgressPos = transform.position;
         CalculatePath();
     }
@@ -385,6 +387,9 @@ public class UnitMovement : NetworkBehaviour
             if (result.IsComplete && waypoints.Count > 1)
                 waypoints[waypoints.Count - 1] = worldTarget.Value;
 
+            if (!result.IsComplete)
+                repathTimer = repathInterval * 3f;
+
             waypointIndex = 0;
             SkipPassedWaypoints();
 
@@ -404,6 +409,7 @@ public class UnitMovement : NetworkBehaviour
                     Debug.Log($"[Move:{gameObject.name}] path blocked, giving up on target");
                 worldTarget = null;
                 consecutivePathFails = 0;
+                IsDestinationUnreachable = true;
             }
 
             waypoints = null;
