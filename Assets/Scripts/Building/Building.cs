@@ -74,6 +74,12 @@ public class Building : NetworkBehaviour
             Debug.Log($"[Build] {gameObject.name} initialized: type={data.buildingName} team={team} owner={owner} hp={data.maxHealth} pos={transform.position:F1}");
     }
 
+    public override void OnStartClient()
+    {
+        if (GetComponent<WorldHealthBar>() == null)
+            gameObject.AddComponent<WorldHealthBar>();
+    }
+
     private void OnEnable()
     {
         if (health != null)

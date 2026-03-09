@@ -54,6 +54,9 @@ public class Unit : NetworkBehaviour
     {
         if (data == null && !string.IsNullOrEmpty(unitDataId))
             ResolveUnitData(unitDataId);
+
+        if (GetComponent<WorldHealthBar>() == null)
+            gameObject.AddComponent<WorldHealthBar>();
     }
 
     private void OnUnitDataIdChanged(string oldId, string newId)

@@ -51,6 +51,12 @@ public class Castle : NetworkBehaviour
         Debug.Log($"[Castle] {gameObject.name} registered {occupiedCells.Count} grid cells");
     }
 
+    public override void OnStartClient()
+    {
+        if (GetComponent<WorldHealthBar>() == null)
+            gameObject.AddComponent<WorldHealthBar>();
+    }
+
     private void OnEnable()
     {
         if (health != null)

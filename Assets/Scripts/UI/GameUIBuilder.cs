@@ -18,6 +18,18 @@ public class GameUIBuilder : MonoBehaviour
     public BuildMenuUI BuildMenu => buildMenuUI;
     public InfoPanelUI InfoPanel => infoPanelUI;
 
+    private static readonly Color COL_PANEL_BG = new(0.06f, 0.05f, 0.04f, 0.94f);
+    private static readonly Color COL_GOLD = new(1f, 0.85f, 0.2f);
+    private static readonly Color COL_INCOME = new(0.7f, 0.9f, 0.5f);
+    private static readonly Color COL_TITLE = new(0.95f, 0.85f, 0.4f);
+    private static readonly Color COL_NAME = new(1f, 0.92f, 0.65f);
+    private static readonly Color COL_STAT = new(0.88f, 0.85f, 0.78f);
+    private static readonly Color COL_HP_ALLY = new(0.2f, 0.75f, 0.2f);
+    private static readonly Color COL_HP_ENEMY = new(0.85f, 0.25f, 0.2f);
+    private static readonly Color COL_ALLY_CASTLE = new(0.2f, 0.7f, 1f);
+    private static readonly Color COL_ENEMY_CASTLE = new(1f, 0.3f, 0.3f);
+    private static readonly Color COL_FRAME = new(0.75f, 0.65f, 0.5f);
+
     private void Awake()
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
@@ -50,6 +62,7 @@ public class GameUIBuilder : MonoBehaviour
         CreateInfoPanel(canvasObj.transform);
         CreateSelectionManager();
         CreateDebugSystem(canvasObj.transform);
+        CreateCombatVFX();
     }
 
     // ====================================================================
@@ -71,11 +84,11 @@ public class GameUIBuilder : MonoBehaviour
         {
             bg.sprite = theme.topBarBackground;
             bg.type = Image.Type.Sliced;
-            bg.color = Color.white;
+            bg.color = new Color(0.12f, 0.1f, 0.08f, 0.95f);
         }
         else
         {
-            bg.color = new Color(0.08f, 0.06f, 0.12f, 0.9f);
+            bg.color = COL_PANEL_BG;
         }
 
         var layout = hudObj.AddComponent<HorizontalLayoutGroup>();
@@ -123,10 +136,10 @@ public class GameUIBuilder : MonoBehaviour
         }
 
         goldText = CreateText("GoldText", group.transform, "100", 22, TextAlignmentOptions.MidlineLeft, 100);
-        goldText.color = new Color(1f, 0.85f, 0.2f);
+        goldText.color = COL_GOLD;
 
         incomeText = CreateText("IncomeText", group.transform, "+10", 16, TextAlignmentOptions.MidlineLeft, 70);
-        incomeText.color = new Color(0.7f, 0.9f, 0.5f);
+        incomeText.color = COL_INCOME;
     }
 
     private void CreateCastleHealthGroup(Transform parent,
@@ -144,8 +157,8 @@ public class GameUIBuilder : MonoBehaviour
         hLayout.childControlWidth = false;
         hLayout.childControlHeight = true;
 
-        allyBar = CreateHealthBar("AllyCastle", group.transform, new Color(0.2f, 0.7f, 1f), out allyText);
-        enemyBar = CreateHealthBar("EnemyCastle", group.transform, new Color(1f, 0.3f, 0.3f), out enemyText);
+        allyBar = CreateHealthBar("AllyCastle", group.transform, COL_ALLY_CASTLE, out allyText);
+        enemyBar = CreateHealthBar("EnemyCastle", group.transform, COL_ENEMY_CASTLE, out enemyText);
     }
 
     private Image CreateHealthBar(string name, Transform parent, Color fillColor, out TextMeshProUGUI labelText)
@@ -177,6 +190,7 @@ public class GameUIBuilder : MonoBehaviour
         {
             frameBg.sprite = theme.hpFrame;
             frameBg.type = Image.Type.Sliced;
+            frameBg.color = COL_FRAME;
         }
         else
         {
@@ -191,14 +205,11 @@ public class GameUIBuilder : MonoBehaviour
         fillRect.offsetMax = Vector2.zero;
 
         var fill = fillObj.AddComponent<Image>();
+        fill.type = Image.Type.Filled;
+        fill.fillMethod = Image.FillMethod.Horizontal;
         if (theme != null && theme.hpFill != null)
         {
             fill.sprite = theme.hpFill;
-            fill.type = Image.Type.Filled;
-            fill.fillMethod = Image.FillMethod.Horizontal;
-        }
-        else
-        {
             fill.type = Image.Type.Filled;
             fill.fillMethod = Image.FillMethod.Horizontal;
         }
@@ -230,11 +241,11 @@ public class GameUIBuilder : MonoBehaviour
         {
             bg.sprite = theme.buildPanelBackground;
             bg.type = Image.Type.Sliced;
-            bg.color = new Color(1f, 1f, 1f, 0.95f);
+            bg.color = new Color(0.85f, 0.78f, 0.65f, 0.95f);
         }
         else
         {
-            bg.color = new Color(0.08f, 0.06f, 0.12f, 0.85f);
+            bg.color = COL_PANEL_BG;
         }
 
         var titleObj = CreatePanel("Title", panelObj.transform);
@@ -250,7 +261,7 @@ public class GameUIBuilder : MonoBehaviour
         titleTextRect.anchorMin = Vector2.zero;
         titleTextRect.anchorMax = Vector2.one;
         titleTextRect.sizeDelta = Vector2.zero;
-        titleText.color = new Color(0.95f, 0.85f, 0.4f);
+        titleText.color = COL_TITLE;
         titleText.fontStyle = FontStyles.Bold;
 
         var containerObj = CreatePanel("BuildButtonContainer", panelObj.transform);
@@ -287,11 +298,18 @@ public class GameUIBuilder : MonoBehaviour
         rect.anchoredPosition = new Vector2(10, 10);
         rect.sizeDelta = new Vector2(460, 200);
 
-        // Solid dark background with slight transparency
         var bgImg = panelObj.AddComponent<Image>();
-        bgImg.color = new Color(0.08f, 0.07f, 0.06f, 0.94f);
+        if (theme != null && theme.infoPanelBackground != null)
+        {
+            bgImg.sprite = theme.infoPanelBackground;
+            bgImg.type = Image.Type.Sliced;
+            bgImg.color = new Color(0.8f, 0.72f, 0.58f, 0.95f);
+        }
+        else
+        {
+            bgImg.color = COL_PANEL_BG;
+        }
 
-        // Ornate border frame on top of solid bg
         var frameObj = CreatePanel("Frame", panelObj.transform);
         var frameRect = frameObj.GetComponent<RectTransform>();
         frameRect.anchorMin = Vector2.zero;
@@ -303,14 +321,14 @@ public class GameUIBuilder : MonoBehaviour
         {
             frameImg.sprite = theme.infoPanelFrame;
             frameImg.type = Image.Type.Sliced;
-            frameImg.color = new Color(0.85f, 0.8f, 0.7f);
+            frameImg.color = COL_FRAME;
         }
         else
         {
             frameImg.color = Color.clear;
         }
 
-        // Portrait -- centered vertically, left side
+        // Portrait area
         var portraitObj = CreatePanel("Portrait", panelObj.transform);
         var portraitRect = portraitObj.GetComponent<RectTransform>();
         portraitRect.anchorMin = new Vector2(0, 0.5f);
@@ -319,18 +337,30 @@ public class GameUIBuilder : MonoBehaviour
         portraitRect.anchoredPosition = new Vector2(16, 0);
         portraitRect.sizeDelta = new Vector2(110, 110);
 
-        // Entity icon (centered inside portrait area)
+        if (theme != null && theme.portraitUnderlay != null)
+        {
+            var underlayObj = CreatePanel("PortraitUnderlay", portraitObj.transform);
+            var ulRect = underlayObj.GetComponent<RectTransform>();
+            ulRect.anchorMin = Vector2.zero;
+            ulRect.anchorMax = Vector2.one;
+            ulRect.offsetMin = new Vector2(-4, -4);
+            ulRect.offsetMax = new Vector2(4, 4);
+            var ulImg = underlayObj.AddComponent<Image>();
+            ulImg.sprite = theme.portraitUnderlay;
+            ulImg.preserveAspect = true;
+            ulImg.color = new Color(0f, 0f, 0f, 0.5f);
+        }
+
         var portraitIconObj = CreatePanel("PortraitIcon", portraitObj.transform);
         var piRect = portraitIconObj.GetComponent<RectTransform>();
-        piRect.anchorMin = new Vector2(0.2f, 0.2f);
-        piRect.anchorMax = new Vector2(0.8f, 0.8f);
+        piRect.anchorMin = new Vector2(0.15f, 0.15f);
+        piRect.anchorMax = new Vector2(0.85f, 0.85f);
         piRect.offsetMin = Vector2.zero;
         piRect.offsetMax = Vector2.zero;
         var portraitIcon = portraitIconObj.AddComponent<Image>();
         portraitIcon.preserveAspect = true;
         portraitIcon.color = new Color(0.5f, 0.5f, 0.5f, 0.3f);
 
-        // Ornate circular frame overlay
         var portraitFrameObj = CreatePanel("PortraitFrame", portraitObj.transform);
         var pfRect = portraitFrameObj.GetComponent<RectTransform>();
         pfRect.anchorMin = Vector2.zero;
@@ -342,7 +372,7 @@ public class GameUIBuilder : MonoBehaviour
         {
             portraitFrame.sprite = theme.portraitFrame;
             portraitFrame.preserveAspect = true;
-            portraitFrame.color = new Color(0.9f, 0.85f, 0.75f);
+            portraitFrame.color = COL_FRAME;
         }
         else
         {
@@ -357,14 +387,13 @@ public class GameUIBuilder : MonoBehaviour
         infoRect.offsetMin = new Vector2(140, 16);
         infoRect.offsetMax = new Vector2(-18, -16);
 
-        // Entity name -- top strip
         var nameText = CreateText("NameText", infoArea.transform, "Hero", 22, TextAlignmentOptions.MidlineLeft, 0);
         var nameRect = nameText.GetComponent<RectTransform>();
         nameRect.anchorMin = new Vector2(0, 0.78f);
         nameRect.anchorMax = new Vector2(1, 1);
         nameRect.offsetMin = Vector2.zero;
         nameRect.offsetMax = Vector2.zero;
-        nameText.color = new Color(1f, 0.92f, 0.65f);
+        nameText.color = COL_NAME;
         nameText.fontStyle = FontStyles.Bold;
         nameText.enableAutoSizing = true;
         nameText.fontSizeMin = 16;
@@ -383,6 +412,7 @@ public class GameUIBuilder : MonoBehaviour
         {
             hpFrameImg.sprite = theme.hpFrame;
             hpFrameImg.type = Image.Type.Sliced;
+            hpFrameImg.color = COL_FRAME;
         }
         else
         {
@@ -396,7 +426,7 @@ public class GameUIBuilder : MonoBehaviour
         hpFillRect.offsetMin = Vector2.zero;
         hpFillRect.offsetMax = Vector2.zero;
         var hpFill = hpFillObj.AddComponent<Image>();
-        hpFill.color = new Color(0.2f, 0.75f, 0.2f);
+        hpFill.color = COL_HP_ALLY;
         hpFill.type = Image.Type.Filled;
         hpFill.fillMethod = Image.FillMethod.Horizontal;
         if (theme != null && theme.hpFill != null)
@@ -413,7 +443,7 @@ public class GameUIBuilder : MonoBehaviour
         hpText.fontSizeMin = 9;
         hpText.fontSizeMax = 13;
 
-        // Stats area with icon+label rows
+        // Stats area
         var statsArea = CreatePanel("StatsArea", infoArea.transform);
         var statsAreaRect = statsArea.GetComponent<RectTransform>();
         statsAreaRect.anchorMin = new Vector2(0, 0);
@@ -440,7 +470,7 @@ public class GameUIBuilder : MonoBehaviour
             theme != null ? theme.iconSpeed : null, "",
             out var extraText);
 
-        // Spawn timer bar (below portrait, only visible for spawner buildings)
+        // Spawn timer bar
         var spawnTimerObj = CreatePanel("SpawnTimer", panelObj.transform);
         var spawnTimerRect = spawnTimerObj.GetComponent<RectTransform>();
         spawnTimerRect.anchorMin = new Vector2(0, 0);
@@ -451,7 +481,16 @@ public class GameUIBuilder : MonoBehaviour
         spawnTimerObj.SetActive(false);
 
         var spawnBarBg = spawnTimerObj.AddComponent<Image>();
-        spawnBarBg.color = new Color(0.12f, 0.1f, 0.08f, 0.95f);
+        if (theme != null && theme.hpFrame != null)
+        {
+            spawnBarBg.sprite = theme.hpFrame;
+            spawnBarBg.type = Image.Type.Sliced;
+            spawnBarBg.color = new Color(0.6f, 0.5f, 0.4f, 0.9f);
+        }
+        else
+        {
+            spawnBarBg.color = new Color(0.12f, 0.1f, 0.08f, 0.95f);
+        }
 
         var spawnFillObj = CreatePanel("SpawnFill", spawnTimerObj.transform);
         var spawnFillRect = spawnFillObj.GetComponent<RectTransform>();
@@ -529,7 +568,7 @@ public class GameUIBuilder : MonoBehaviour
         label.enableAutoSizing = true;
         label.fontSizeMin = 12;
         label.fontSizeMax = 16;
-        label.color = new Color(0.88f, 0.85f, 0.78f);
+        label.color = COL_STAT;
         var labelLe = label.gameObject.AddComponent<LayoutElement>();
         labelLe.flexibleWidth = 1;
 
@@ -560,6 +599,17 @@ public class GameUIBuilder : MonoBehaviour
 
         var debugPanel = canvasRoot.gameObject.AddComponent<DebugPanel>();
         debugPanel.Init(overlay);
+    }
+
+    // ====================================================================
+    // COMBAT VFX
+    // ====================================================================
+
+    private void CreateCombatVFX()
+    {
+        if (CombatVFX.Instance != null) return;
+        var vfxObj = new GameObject("CombatVFX");
+        vfxObj.AddComponent<CombatVFX>();
     }
 
     // ====================================================================

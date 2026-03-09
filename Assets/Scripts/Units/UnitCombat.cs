@@ -592,8 +592,10 @@ public class UnitCombat : NetworkBehaviour
         if (GameDebug.Combat)
             Debug.Log($"{UnitTag()} ATTACK {targetHealth.name} base={baseDamage:F0} {atkType}vs{defArmor} final={damage:F1} targetHP={targetHealth.CurrentHealth:F0}/{targetHealth.MaxHealth:F0}");
 
-        Vector3 lookTarget = ClosestPointOnTarget(targetHealth);
-        Vector3 lookDir = (lookTarget - transform.position);
+        Vector3 hitPos = ClosestPointOnTarget(targetHealth);
+        RpcPlayHitVFX(hitPos);
+
+        Vector3 lookDir = (hitPos - transform.position);
         lookDir.y = 0;
         if (lookDir.sqrMagnitude > 0.001f)
             transform.forward = lookDir.normalized;
@@ -601,5 +603,12 @@ public class UnitCombat : NetworkBehaviour
         var unitAnim = GetComponent<UnitAnimator>();
         if (unitAnim != null)
             unitAnim.PlayAttack();
+    }
+
+    [ClientRpc]
+    private void RpcPlayHitVFX(Vector3 position)
+    {
+        if (CombatVFX.Instance != null)
+            CombatVFX.Instance.PlayMeleeHit(position);
     }
 }
