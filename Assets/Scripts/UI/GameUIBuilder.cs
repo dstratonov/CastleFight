@@ -18,17 +18,19 @@ public class GameUIBuilder : MonoBehaviour
     public BuildMenuUI BuildMenu => buildMenuUI;
     public InfoPanelUI InfoPanel => infoPanelUI;
 
-    private static readonly Color COL_PANEL_BG = new(0.06f, 0.05f, 0.04f, 0.94f);
-    private static readonly Color COL_GOLD = new(1f, 0.85f, 0.2f);
-    private static readonly Color COL_INCOME = new(0.7f, 0.9f, 0.5f);
-    private static readonly Color COL_TITLE = new(0.95f, 0.85f, 0.4f);
-    private static readonly Color COL_NAME = new(1f, 0.92f, 0.65f);
-    private static readonly Color COL_STAT = new(0.88f, 0.85f, 0.78f);
-    private static readonly Color COL_HP_ALLY = new(0.2f, 0.75f, 0.2f);
-    private static readonly Color COL_HP_ENEMY = new(0.85f, 0.25f, 0.2f);
-    private static readonly Color COL_ALLY_CASTLE = new(0.2f, 0.7f, 1f);
-    private static readonly Color COL_ENEMY_CASTLE = new(1f, 0.3f, 0.3f);
-    private static readonly Color COL_FRAME = new(0.75f, 0.65f, 0.5f);
+    private static readonly Color COL_PANEL_BG = new(0.08f, 0.07f, 0.06f, 0.92f);
+    private static readonly Color COL_GOLD = new(1f, 0.82f, 0.15f);
+    private static readonly Color COL_INCOME = new(0.55f, 0.85f, 0.35f);
+    private static readonly Color COL_TITLE = new(0.9f, 0.82f, 0.55f);
+    private static readonly Color COL_NAME = new(0.95f, 0.92f, 0.85f);
+    private static readonly Color COL_STAT = new(0.78f, 0.76f, 0.72f);
+    private static readonly Color COL_HP_ALLY = new(0.2f, 0.72f, 0.2f);
+    private static readonly Color COL_HP_ENEMY = new(0.82f, 0.22f, 0.18f);
+    private static readonly Color COL_ALLY_CASTLE = new(0.25f, 0.65f, 0.95f);
+    private static readonly Color COL_ENEMY_CASTLE = new(0.92f, 0.28f, 0.25f);
+    private static readonly Color COL_FRAME = new(0.35f, 0.3f, 0.22f);
+    private static readonly Color COL_SPRITE_DARK = new(0.18f, 0.15f, 0.12f, 0.95f);
+    private static readonly Color COL_SPRITE_FRAME = new(0.45f, 0.38f, 0.28f);
 
     private void Awake()
     {
@@ -84,7 +86,7 @@ public class GameUIBuilder : MonoBehaviour
         {
             bg.sprite = theme.topBarBackground;
             bg.type = Image.Type.Sliced;
-            bg.color = new Color(0.12f, 0.1f, 0.08f, 0.95f);
+            bg.color = COL_SPRITE_DARK;
         }
         else
         {
@@ -190,11 +192,11 @@ public class GameUIBuilder : MonoBehaviour
         {
             frameBg.sprite = theme.hpFrame;
             frameBg.type = Image.Type.Sliced;
-            frameBg.color = COL_FRAME;
+            frameBg.color = COL_SPRITE_FRAME;
         }
         else
         {
-            frameBg.color = new Color(0.15f, 0.15f, 0.15f, 0.8f);
+            frameBg.color = new Color(0.12f, 0.12f, 0.12f, 0.8f);
         }
 
         var fillObj = CreatePanel(name + "Fill", frameObj.transform);
@@ -239,7 +241,7 @@ public class GameUIBuilder : MonoBehaviour
         {
             bg.sprite = theme.buildPanelBackground;
             bg.type = Image.Type.Sliced;
-            bg.color = new Color(0.85f, 0.78f, 0.65f, 0.95f);
+            bg.color = COL_SPRITE_DARK;
         }
         else
         {
@@ -285,7 +287,7 @@ public class GameUIBuilder : MonoBehaviour
         {
             bgImg.sprite = theme.infoPanelBackground;
             bgImg.type = Image.Type.Sliced;
-            bgImg.color = new Color(0.8f, 0.72f, 0.58f, 0.95f);
+            bgImg.color = COL_SPRITE_DARK;
         }
         else
         {
@@ -303,7 +305,7 @@ public class GameUIBuilder : MonoBehaviour
         {
             frameImg.sprite = theme.infoPanelFrame;
             frameImg.type = Image.Type.Sliced;
-            frameImg.color = COL_FRAME;
+            frameImg.color = COL_SPRITE_FRAME;
         }
         else
         {
@@ -354,7 +356,7 @@ public class GameUIBuilder : MonoBehaviour
         {
             portraitFrame.sprite = theme.portraitFrame;
             portraitFrame.preserveAspect = true;
-            portraitFrame.color = COL_FRAME;
+            portraitFrame.color = COL_SPRITE_FRAME;
         }
         else
         {
@@ -394,11 +396,11 @@ public class GameUIBuilder : MonoBehaviour
         {
             hpFrameImg.sprite = theme.hpFrame;
             hpFrameImg.type = Image.Type.Sliced;
-            hpFrameImg.color = COL_FRAME;
+            hpFrameImg.color = COL_SPRITE_FRAME;
         }
         else
         {
-            hpFrameImg.color = new Color(0.15f, 0.15f, 0.15f, 0.9f);
+            hpFrameImg.color = new Color(0.12f, 0.12f, 0.12f, 0.9f);
         }
 
         var hpFillObj = CreatePanel("HPFill", hpBarObj.transform);
@@ -467,7 +469,7 @@ public class GameUIBuilder : MonoBehaviour
         {
             spawnBarBg.sprite = theme.hpFrame;
             spawnBarBg.type = Image.Type.Sliced;
-            spawnBarBg.color = new Color(0.6f, 0.5f, 0.4f, 0.9f);
+            spawnBarBg.color = COL_SPRITE_FRAME;
         }
         else
         {

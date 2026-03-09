@@ -83,7 +83,7 @@ public class GridSystem : MonoBehaviour
 
     public bool IsWalkable(Vector2Int cell)
     {
-        if (!IsInBounds(cell)) return false;
+        if (cells == null || !IsInBounds(cell)) return false;
         return cells[cell.x, cell.y] == CellState.Empty;
     }
 

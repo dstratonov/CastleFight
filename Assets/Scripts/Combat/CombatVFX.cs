@@ -22,14 +22,11 @@ public class CombatVFX : MonoBehaviour
 
     private void OnEnable()
     {
-        EventBus.Subscribe<UnitKilledEvent>(OnUnitKilled);
-        EventBus.Subscribe<BuildingDestroyedEvent>(OnBuildingDestroyed);
+        // VFX events disabled for now -- will re-enable when skills are implemented
     }
 
     private void OnDisable()
     {
-        EventBus.Unsubscribe<UnitKilledEvent>(OnUnitKilled);
-        EventBus.Unsubscribe<BuildingDestroyedEvent>(OnBuildingDestroyed);
     }
 
     public void PlayMeleeHit(Vector3 position)

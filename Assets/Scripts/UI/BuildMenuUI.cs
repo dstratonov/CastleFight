@@ -79,11 +79,11 @@ public class BuildMenuUI : MonoBehaviour
         {
             bg.sprite = theme.buildButtonNormal;
             bg.type = Image.Type.Sliced;
-            bg.color = Color.white;
+            bg.color = new Color(0.22f, 0.19f, 0.15f);
         }
         else
         {
-            bg.color = new Color(0.2f, 0.2f, 0.3f, 0.9f);
+            bg.color = new Color(0.14f, 0.13f, 0.11f, 0.92f);
         }
 
         var btn = buttonObj.AddComponent<Button>();
@@ -118,7 +118,7 @@ public class BuildMenuUI : MonoBehaviour
         nameTmp.text = data.buildingName;
         nameTmp.fontSize = 12;
         nameTmp.alignment = TextAlignmentOptions.MidlineLeft;
-        nameTmp.color = new Color(0.95f, 0.9f, 0.75f);
+        nameTmp.color = new Color(0.88f, 0.85f, 0.8f);
         nameTmp.enableAutoSizing = true;
         nameTmp.fontSizeMin = 9;
         nameTmp.fontSizeMax = 12;
