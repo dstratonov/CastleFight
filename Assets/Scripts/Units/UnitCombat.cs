@@ -7,6 +7,7 @@ public class UnitCombat : NetworkBehaviour
     [SerializeField] private float scanInterval = 0.25f;
 
     private static readonly Dictionary<Health, int> targetEngageCounts = new();
+    private static float engageCleanupTimer;
 
     private Unit unit;
     private UnitMovement movement;
@@ -78,10 +79,28 @@ public class UnitCombat : NetworkBehaviour
         return count;
     }
 
+    private static void CleanupStaleEngageCounts()
+    {
+        engageCleanupTimer -= Time.deltaTime;
+        if (engageCleanupTimer > 0f) return;
+        engageCleanupTimer = 5f;
+
+        var stale = new List<Health>();
+        foreach (var kvp in targetEngageCounts)
+        {
+            if (kvp.Key == null || kvp.Key.IsDead)
+                stale.Add(kvp.Key);
+        }
+        foreach (var key in stale)
+            targetEngageCounts.Remove(key);
+    }
+
     private void Update()
     {
         if (!isServer || unit == null || unit.IsDead) return;
         if (GameManager.Instance != null && GameManager.Instance.CurrentState == GameState.GameOver) return;
+
+        CleanupStaleEngageCounts();
 
         scanTimer -= Time.deltaTime;
         if (scanTimer <= 0f)

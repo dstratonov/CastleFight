@@ -80,6 +80,49 @@ public class AIPlayer : MonoBehaviour
             (hasBuildZone ? $", buildZone center={buildZoneBounds.center} size={buildZoneBounds.size}" : ", NO build zone found"));
     }
 
+    private void OnEnable()
+    {
+        EventBus.Subscribe<BuildingDestroyedEvent>(OnBuildingDestroyed);
+        EventBus.Subscribe<UnitKilledEvent>(OnUnitKilled);
+    }
+
+    private void OnDisable()
+    {
+        EventBus.Unsubscribe<BuildingDestroyedEvent>(OnBuildingDestroyed);
+        EventBus.Unsubscribe<UnitKilledEvent>(OnUnitKilled);
+    }
+
+    private void OnBuildingDestroyed(BuildingDestroyedEvent evt)
+    {
+        if (evt.TeamId != teamId) return;
+
+        var building = evt.Building?.GetComponent<Building>();
+        if (building?.Data == null) return;
+
+        string destroyedId = building.Data.buildingId;
+        if (ownedBuildingIds.Remove(destroyedId))
+        {
+            if (building.Data.incomeBonus > 0)
+                income = Mathf.Max(0, income - building.Data.incomeBonus);
+
+            if (GameDebug.AI)
+                Debug.Log($"{Tag} Building {destroyedId} destroyed, removed from owned list (remaining copies={CountOwnedCopies(destroyedId)}, income={income})");
+        }
+    }
+
+    private void OnUnitKilled(UnitKilledEvent evt)
+    {
+        if (evt.BountyGold <= 0 || evt.Killer == null) return;
+
+        var killerUnit = evt.Killer.GetComponent<Unit>();
+        if (killerUnit != null && killerUnit.TeamId == teamId)
+        {
+            gold += evt.BountyGold;
+            if (GameDebug.AI)
+                Debug.Log($"{Tag} Bounty +{evt.BountyGold} gold from {evt.Unit?.name}, total={gold}");
+        }
+    }
+
     private void DiscoverBuildZone()
     {
         var zones = FindObjectsByType<BuildZone>(FindObjectsSortMode.None);
@@ -157,6 +200,14 @@ public class AIPlayer : MonoBehaviour
         if (obj != null)
         {
             ownedBuildingIds.Add(chosen.buildingId);
+
+            if (chosen.incomeBonus > 0)
+            {
+                income += chosen.incomeBonus;
+                if (GameDebug.AI)
+                    Debug.Log($"{Tag} Income bonus +{chosen.incomeBonus} from {chosen.buildingName}, total income={income}");
+            }
+
             Debug.Log($"{Tag} Built {chosen.buildingName} at {pos.Value:F1} " +
                 $"(cost={chosen.cost}, gold={gold}, buildings={currentCount + 1})");
         }
@@ -217,6 +268,9 @@ public class AIPlayer : MonoBehaviour
             score += dps * 0.5f;
         }
 
+        if (building.incomeBonus > 0)
+            score += building.incomeBonus * 2f;
+
         bool earlyGame = gameTime < 60f;
         bool midGame = gameTime >= 60f && gameTime < 180f;
 
@@ -271,21 +325,10 @@ public class AIPlayer : MonoBehaviour
             if (!grid.CanPlaceBuilding(candidate, teamId))
                 continue;
 
-            Vector2Int cell = grid.WorldToCell(candidate);
-            int checkRadius = 2;
-            bool areaClear = true;
-            for (int dx = -checkRadius; dx <= checkRadius && areaClear; dx++)
-            {
-                for (int dz = -checkRadius; dz <= checkRadius && areaClear; dz++)
-                {
-                    Vector2Int c = new(cell.x + dx, cell.y + dz);
-                    if (!grid.IsInBounds(c) || !grid.IsWalkable(c))
-                        areaClear = false;
-                }
-            }
+            if (!IsAreaClear(grid, candidate, 2))
+                continue;
 
-            if (areaClear)
-                return candidate;
+            return candidate;
         }
 
         for (int attempt = 0; attempt < 10; attempt++)
@@ -295,11 +338,26 @@ public class AIPlayer : MonoBehaviour
             Vector3 candidate = new(x, buildZoneBounds.center.y, z);
             candidate = grid.SnapToGrid(candidate);
 
-            if (grid.CanPlaceBuilding(candidate, teamId))
+            if (grid.CanPlaceBuilding(candidate, teamId) && IsAreaClear(grid, candidate, 1))
                 return candidate;
         }
 
         return null;
+    }
+
+    private bool IsAreaClear(GridSystem grid, Vector3 position, int checkRadius)
+    {
+        Vector2Int cell = grid.WorldToCell(position);
+        for (int dx = -checkRadius; dx <= checkRadius; dx++)
+        {
+            for (int dz = -checkRadius; dz <= checkRadius; dz++)
+            {
+                Vector2Int c = new(cell.x + dx, cell.y + dz);
+                if (!grid.IsInBounds(c) || !grid.IsWalkable(c))
+                    return false;
+            }
+        }
+        return true;
     }
 
     private void LogGameSummary()
