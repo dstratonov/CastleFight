@@ -221,20 +221,18 @@ public class GameUIBuilder : MonoBehaviour
     }
 
     // ====================================================================
-    // BUILD PANEL (right side)
+    // BUILD PANEL (bottom bar, right of info panel)
     // ====================================================================
 
     private void CreateBuildPanel(Transform parent)
     {
         var panelObj = CreatePanel("BuildPanel", parent);
         var rect = panelObj.GetComponent<RectTransform>();
-        rect.anchorMin = new Vector2(1, 0);
-        rect.anchorMax = new Vector2(1, 1);
-        rect.pivot = new Vector2(1, 0.5f);
-        rect.anchoredPosition = Vector2.zero;
-        rect.sizeDelta = new Vector2(240, -70);
-        rect.offsetMin = new Vector2(rect.offsetMin.x, 10);
-        rect.offsetMax = new Vector2(rect.offsetMax.x, -70);
+        rect.anchorMin = new Vector2(0, 0);
+        rect.anchorMax = new Vector2(1, 0);
+        rect.pivot = new Vector2(0, 0);
+        rect.anchoredPosition = new Vector2(480, 10);
+        rect.sizeDelta = new Vector2(-490, 90);
 
         var bg = panelObj.AddComponent<Image>();
         if (theme != null && theme.buildPanelBackground != null)
@@ -248,37 +246,21 @@ public class GameUIBuilder : MonoBehaviour
             bg.color = COL_PANEL_BG;
         }
 
-        var titleObj = CreatePanel("Title", panelObj.transform);
-        var titleRect = titleObj.GetComponent<RectTransform>();
-        titleRect.anchorMin = new Vector2(0, 1);
-        titleRect.anchorMax = new Vector2(1, 1);
-        titleRect.pivot = new Vector2(0.5f, 1);
-        titleRect.anchoredPosition = Vector2.zero;
-        titleRect.sizeDelta = new Vector2(0, 36);
-
-        var titleText = CreateText("TitleText", titleObj.transform, "BUILD", 18, TextAlignmentOptions.Center, 0);
-        var titleTextRect = titleText.GetComponent<RectTransform>();
-        titleTextRect.anchorMin = Vector2.zero;
-        titleTextRect.anchorMax = Vector2.one;
-        titleTextRect.sizeDelta = Vector2.zero;
-        titleText.color = COL_TITLE;
-        titleText.fontStyle = FontStyles.Bold;
-
         var containerObj = CreatePanel("BuildButtonContainer", panelObj.transform);
         var containerRect = containerObj.GetComponent<RectTransform>();
-        containerRect.anchorMin = new Vector2(0, 0);
-        containerRect.anchorMax = new Vector2(1, 1);
-        containerRect.pivot = new Vector2(0.5f, 1);
-        containerRect.offsetMin = new Vector2(8, 8);
-        containerRect.offsetMax = new Vector2(-8, -40);
+        containerRect.anchorMin = Vector2.zero;
+        containerRect.anchorMax = Vector2.one;
+        containerRect.offsetMin = new Vector2(8, 6);
+        containerRect.offsetMax = new Vector2(-8, -6);
 
-        var vlg = containerObj.AddComponent<VerticalLayoutGroup>();
-        vlg.padding = new RectOffset(4, 4, 4, 4);
-        vlg.spacing = 6;
-        vlg.childControlWidth = true;
-        vlg.childControlHeight = false;
-        vlg.childForceExpandWidth = true;
-        vlg.childForceExpandHeight = false;
+        var grid = containerObj.AddComponent<GridLayoutGroup>();
+        grid.cellSize = new Vector2(140, 36);
+        grid.spacing = new Vector2(6, 4);
+        grid.startCorner = GridLayoutGroup.Corner.UpperLeft;
+        grid.startAxis = GridLayoutGroup.Axis.Vertical;
+        grid.childAlignment = TextAnchor.MiddleLeft;
+        grid.constraint = GridLayoutGroup.Constraint.FixedRowCount;
+        grid.constraintCount = 2;
 
         buildMenuUI = panelObj.AddComponent<BuildMenuUI>();
         buildMenuUI.Init(containerObj.transform);

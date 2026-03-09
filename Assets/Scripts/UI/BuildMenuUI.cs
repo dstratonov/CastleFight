@@ -74,9 +74,6 @@ public class BuildMenuUI : MonoBehaviour
         var buttonObj = new GameObject(data.buildingName, typeof(RectTransform));
         buttonObj.transform.SetParent(buildButtonContainer, false);
 
-        var le = buttonObj.AddComponent<LayoutElement>();
-        le.preferredHeight = 50;
-
         var bg = buttonObj.AddComponent<Image>();
         if (theme != null && theme.buildButtonNormal != null)
         {
@@ -114,32 +111,36 @@ public class BuildMenuUI : MonoBehaviour
         nameObj.transform.SetParent(buttonObj.transform, false);
         var nameRect = nameObj.GetComponent<RectTransform>();
         nameRect.anchorMin = new Vector2(0, 0);
-        nameRect.anchorMax = new Vector2(0.65f, 1);
-        nameRect.offsetMin = new Vector2(12, 0);
+        nameRect.anchorMax = new Vector2(0.6f, 1);
+        nameRect.offsetMin = new Vector2(6, 0);
         nameRect.offsetMax = Vector2.zero;
         var nameTmp = nameObj.AddComponent<TextMeshProUGUI>();
         nameTmp.text = data.buildingName;
-        nameTmp.fontSize = 14;
+        nameTmp.fontSize = 12;
         nameTmp.alignment = TextAlignmentOptions.MidlineLeft;
         nameTmp.color = new Color(0.95f, 0.9f, 0.75f);
         nameTmp.enableAutoSizing = true;
-        nameTmp.fontSizeMin = 10;
-        nameTmp.fontSizeMax = 14;
+        nameTmp.fontSizeMin = 9;
+        nameTmp.fontSizeMax = 12;
+        nameTmp.overflowMode = TextOverflowModes.Ellipsis;
         if (cachedFontAsset != null) nameTmp.font = cachedFontAsset;
 
         var costObj = new GameObject("Cost", typeof(RectTransform));
         costObj.transform.SetParent(buttonObj.transform, false);
         var costRect = costObj.GetComponent<RectTransform>();
-        costRect.anchorMin = new Vector2(0.65f, 0);
+        costRect.anchorMin = new Vector2(0.6f, 0);
         costRect.anchorMax = new Vector2(1, 1);
         costRect.offsetMin = Vector2.zero;
-        costRect.offsetMax = new Vector2(-12, 0);
+        costRect.offsetMax = new Vector2(-6, 0);
         var costTmp = costObj.AddComponent<TextMeshProUGUI>();
         costTmp.text = data.cost + "g";
-        costTmp.fontSize = 14;
+        costTmp.fontSize = 12;
         costTmp.alignment = TextAlignmentOptions.MidlineRight;
         costTmp.color = new Color(1f, 0.85f, 0.3f);
         costTmp.fontStyle = FontStyles.Bold;
+        costTmp.enableAutoSizing = true;
+        costTmp.fontSizeMin = 9;
+        costTmp.fontSizeMax = 12;
         if (cachedFontAsset != null) costTmp.font = cachedFontAsset;
 
         var menuButton = buttonObj.GetComponent<BuildMenuButton>();
