@@ -1,7 +1,6 @@
 using UnityEngine;
 using Mirror;
 using System.Collections.Generic;
-using CastleFight;
 
 public class HeroAutoAttack : NetworkBehaviour
 {

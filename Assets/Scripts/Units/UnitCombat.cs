@@ -26,11 +26,27 @@ public class UnitCombat : NetworkBehaviour
     private Health cachedApproachTarget;
     private Vector3 cachedApproachPos;
     private bool hasApproachCache;
+    private float approachRecalcCooldown;
 
     public Transform AttackTarget => targetHealth != null && !targetHealth.IsDead ? targetHealth.transform : null;
 
     private bool ShouldLog() => debugLogCounter % DebugLogInterval == 0;
     private string UnitTag() => $"[Combat:{gameObject.name} t{unit?.TeamId}]";
+
+    private float GetAttackRange()
+    {
+        if (unit == null || unit.Data == null) return 1f;
+
+        float modelRadius = unit.EffectiveRadius;
+
+        if (!unit.Data.isRanged)
+        {
+            return Mathf.Clamp(modelRadius + 0.3f, 0.8f, 3f);
+        }
+
+        float dataRange = unit.Data.attackRange;
+        return Mathf.Clamp(dataRange, modelRadius + 1f, 5f);
+    }
 
     private void Awake()
     {
@@ -64,6 +80,7 @@ public class UnitCombat : NetworkBehaviour
     {
         hasApproachCache = false;
         cachedApproachTarget = null;
+        approachRecalcCooldown = 0f;
         ReleaseSlotReservation();
     }
 
@@ -158,6 +175,7 @@ public class UnitCombat : NetworkBehaviour
         if (GameManager.Instance != null && GameManager.Instance.CurrentState == GameState.GameOver) return;
 
         CleanupStaleEngageCounts();
+        approachRecalcCooldown -= Time.deltaTime;
 
         scanTimer -= Time.deltaTime;
         if (scanTimer <= 0f)
@@ -169,13 +187,9 @@ public class UnitCombat : NetworkBehaviour
         if (targetHealth != null && !targetHealth.IsDead)
         {
             float dist = DistanceToTarget(targetHealth);
-            float range = unit.Data != null ? unit.Data.attackRange : 2f;
+            float range = GetAttackRange();
             float myRadius = unit != null ? unit.EffectiveRadius : 0.5f;
             float effectiveRange = range + myRadius;
-
-            bool isStructure = IsStructure(targetHealth);
-            if (isStructure)
-                effectiveRange += GetTargetRadius(targetHealth) * 0.3f;
 
             bool inRange = dist <= effectiveRange;
 
@@ -183,17 +197,20 @@ public class UnitCombat : NetworkBehaviour
             if (!inRange && pathDone)
             {
                 stuckTimer += Time.deltaTime;
-                if (stuckTimer > 1f)
+                float leeway = effectiveRange + 0.5f;
+                if (dist <= leeway)
                 {
-                    inRange = dist <= effectiveRange * 1.5f;
-                    if (!inRange)
-                    {
-                        if (GameDebug.Combat)
-                            Debug.Log($"{UnitTag()} can't reach {targetHealth.name} dist={dist:F2} effRange={effectiveRange:F2}, re-pathing");
-                        stuckTimer = 0f;
-                        InvalidateApproachCache();
-                        MoveTowardTarget();
-                    }
+                    inRange = true;
+                    stuckTimer = 0f;
+                }
+                else if (stuckTimer > 2.5f)
+                {
+                    if (GameDebug.Combat)
+                        Debug.Log($"{UnitTag()} can't reach {targetHealth.name} dist={dist:F2} effRange={effectiveRange:F2}, re-pathing");
+                    stuckTimer = 0f;
+                    InvalidateApproachCache();
+                    approachRecalcCooldown = 0f;
+                    MoveTowardTarget();
                 }
             }
             else if (inRange || (movement != null && movement.IsMoving))
@@ -239,8 +256,9 @@ public class UnitCombat : NetworkBehaviour
         bool log = ShouldLog() && GameDebug.Combat;
 
         float myRadius = unit != null ? unit.EffectiveRadius : 0.5f;
-        float aggroRange = (unit.Data != null ? unit.Data.attackRange * 2f : 10f) + myRadius;
-        aggroRange = Mathf.Max(aggroRange, 8f);
+        float attackRangeVal = GetAttackRange();
+        float aggroRange = attackRangeVal + 4f + myRadius;
+        aggroRange = Mathf.Clamp(aggroRange, 5f, 12f);
         int enemyTeam = GetEnemyTeam();
 
         bool currentTargetIsStructure = targetHealth != null && !targetHealth.IsDead && IsStructure(targetHealth);
@@ -302,7 +320,7 @@ public class UnitCombat : NetworkBehaviour
         {
             RegisterToTarget(castleHealth);
             float castleDist = DistanceToTarget(castleHealth);
-            float attackRange = unit.Data != null ? unit.Data.attackRange : 2f;
+            float attackRange = GetAttackRange();
             if (log)
                 Debug.Log($"{UnitTag()} SCAN: targeting CASTLE {castleHealth.name} dist={castleDist:F2}");
             if (castleDist > attackRange)
@@ -430,7 +448,13 @@ public class UnitCombat : NetworkBehaviour
                 movement.SetDestinationWorld(cachedApproachPos);
                 return;
             }
+
+            if (approachRecalcCooldown > 0f)
+                return;
         }
+
+        if (approachRecalcCooldown > 0f && hasApproachCache)
+            return;
 
         var grid = GridSystem.Instance;
         bool isStructure = IsStructure(targetHealth);
@@ -449,6 +473,7 @@ public class UnitCombat : NetworkBehaviour
         cachedApproachTarget = targetHealth;
         cachedApproachPos = destination;
         hasApproachCache = true;
+        approachRecalcCooldown = 2f;
 
         if (log)
         {
@@ -466,7 +491,7 @@ public class UnitCombat : NetworkBehaviour
     {
         Vector3 targetCenter = GetTargetCenter(targetHealth);
         float targetRadius = GetTargetRadius(targetHealth);
-        float attackRange = unit.Data != null ? unit.Data.attackRange : 2f;
+        float attackRange = GetAttackRange();
         float unitRadius = unit != null ? unit.EffectiveRadius : 0.5f;
 
         Vector2Int centerCell = grid.WorldToCell(targetCenter);
@@ -527,18 +552,21 @@ public class UnitCombat : NetworkBehaviour
     {
         Vector3 targetCenter = GetTargetCenter(targetHealth);
         float targetRadius = GetTargetRadius(targetHealth);
-        float attackRange = unit.Data != null ? unit.Data.attackRange : 2f;
+        float attackRange = GetAttackRange();
         float unitRadius = unit != null ? unit.EffectiveRadius : 0.5f;
 
-        uint hash = (uint)Mathf.Abs(gameObject.GetInstanceID()) * 2654435761u;
-        float unitAngle = ((hash & 0xFFFF) / (float)0xFFFF) * Mathf.PI * 2f;
-
-        int engageCount = Mathf.Max(1, GetEngageCount(targetHealth));
-        int slot = Mathf.Abs(gameObject.GetInstanceID()) % engageCount;
-        float slotAngle = unitAngle + slot * (Mathf.PI * 2f / engageCount);
+        Vector3 dirToTarget = transform.position - targetCenter;
+        dirToTarget.y = 0f;
+        if (dirToTarget.sqrMagnitude < 0.01f)
+        {
+            uint hash = (uint)Mathf.Abs(gameObject.GetInstanceID()) * 2654435761u;
+            float angle = ((hash & 0xFFFF) / (float)0xFFFF) * Mathf.PI * 2f;
+            dirToTarget = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
+        }
+        dirToTarget.Normalize();
 
         float approachDist = targetRadius + attackRange * 0.5f + unitRadius;
-        Vector3 destination = targetCenter + new Vector3(Mathf.Cos(slotAngle), 0f, Mathf.Sin(slotAngle)) * approachDist;
+        Vector3 destination = targetCenter + dirToTarget * approachDist;
         destination.y = transform.position.y;
 
         if (grid != null)
@@ -587,14 +615,9 @@ public class UnitCombat : NetworkBehaviour
             defArmor = targetUnit.Data.armorType;
 
         float damage = DamageSystem.CalculateDamage(baseDamage, atkType, defArmor);
-        targetHealth.TakeDamage(damage, gameObject);
-
-        if (GameDebug.Combat)
-            Debug.Log($"{UnitTag()} ATTACK {targetHealth.name} base={baseDamage:F0} {atkType}vs{defArmor} final={damage:F1} targetHP={targetHealth.CurrentHealth:F0}/{targetHealth.MaxHealth:F0}");
 
         Vector3 hitPos = ClosestPointOnTarget(targetHealth);
-
-        Vector3 lookDir = (hitPos - transform.position);
+        Vector3 lookDir = hitPos - transform.position;
         lookDir.y = 0;
         if (lookDir.sqrMagnitude > 0.001f)
             transform.forward = lookDir.normalized;
@@ -602,5 +625,41 @@ public class UnitCombat : NetworkBehaviour
         var unitAnim = GetComponent<UnitAnimator>();
         if (unitAnim != null)
             unitAnim.PlayAttack();
+
+        if (unit.Data != null && unit.Data.isRanged)
+        {
+            Vector3 spawnPos = GetProjectileSpawnPoint();
+            float projSpeed = unit.Data.projectileSpeed;
+
+            Projectile.Spawn(spawnPos, targetHealth.transform, projSpeed,
+                damage, gameObject, true, atkType);
+
+            RpcSpawnProjectile(targetHealth.netIdentity, spawnPos, projSpeed, (int)atkType);
+
+            if (GameDebug.Combat)
+                Debug.Log($"{UnitTag()} RANGED {targetHealth.name} base={baseDamage:F0} {atkType}vs{defArmor} final={damage:F1} speed={projSpeed}");
+        }
+        else
+        {
+            targetHealth.TakeDamage(damage, gameObject);
+
+            if (GameDebug.Combat)
+                Debug.Log($"{UnitTag()} MELEE {targetHealth.name} base={baseDamage:F0} {atkType}vs{defArmor} final={damage:F1} targetHP={targetHealth.CurrentHealth:F0}/{targetHealth.MaxHealth:F0}");
+        }
+    }
+
+    private Vector3 GetProjectileSpawnPoint()
+    {
+        if (BoundsHelper.TryGetCombinedBounds(gameObject, out var bounds))
+            return new Vector3(transform.position.x, bounds.center.y, transform.position.z);
+        return transform.position + Vector3.up;
+    }
+
+    [ClientRpc]
+    private void RpcSpawnProjectile(NetworkIdentity targetId, Vector3 start, float speed, int attackType)
+    {
+        if (isServer) return;
+        if (targetId == null) return;
+        Projectile.Spawn(start, targetId.transform, speed, 0f, null, false, (AttackType)attackType);
     }
 }

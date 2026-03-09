@@ -1,6 +1,5 @@
 using UnityEngine;
 using Mirror;
-using CastleFight;
 
 public class ProjectileAbility : Ability
 {

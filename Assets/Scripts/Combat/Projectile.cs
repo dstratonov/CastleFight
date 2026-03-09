@@ -1,62 +1,135 @@
 using UnityEngine;
-using Mirror;
 
-namespace CastleFight
-{
 public class Projectile : MonoBehaviour
 {
     private Transform target;
     private float speed;
     private float damage;
-    private GameObject owner;
-    private Vector3 lastTargetPos;
-    private bool hasHit;
+    private GameObject attacker;
+    private bool dealsDamage;
 
-    public void Initialize(Transform targetTransform, float projectileSpeed, float projectileDamage = 0f, GameObject projectileOwner = null)
+    private static Mesh sphereMesh;
+    private static Material[] materials;
+
+    public void Initialize(Transform tgt, float spd)
     {
-        target = targetTransform;
-        speed = projectileSpeed;
-        damage = projectileDamage;
-        owner = projectileOwner;
-        if (target != null)
-            lastTargetPos = target.position;
-        else
-            lastTargetPos = transform.position + transform.forward * 10f;
+        target = tgt;
+        speed = spd;
+        dealsDamage = false;
+    }
+
+    public static Projectile Spawn(Vector3 start, Transform target, float speed,
+        float damage, GameObject attacker, bool dealsDamage, AttackType attackType)
+    {
+        EnsureResources();
+
+        var go = new GameObject("Projectile");
+        go.transform.position = start;
+
+        float scale = dealsDamage ? 0.15f : 0.15f;
+        go.transform.localScale = Vector3.one * scale;
+
+        var mf = go.AddComponent<MeshFilter>();
+        mf.sharedMesh = sphereMesh;
+
+        int matIdx = MaterialIndex(attackType);
+        var mr = go.AddComponent<MeshRenderer>();
+        mr.sharedMaterial = materials[matIdx];
+        mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        mr.receiveShadows = false;
+
+        Color col = materials[matIdx].color;
+        var trail = go.AddComponent<TrailRenderer>();
+        trail.startWidth = 0.1f;
+        trail.endWidth = 0f;
+        trail.time = 0.25f;
+        trail.material = materials[matIdx];
+        trail.startColor = col;
+        trail.endColor = new Color(col.r, col.g, col.b, 0f);
+        trail.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        trail.receiveShadows = false;
+        trail.minVertexDistance = 0.1f;
+
+        var proj = go.AddComponent<Projectile>();
+        proj.target = target;
+        proj.speed = speed;
+        proj.damage = damage;
+        proj.attacker = attacker;
+        proj.dealsDamage = dealsDamage;
+
+        Object.Destroy(go, 5f);
+        return proj;
     }
 
     private void Update()
     {
-        if (hasHit) return;
-
-        if (target != null)
-            lastTargetPos = target.position;
-
-        Vector3 direction = lastTargetPos - transform.position;
-        if (direction.magnitude < 0.5f)
+        if (target == null)
         {
-            OnHit();
+            Destroy(gameObject);
             return;
         }
 
-        transform.position += direction.normalized * (speed * Time.deltaTime);
-        if (direction.sqrMagnitude > 0.01f)
-            transform.forward = direction.normalized;
+        Vector3 targetPos = BoundsHelper.GetCenter(target.gameObject);
+        transform.position = Vector3.MoveTowards(transform.position, targetPos, speed * Time.deltaTime);
+
+        Vector3 dir = targetPos - transform.position;
+        if (dir.sqrMagnitude > 0.01f)
+            transform.forward = dir.normalized;
+
+        if (Vector3.Distance(transform.position, targetPos) < 0.3f)
+        {
+            if (dealsDamage)
+            {
+                var health = target.GetComponent<Health>();
+                if (health != null && !health.IsDead)
+                    health.TakeDamage(damage, attacker);
+            }
+            Destroy(gameObject);
+        }
     }
 
-    private void OnHit()
+    private static int MaterialIndex(AttackType type)
     {
-        hasHit = true;
-
-        if (damage > 0f && target != null)
+        return type switch
         {
-            var health = target.GetComponent<Health>();
-            if (health != null && NetworkServer.active)
-            {
-                health.TakeDamage(damage, owner);
-            }
+            AttackType.Pierce => 0,
+            AttackType.Magic => 1,
+            AttackType.Chaos => 2,
+            _ => 3
+        };
+    }
+
+    private static void EnsureResources()
+    {
+        if (sphereMesh != null && materials != null) return;
+
+        if (sphereMesh == null)
+        {
+            var tmp = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            sphereMesh = tmp.GetComponent<MeshFilter>().sharedMesh;
+            var col = tmp.GetComponent<Collider>();
+            if (col != null) Object.DestroyImmediate(col);
+            Object.DestroyImmediate(tmp);
         }
 
-        Destroy(gameObject);
+        if (materials == null)
+        {
+            var shader = Shader.Find("Sprites/Default");
+            if (shader == null) shader = Shader.Find("Unlit/Color");
+
+            Color[] colors =
+            {
+                new Color(0.85f, 0.8f, 0.5f),
+                new Color(0.55f, 0.3f, 1f),
+                new Color(1f, 0.35f, 0.1f),
+                new Color(0.9f, 0.85f, 0.3f)
+            };
+
+            materials = new Material[colors.Length];
+            for (int i = 0; i < colors.Length; i++)
+            {
+                materials[i] = new Material(shader) { color = colors[i], renderQueue = 3500 };
+            }
+        }
     }
-}
 }
