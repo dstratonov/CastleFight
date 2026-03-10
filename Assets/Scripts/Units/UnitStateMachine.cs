@@ -133,7 +133,7 @@ public class UnitStateMachine : NetworkBehaviour
                 unitAnimator.PlayIdle();
                 break;
             case UnitState.Fighting:
-                unitAnimator.PlayIdle();
+                unitAnimator.HoldPose();
                 break;
             case UnitState.Moving:
                 unitAnimator.PlayWalk();

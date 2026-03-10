@@ -92,6 +92,12 @@ public class UnitAnimator : MonoBehaviour
         if (hasIdle) desiredLoop = idleHash;
     }
 
+    public void HoldPose()
+    {
+        desiredLoop = 0;
+        currentLoopHash = 0;
+    }
+
     public void CancelOneShot()
     {
         if (!oneShotActive) return;
