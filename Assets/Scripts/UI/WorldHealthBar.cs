@@ -7,9 +7,13 @@ public class WorldHealthBar : MonoBehaviour
     private Transform fillTransform;
     private float barWidth;
     private float yOffset;
+    private Vector3 boundsOffset;
 
-    private const float BAR_HEIGHT = 0.07f;
-    private const float BORDER = 0.012f;
+    private const float BAR_HEIGHT = 0.15f;
+    private const float BORDER = 0.02f;
+    private const float SCREEN_SCALE_FACTOR = 0.025f;
+    private const float MIN_VISIBLE_HEIGHT = 0.5f;
+    private const float MAX_VISIBLE_HEIGHT = 120f;
 
     private static Mesh sharedQuad;
     private static Material borderMat;
@@ -39,14 +43,18 @@ public class WorldHealthBar : MonoBehaviour
     {
         if (BoundsHelper.TryGetCombinedBounds(gameObject, out var bounds))
         {
-            yOffset = bounds.max.y - transform.position.y + 0.2f;
+            yOffset = bounds.max.y - transform.position.y + 0.3f;
+            boundsOffset = bounds.center - transform.position;
+            boundsOffset.y = 0f;
+
             float entitySize = Mathf.Max(bounds.size.x, bounds.size.z);
-            barWidth = Mathf.Clamp(entitySize * 0.8f, 0.6f, 3f);
+            barWidth = Mathf.Clamp(entitySize * 0.7f, 0.8f, 4f);
         }
         else
         {
             yOffset = 2f;
-            barWidth = 0.8f;
+            boundsOffset = Vector3.zero;
+            barWidth = 1f;
         }
     }
 
@@ -55,8 +63,7 @@ public class WorldHealthBar : MonoBehaviour
         EnsureSharedResources();
 
         barRoot = new GameObject("WorldHP").transform;
-        barRoot.SetParent(transform, false);
-        barRoot.localPosition = Vector3.up * yOffset;
+        barRoot.localPosition = Vector3.zero;
 
         float innerW = barWidth - BORDER * 2f;
         float innerH = BAR_HEIGHT - BORDER * 2f;
@@ -104,8 +111,21 @@ public class WorldHealthBar : MonoBehaviour
             return;
         }
 
-        barRoot.position = transform.position + Vector3.up * yOffset;
+        Vector3 worldPos = transform.position + boundsOffset + Vector3.up * yOffset;
+        float camDist = Vector3.Distance(cam.transform.position, worldPos);
+
+        if (camDist < MIN_VISIBLE_HEIGHT || camDist > MAX_VISIBLE_HEIGHT)
+        {
+            barRoot.gameObject.SetActive(false);
+            return;
+        }
+
+        barRoot.gameObject.SetActive(true);
+        barRoot.position = worldPos;
         barRoot.rotation = cam.transform.rotation;
+
+        float scale = Mathf.Max(camDist * SCREEN_SCALE_FACTOR, 1f);
+        barRoot.localScale = Vector3.one * scale;
 
         float pct = health.HealthPercent;
         float innerW = barWidth - BORDER * 2f;
