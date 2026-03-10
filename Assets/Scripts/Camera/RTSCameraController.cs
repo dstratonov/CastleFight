@@ -1,90 +1,164 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 public class RTSCameraController : MonoBehaviour
 {
     [Header("Movement")]
-    [SerializeField] private float panSpeed = 20f;
-    [SerializeField] private float edgeScrollSpeed = 15f;
-    [SerializeField] private int edgeScrollBorder = 10;
-    [SerializeField] private bool enableEdgeScrolling = false;
+    [SerializeField] private float basePanSpeed = 25f;
+    [SerializeField] private float panAcceleration = 8f;
+    [SerializeField] private float panDamping = 6f;
+
+    [Header("Edge Scrolling")]
+    [SerializeField] private bool enableEdgeScrolling = true;
+    [SerializeField] private float edgeScrollSpeed = 20f;
+    [SerializeField] private int edgeScrollBorder = 12;
 
     [Header("Zoom")]
-    [SerializeField] private float zoomSpeed = 5f;
-    [SerializeField] private float minZoomHeight = 8f;
-    [SerializeField] private float maxZoomHeight = 80f;
-
-    [Header("Drag")]
-    [SerializeField] private float dragSpeed = 2f;
+    [SerializeField] private float zoomStepPercent = 0.20f;
+    [SerializeField] private float zoomLerpSpeed = 25f;
+    [SerializeField] private float minHeight = 10f;
+    [SerializeField] private float maxHeight = 70f;
 
     [Header("Bounds")]
-    [SerializeField] private Vector2 boundsMin = new(-50f, -50f);
-    [SerializeField] private Vector2 boundsMax = new(50f, 50f);
+    [SerializeField] private Vector2 boundsMin = new(-80f, -80f);
+    [SerializeField] private Vector2 boundsMax = new(80f, 80f);
 
-    private Vector3 dragOrigin;
+    private Camera cam;
+    private Vector3 velocity;
+    private float targetHeight;
+    private Vector3 targetXZ;
     private bool isDragging;
+    private Vector3 dragWorldOrigin;
+
+    private Vector3? focusTarget;
+    private float focusSpeed = 5f;
+
+    private Plane groundPlane;
+
+    private void Start()
+    {
+        cam = Camera.main;
+        targetHeight = Mathf.Clamp(transform.position.y, minHeight, maxHeight);
+        targetXZ = new Vector3(transform.position.x, 0f, transform.position.z);
+
+        Vector3 pos = transform.position;
+        pos.y = targetHeight;
+        transform.position = pos;
+
+        float groundY = 0f;
+        if (GridSystem.Instance != null)
+            groundY = GridSystem.Instance.GridOrigin.y;
+        groundPlane = new Plane(Vector3.up, new Vector3(0f, groundY, 0f));
+    }
 
     private void Update()
     {
         if (!Application.isFocused) return;
 
+        if (cam == null)
+        {
+            cam = Camera.main;
+            if (cam == null) return;
+        }
+
         var keyboard = Keyboard.current;
         var mouse = Mouse.current;
         if (keyboard == null || mouse == null) return;
 
-        HandleKeyboardPan(keyboard);
-        if (enableEdgeScrolling && IsMouseInsideScreen(mouse)) HandleEdgeScroll(mouse);
-        HandleMouseDrag(mouse);
-        HandleZoom(mouse);
+        if (focusTarget.HasValue)
+        {
+            UpdateFocus(keyboard, mouse);
+            ApplyZoomInterpolation();
+            ClampPosition();
+            return;
+        }
+
+        bool pointerOverUI = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+
+        Vector3 input = GetKeyboardInput(keyboard);
+        if (enableEdgeScrolling && !pointerOverUI && IsMouseInsideScreen(mouse))
+            input += GetEdgeScrollInput(mouse);
+
+        float heightRatio = Mathf.Lerp(0.5f, 2f, Mathf.InverseLerp(minHeight, maxHeight, transform.position.y));
+        Vector3 desiredVelocity = input.normalized * basePanSpeed * heightRatio;
+
+        if (input.sqrMagnitude > 0.01f)
+            velocity = Vector3.Lerp(velocity, desiredVelocity, panAcceleration * Time.deltaTime);
+        else
+            velocity = Vector3.Lerp(velocity, Vector3.zero, panDamping * Time.deltaTime);
+
+        transform.position += velocity * Time.deltaTime;
+        targetXZ = new Vector3(transform.position.x, 0f, transform.position.z);
+
+        HandleMouseDrag(mouse, pointerOverUI);
+        HandleZoom(mouse, pointerOverUI);
+        ApplyZoomInterpolation();
         ClampPosition();
+    }
+
+    private Vector3 GetKeyboardInput(Keyboard kb)
+    {
+        float inputX = 0f;
+        float inputZ = 0f;
+        if (kb.wKey.isPressed || kb.upArrowKey.isPressed) inputZ += 1f;
+        if (kb.sKey.isPressed || kb.downArrowKey.isPressed) inputZ -= 1f;
+        if (kb.aKey.isPressed || kb.leftArrowKey.isPressed) inputX -= 1f;
+        if (kb.dKey.isPressed || kb.rightArrowKey.isPressed) inputX += 1f;
+
+        if (Mathf.Approximately(inputX, 0f) && Mathf.Approximately(inputZ, 0f))
+            return Vector3.zero;
+
+        Vector3 forward = cam.transform.forward;
+        Vector3 right = cam.transform.right;
+        forward.y = 0f;
+        right.y = 0f;
+        forward.Normalize();
+        right.Normalize();
+
+        return (forward * inputZ + right * inputX);
+    }
+
+    private Vector3 GetEdgeScrollInput(Mouse mouse)
+    {
+        float inputX = 0f;
+        float inputZ = 0f;
+        var mp = mouse.position.ReadValue();
+        if (mp.y >= Screen.height - edgeScrollBorder) inputZ += 1f;
+        if (mp.y <= edgeScrollBorder) inputZ -= 1f;
+        if (mp.x >= Screen.width - edgeScrollBorder) inputX += 1f;
+        if (mp.x <= edgeScrollBorder) inputX -= 1f;
+
+        if (Mathf.Approximately(inputX, 0f) && Mathf.Approximately(inputZ, 0f))
+            return Vector3.zero;
+
+        Vector3 forward = cam.transform.forward;
+        Vector3 right = cam.transform.right;
+        forward.y = 0f;
+        right.y = 0f;
+        forward.Normalize();
+        right.Normalize();
+
+        return (forward * inputZ + right * inputX) * (edgeScrollSpeed / basePanSpeed);
     }
 
     private bool IsMouseInsideScreen(Mouse mouse)
     {
         Vector2 mp = mouse.position.ReadValue();
-        return mp.x >= 0 && mp.x <= Screen.width &&
-               mp.y >= 0 && mp.y <= Screen.height;
+        return mp.x >= 0 && mp.x <= Screen.width && mp.y >= 0 && mp.y <= Screen.height;
     }
 
-    private void HandleKeyboardPan(Keyboard kb)
+    private void HandleMouseDrag(Mouse mouse, bool pointerOverUI)
     {
-        var input = Vector3.zero;
-
-        if (kb.wKey.isPressed || kb.upArrowKey.isPressed)
-            input.z += 1f;
-        if (kb.sKey.isPressed || kb.downArrowKey.isPressed)
-            input.z -= 1f;
-        if (kb.aKey.isPressed || kb.leftArrowKey.isPressed)
-            input.x -= 1f;
-        if (kb.dKey.isPressed || kb.rightArrowKey.isPressed)
-            input.x += 1f;
-
-        transform.Translate(input.normalized * (panSpeed * Time.deltaTime), Space.World);
-    }
-
-    private void HandleEdgeScroll(Mouse mouse)
-    {
-        var input = Vector3.zero;
-        var mousePos = mouse.position.ReadValue();
-
-        if (mousePos.y >= Screen.height - edgeScrollBorder)
-            input.z += 1f;
-        if (mousePos.y <= edgeScrollBorder)
-            input.z -= 1f;
-        if (mousePos.x >= Screen.width - edgeScrollBorder)
-            input.x += 1f;
-        if (mousePos.x <= edgeScrollBorder)
-            input.x -= 1f;
-
-        transform.Translate(input.normalized * (edgeScrollSpeed * Time.deltaTime), Space.World);
-    }
-
-    private void HandleMouseDrag(Mouse mouse)
-    {
-        if (mouse.middleButton.wasPressedThisFrame)
+        if (mouse.middleButton.wasPressedThisFrame && !pointerOverUI)
         {
-            isDragging = true;
-            dragOrigin = (Vector3)mouse.position.ReadValue();
+            Ray ray = cam.ScreenPointToRay(mouse.position.ReadValue());
+            if (groundPlane.Raycast(ray, out float enter))
+            {
+                isDragging = true;
+                dragWorldOrigin = ray.GetPoint(enter);
+                velocity = Vector3.zero;
+            }
         }
 
         if (mouse.middleButton.wasReleasedThisFrame)
@@ -92,25 +166,66 @@ public class RTSCameraController : MonoBehaviour
 
         if (isDragging)
         {
-            Vector3 current = (Vector3)mouse.position.ReadValue();
-            Vector3 delta = dragOrigin - current;
-            transform.Translate(
-                new Vector3(delta.x, 0, delta.y) * (dragSpeed * Time.deltaTime),
-                Space.World
-            );
-            dragOrigin = current;
+            Ray ray = cam.ScreenPointToRay(mouse.position.ReadValue());
+            if (groundPlane.Raycast(ray, out float enter))
+            {
+                Vector3 dragWorldCurrent = ray.GetPoint(enter);
+                Vector3 delta = dragWorldOrigin - dragWorldCurrent;
+                delta.y = 0f;
+                transform.position += delta;
+                targetXZ = new Vector3(transform.position.x, 0f, transform.position.z);
+            }
         }
     }
 
-    private void HandleZoom(Mouse mouse)
+    private void HandleZoom(Mouse mouse, bool pointerOverUI)
     {
-        float scroll = mouse.scroll.ReadValue().y;
-        if (Mathf.Approximately(scroll, 0f)) return;
+        float scrollRaw = mouse.scroll.ReadValue().y;
+        if (Mathf.Abs(scrollRaw) < 0.1f || pointerOverUI)
+            return;
 
-        float scrollNormalized = Mathf.Sign(scroll);
+        // Normalize: sign gives direction, magnitude scales with scroll speed
+        // Standard Windows notch = 120, but we handle any value
+        float scrollSign = Mathf.Sign(scrollRaw);
+        float scrollMag = Mathf.Abs(scrollRaw);
+
+        // Number of "notches" — continuous for smooth wheels, discrete for clicky wheels
+        float notches = scrollMag >= 20f ? Mathf.Clamp(scrollMag / 120f, 0.5f, 3f) : 1f;
+        notches *= scrollSign;
+
+        float oldTarget = targetHeight;
+        targetHeight *= Mathf.Pow(1f - zoomStepPercent, notches);
+        targetHeight = Mathf.Clamp(targetHeight, minHeight, maxHeight);
+
+        // Zoom-to-cursor: shift XZ toward/away from cursor proportionally
+        float heightChange = targetHeight / oldTarget;
+        if (Mathf.Abs(heightChange - 1f) > 0.001f)
+        {
+            Ray ray = cam.ScreenPointToRay(mouse.position.ReadValue());
+            if (groundPlane.Raycast(ray, out float enter))
+            {
+                Vector3 cursorGround = ray.GetPoint(enter);
+                Vector3 camXZ = new Vector3(transform.position.x, 0f, transform.position.z);
+                Vector3 toward = new Vector3(cursorGround.x, 0f, cursorGround.z) - camXZ;
+                float pullFactor = 1f - heightChange;
+                targetXZ = camXZ + toward * pullFactor;
+            }
+        }
+    }
+
+    private void ApplyZoomInterpolation()
+    {
         Vector3 pos = transform.position;
-        pos.y -= scrollNormalized * zoomSpeed;
-        pos.y = Mathf.Clamp(pos.y, minZoomHeight, maxZoomHeight);
+
+        float t = 1f - Mathf.Exp(-zoomLerpSpeed * Time.deltaTime);
+
+        pos.y = Mathf.Lerp(pos.y, targetHeight, t);
+        pos.x = Mathf.Lerp(pos.x, targetXZ.x, t);
+        pos.z = Mathf.Lerp(pos.z, targetXZ.z, t);
+
+        if (Mathf.Abs(pos.y - targetHeight) < 0.01f)
+            pos.y = targetHeight;
+
         transform.position = pos;
     }
 
@@ -120,13 +235,39 @@ public class RTSCameraController : MonoBehaviour
         pos.x = Mathf.Clamp(pos.x, boundsMin.x, boundsMax.x);
         pos.z = Mathf.Clamp(pos.z, boundsMin.y, boundsMax.y);
         transform.position = pos;
+        targetXZ.x = pos.x;
+        targetXZ.z = pos.z;
     }
 
     public void FocusOn(Vector3 worldPosition)
     {
+        focusTarget = new Vector3(worldPosition.x, transform.position.y, worldPosition.z);
+        velocity = Vector3.zero;
+    }
+
+    private void UpdateFocus(Keyboard keyboard, Mouse mouse)
+    {
+        if (!focusTarget.HasValue) return;
+
+        bool hasKeyInput = keyboard.wKey.isPressed || keyboard.sKey.isPressed ||
+                           keyboard.aKey.isPressed || keyboard.dKey.isPressed ||
+                           keyboard.upArrowKey.isPressed || keyboard.downArrowKey.isPressed ||
+                           keyboard.leftArrowKey.isPressed || keyboard.rightArrowKey.isPressed;
+        bool hasDrag = mouse.middleButton.wasPressedThisFrame;
+
+        if (hasKeyInput || hasDrag)
+        {
+            focusTarget = null;
+            return;
+        }
+
         Vector3 pos = transform.position;
-        pos.x = worldPosition.x;
-        pos.z = worldPosition.z;
+        Vector3 target = focusTarget.Value;
+        pos = Vector3.Lerp(pos, target, focusSpeed * Time.deltaTime);
         transform.position = pos;
+        targetXZ = new Vector3(pos.x, 0f, pos.z);
+
+        if (Vector3.Distance(new Vector3(pos.x, 0, pos.z), new Vector3(target.x, 0, target.z)) < 0.1f)
+            focusTarget = null;
     }
 }
