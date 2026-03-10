@@ -32,6 +32,9 @@ public class UnitCombat : NetworkBehaviour
     private Health blacklistedTarget;
     private float blacklistExpiry;
 
+    private float approachTimer;
+    private float lastApproachDist = float.MaxValue;
+
     public Transform AttackTarget => targetHealth != null && !targetHealth.IsDead ? targetHealth.transform : null;
 
     private bool ShouldLog() => debugLogCounter % DebugLogInterval == 0;
@@ -73,6 +76,8 @@ public class UnitCombat : NetworkBehaviour
         wasInRange = false;
         stuckTimer = 0f;
         stuckRetryCount = 0;
+        approachTimer = 0f;
+        lastApproachDist = float.MaxValue;
         InvalidateApproachCache();
         if (targetHealth != null)
         {
@@ -219,13 +224,16 @@ public class UnitCombat : NetworkBehaviour
             float myRadius = unit != null ? unit.EffectiveRadius : 0.5f;
             float effectiveRange = range + myRadius;
 
-            bool inRange = dist <= effectiveRange;
+            float disengageRange = wasInRange
+                ? effectiveRange + Mathf.Max(1f, effectiveRange * 0.2f)
+                : effectiveRange;
+            bool inRange = dist <= disengageRange;
 
             bool pathDone = movement != null && !movement.IsMoving && !movement.HasPath;
             if (!inRange && pathDone)
             {
                 stuckTimer += Time.deltaTime;
-                float leeway = effectiveRange + 0.5f;
+                float leeway = disengageRange + 0.5f;
                 if (dist <= leeway)
                 {
                     inRange = true;
@@ -261,9 +269,10 @@ public class UnitCombat : NetworkBehaviour
             if (inRange)
             {
                 if (!wasInRange && GameDebug.Combat)
-                    Debug.Log($"{UnitTag()} IN RANGE of {targetHealth.name} dist={dist:F2} effRange={effectiveRange:F2}");
+                    Debug.Log($"{UnitTag()} IN RANGE of {targetHealth.name} dist={dist:F2} effRange={effectiveRange:F2} disengage={disengageRange:F2}");
                 wasInRange = true;
                 stuckRetryCount = 0;
+                approachTimer = 0f;
                 movement?.Stop();
                 stateMachine?.SetState(UnitState.Fighting);
                 TryAttack();
@@ -271,8 +280,30 @@ public class UnitCombat : NetworkBehaviour
             else
             {
                 if (wasInRange && GameDebug.Combat)
-                    Debug.Log($"{UnitTag()} LEFT RANGE of {targetHealth.name} dist={dist:F2} effRange={effectiveRange:F2}");
+                    Debug.Log($"{UnitTag()} LEFT RANGE of {targetHealth.name} dist={dist:F2} effRange={effectiveRange:F2} disengage={disengageRange:F2}");
                 wasInRange = false;
+
+                approachTimer += Time.deltaTime;
+                if (dist < lastApproachDist - 0.5f)
+                {
+                    lastApproachDist = dist;
+                    approachTimer = 0f;
+                }
+
+                if (approachTimer > 5f && GameDebug.Combat && Time.frameCount % 60 == 0)
+                    Debug.Log($"{UnitTag()} APPROACH STALL t={approachTimer:F1}s target={targetHealth.name} dist={dist:F2} lastBest={lastApproachDist:F2} moving={movement?.IsMoving} hasPath={movement?.HasPath}");
+
+                if (approachTimer > 10f)
+                {
+                    if (GameDebug.Combat)
+                        Debug.Log($"{UnitTag()} APPROACH TIMEOUT on {targetHealth.name} dist={dist:F2}, no progress for 10s");
+                    BlacklistTarget(targetHealth);
+                    RegisterToTarget(null);
+                    stateMachine?.SetState(UnitState.Idle);
+                    movement?.SetDestinationToEnemyCastle();
+                    return;
+                }
+
                 if (movement != null && !movement.IsMoving)
                     MoveTowardTarget();
             }
@@ -499,17 +530,25 @@ public class UnitCombat : NetworkBehaviour
 
         if (hasApproachCache && cachedApproachTarget == targetHealth)
         {
-            float distToCached = Vector3.Distance(transform.position, cachedApproachPos);
-            if (distToCached > 1.5f)
+            if (movement.IsMoving || movement.HasPath)
             {
-                if (log)
-                    Debug.Log($"{UnitTag()} MOVE(cached) -> {targetHealth.name} dest={cachedApproachPos:F1} distToDest={distToCached:F1}");
-                movement.SetDestinationWorld(cachedApproachPos);
-                return;
+                if (approachRecalcCooldown > 0f)
+                    return;
             }
+            else
+            {
+                float distToCached = Vector3.Distance(transform.position, cachedApproachPos);
+                if (distToCached > 1.5f)
+                {
+                    if (log)
+                        Debug.Log($"{UnitTag()} MOVE(cached) -> {targetHealth.name} dest={cachedApproachPos:F1} distToDest={distToCached:F1}");
+                    movement.SetDestinationWorld(cachedApproachPos);
+                    return;
+                }
 
-            if (approachRecalcCooldown > 0f)
-                return;
+                if (approachRecalcCooldown > 0f)
+                    return;
+            }
         }
 
         if (approachRecalcCooldown > 0f && hasApproachCache)
@@ -543,7 +582,7 @@ public class UnitCombat : NetworkBehaviour
                 $" struct={isStructure}");
         }
 
-        movement.SetDestinationWorld(destination);
+        movement.ForceSetDestinationWorld(destination);
     }
 
     private Vector3 FindStructureApproachSlot(GridSystem grid)

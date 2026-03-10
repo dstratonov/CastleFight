@@ -233,8 +233,19 @@ public class GridSystem : MonoBehaviour
                 return false;
 
             int e2 = 2 * err;
-            if (e2 > -dy) { err -= dy; x0 += sx; }
-            if (e2 < dx) { err += dx; y0 += sy; }
+            bool stepX = e2 > -dy;
+            bool stepY = e2 < dx;
+
+            if (stepX && stepY)
+            {
+                var adjX = new Vector2Int(x0 + sx, y0);
+                var adjY = new Vector2Int(x0, y0 + sy);
+                if (!IsWalkable(adjX) || !IsWalkable(adjY))
+                    return false;
+            }
+
+            if (stepX) { err -= dy; x0 += sx; }
+            if (stepY) { err += dx; y0 += sy; }
         }
     }
 

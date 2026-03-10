@@ -112,7 +112,7 @@ public static class GridPathfinding
 
                 Vector2Int adj1 = new(current.x + dir.x, current.y);
                 Vector2Int adj2 = new(current.x, current.y + dir.y);
-                if (!IsPassable(adj1, goal, grid) && !IsPassable(adj2, goal, grid))
+                if (!IsPassable(adj1, goal, grid) || !IsPassable(adj2, goal, grid))
                     continue;
 
                 float tentativeG = gScore[current] + DiagonalCost;

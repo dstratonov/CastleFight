@@ -2,16 +2,16 @@ using UnityEngine;
 
 public static class GameDebug
 {
-    public static bool Combat = true;
-    public static bool Movement = true;
-    public static bool Animation = true;
+    public static bool Combat = false;
+    public static bool Movement = false;
+    public static bool Animation = false;
     public static bool Spawning = true;
-    public static bool Economy = true;
-    public static bool Building = true;
-    public static bool Health = true;
-    public static bool Pathfinding = true;
-    public static bool AI = true;
-    public static bool StateMachine = true;
+    public static bool Economy = false;
+    public static bool Building = false;
+    public static bool Health = false;
+    public static bool Pathfinding = false;
+    public static bool AI = false;
+    public static bool StateMachine = false;
 
     public static void Log(string prefix, string msg)
     {

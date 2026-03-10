@@ -26,6 +26,11 @@ public class UnitMovement : NetworkBehaviour
     private float progressCheckTimer;
     private float stallTime;
 
+    private Vector3 smoothedDir;
+    private Vector3 serverPosition;
+    private bool hasServerPos;
+    private int steerSign;
+
     public bool IsMoving => !isStopped && waypoints != null && waypointIndex < waypoints.Count;
     public bool HasPath => waypoints != null && waypointIndex < waypoints.Count;
     public bool IsPathComplete => isPathComplete;
@@ -37,9 +42,18 @@ public class UnitMovement : NetworkBehaviour
 
     public event System.Action OnReachedDestination;
 
+    [Server]
+    public void ForceSetDestinationWorld(Vector3 target)
+    {
+        worldTarget = null;
+        waypoints = null;
+        SetDestinationWorld(target);
+    }
+
     private void Awake()
     {
         unit = GetComponent<Unit>();
+        steerSign = (gameObject.GetInstanceID() & 1) == 0 ? 1 : -1;
     }
 
     public override void OnStartServer()
@@ -55,7 +69,18 @@ public class UnitMovement : NetworkBehaviour
 
     private void Update()
     {
-        if (!isServer || grid == null) return;
+        if (!isServer)
+        {
+            if (hasServerPos)
+            {
+                float speed = (unit != null && unit.Data != null) ? unit.Data.moveSpeed : moveSpeed;
+                transform.position = Vector3.MoveTowards(
+                    transform.position, serverPosition, speed * 2f * Time.deltaTime);
+            }
+            return;
+        }
+
+        if (grid == null) return;
         if (unit != null && unit.IsDead) return;
         if (isStopped) return;
 
@@ -114,36 +139,38 @@ public class UnitMovement : NetworkBehaviour
         Vector3 separation = CalculateSeparation();
         Vector3 wallRepulsion = CalculateWallRepulsion();
 
-        float forwardSep = Vector3.Dot(separation, moveDir);
-        bool blockedByUnits = forwardSep < -0.3f && separation.magnitude > 0.2f;
+        Vector3 desiredDir;
 
-        if (blockedByUnits || stallTime > 1f)
+        if (stallTime > 2f)
         {
             Vector3 perp = Vector3.Cross(Vector3.up, moveDir);
-            float lateralPush = Vector3.Dot(separation, perp);
-            float steerDir = lateralPush >= 0f ? 1f : -1f;
-
-            float steerStrength = Mathf.Clamp01(stallTime * 0.5f);
+            float steerStrength = Mathf.Clamp01((stallTime - 2f) * 0.5f);
             float fwd = Mathf.Lerp(0.7f, 0.2f, steerStrength);
             float side = 1f - fwd;
 
-            moveDir = (moveDir * fwd + perp * steerDir * side).normalized;
-            moveDir = (moveDir + separation * separationWeight * 0.4f + wallRepulsion).normalized;
+            desiredDir = (moveDir * fwd + perp * steerSign * side).normalized;
+            desiredDir = (desiredDir + separation * separationWeight * 0.4f + wallRepulsion).normalized;
         }
         else
         {
-            moveDir = (moveDir + separation * separationWeight + wallRepulsion).normalized;
+            desiredDir = (moveDir + separation * separationWeight + wallRepulsion).normalized;
         }
 
-        if (stallTime > 3f && waypointIndex < waypoints.Count - 1)
+        smoothedDir = Vector3.Lerp(smoothedDir, desiredDir, 8f * Time.deltaTime);
+        if (smoothedDir.sqrMagnitude < 0.001f)
+            smoothedDir = desiredDir;
+        smoothedDir.Normalize();
+
+        if (stallTime > 4f && waypointIndex < waypoints.Count - 1)
         {
             waypointIndex++;
             stallTime = 0f;
+            repathTimer = 0f;
             if (GameDebug.Movement)
                 Debug.Log($"[Move:{gameObject.name}] stalled, skipping waypoint -> {waypointIndex}");
         }
 
-        Vector3 newPos = pos + moveDir * speed * Time.deltaTime;
+        Vector3 newPos = pos + smoothedDir * speed * Time.deltaTime;
         newPos.y = grid.GridOrigin.y;
 
         newPos = ValidatePosition(pos, newPos);
@@ -161,11 +188,14 @@ public class UnitMovement : NetworkBehaviour
         if (Time.frameCount % 10 == 0)
             RpcSyncPosition(transform.position);
 
-        repathTimer -= Time.deltaTime;
-        if (repathTimer <= 0f)
+        if (!isPathComplete)
         {
-            repathTimer = repathInterval;
-            CalculatePath();
+            repathTimer -= Time.deltaTime;
+            if (repathTimer <= 0f)
+            {
+                repathTimer = repathInterval * 3f;
+                CalculatePath();
+            }
         }
     }
 
@@ -178,9 +208,14 @@ public class UnitMovement : NetworkBehaviour
         float moved = Vector3.Distance(transform.position, lastProgressPos);
 
         if (moved < 0.15f)
+        {
             stallTime += 0.4f;
+        }
         else
+        {
             stallTime = Mathf.Max(0f, stallTime - 0.2f);
+            consecutivePathFails = 0;
+        }
 
         lastProgressPos = transform.position;
     }
@@ -212,11 +247,11 @@ public class UnitMovement : NetworkBehaviour
         Vector2Int myCell = grid.WorldToCell(pos);
         float cellSize = grid.CellSize;
         Vector3 force = Vector3.zero;
-        float checkRadius = cellSize * 1.5f;
+        float checkRadius = cellSize;
 
-        for (int dx = -2; dx <= 2; dx++)
+        for (int dx = -1; dx <= 1; dx++)
         {
-            for (int dz = -2; dz <= 2; dz++)
+            for (int dz = -1; dz <= 1; dz++)
             {
                 if (dx == 0 && dz == 0) continue;
                 Vector2Int neighbor = new(myCell.x + dx, myCell.y + dz);
@@ -299,11 +334,21 @@ public class UnitMovement : NetworkBehaviour
             }
         }
 
+        if (worldTarget.HasValue && waypoints != null && waypointIndex < waypoints.Count)
+        {
+            float threshold = grid != null ? grid.CellSize : 1.5f;
+            float distToExisting = Vector3.Distance(target, worldTarget.Value);
+            if (distToExisting < threshold)
+                return;
+        }
+
         worldTarget = target;
         isStopped = false;
         stallTime = 0f;
         IsDestinationUnreachable = false;
         lastProgressPos = transform.position;
+        smoothedDir = (target - transform.position).normalized;
+        smoothedDir.y = 0f;
         CalculatePath();
     }
 
@@ -322,7 +367,7 @@ public class UnitMovement : NetworkBehaviour
             if (c.TeamId == enemyTeam)
             {
                 Vector3 target = grid.FindNearestWalkablePosition(c.transform.position, transform.position);
-                SetDestinationWorld(target);
+                ForceSetDestinationWorld(target);
                 return;
             }
         }
@@ -450,6 +495,7 @@ public class UnitMovement : NetworkBehaviour
     private void RpcSyncPosition(Vector3 pos)
     {
         if (isServer) return;
-        transform.position = Vector3.Lerp(transform.position, pos, 0.5f);
+        serverPosition = pos;
+        hasServerPos = true;
     }
 }

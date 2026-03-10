@@ -80,8 +80,6 @@ public class Spawner : NetworkBehaviour
         {
             if (GameDebug.Spawning)
                 Debug.Log($"[Spawn] {unitData.unitName} at {pos:F1} team={teamId} walkable={foundWalkable}");
-            var movement = unitObj.GetComponent<UnitMovement>();
-            movement?.SetDestinationToEnemyCastle();
         }
         else if (GameDebug.Spawning)
         {
