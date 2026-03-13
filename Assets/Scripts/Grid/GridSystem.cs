@@ -19,6 +19,9 @@ public class GridSystem : MonoBehaviour
 
     private CellState[,] cells;
 
+    private ClearanceMap clearanceMap;
+    public ClearanceMap ClearanceMap => clearanceMap;
+
     public int Width => gridWidth;
     public int Height => gridHeight;
     public float CellSize => cellSize;
@@ -40,12 +43,29 @@ public class GridSystem : MonoBehaviour
         if (Instance == this) Instance = null;
     }
 
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        Instance = null;
+    }
+
     private void InitializeGrid()
     {
         cells = new CellState[gridWidth, gridHeight];
         for (int x = 0; x < gridWidth; x++)
             for (int y = 0; y < gridHeight; y++)
                 cells[x, y] = CellState.Empty;
+    }
+
+    public void BuildClearanceMap()
+    {
+        clearanceMap = new ClearanceMap();
+        clearanceMap.ComputeFull(this);
+    }
+
+    public void UpdateClearanceRegion(Vector2Int min, Vector2Int max)
+    {
+        clearanceMap?.UpdateRegion(min, max, this);
     }
 
     public Vector2Int WorldToCell(Vector3 worldPosition)
@@ -91,7 +111,21 @@ public class GridSystem : MonoBehaviour
     {
         if (!IsInBuildZone(worldPosition, teamId)) return false;
         Vector2Int cell = WorldToCell(worldPosition);
-        return IsInBounds(cell) && cells[cell.x, cell.y] == CellState.Empty;
+        if (!IsInBounds(cell) || cells[cell.x, cell.y] != CellState.Empty)
+            return false;
+        return true;
+    }
+
+    /// <summary>
+    /// Full footprint validation: checks that ALL cells a building would occupy are empty.
+    /// </summary>
+    public bool CanPlaceBuildingFootprint(Vector3 worldPosition, int teamId, Vector3 buildingSize)
+    {
+        if (!CanPlaceBuilding(worldPosition, teamId)) return false;
+
+        Bounds footprint = new Bounds(worldPosition, buildingSize);
+        var footprintCells = GetCellsOverlappingBounds(footprint);
+        return AreCellsEmpty(footprintCells);
     }
 
     public List<Vector2Int> GetCellsOverlappingBounds(Bounds worldBounds)
@@ -123,11 +157,17 @@ public class GridSystem : MonoBehaviour
 
     public void MarkCells(List<Vector2Int> cellList, CellState state)
     {
+        if (cellList.Count == 0) return;
+        Vector2Int min = cellList[0], max = cellList[0];
         foreach (var cell in cellList)
         {
             if (IsInBounds(cell))
                 cells[cell.x, cell.y] = state;
+            min = Vector2Int.Min(min, cell);
+            max = Vector2Int.Max(max, cell);
         }
+        if (clearanceMap != null)
+            UpdateClearanceRegion(min, max);
         if (GameDebug.Building)
             Debug.Log($"[Grid] Marked {cellList.Count} cells as {state}");
     }

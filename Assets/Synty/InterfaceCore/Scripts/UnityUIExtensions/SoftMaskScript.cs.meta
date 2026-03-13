@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: ccd4529d43c341443b320b0eea171992
+timeCreated: 1448034177
+licenseType: Store
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceCore/Scripts/UnityUIExtensions/SoftMaskScript.cs
+  uploadId: 782052

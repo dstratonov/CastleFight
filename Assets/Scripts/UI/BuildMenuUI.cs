@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.InputSystem;
 using TMPro;
 using System.Collections.Generic;
 
@@ -10,15 +11,18 @@ public class BuildMenuUI : MonoBehaviour
 
     private NetworkPlayer localPlayer;
     private HeroBuilder heroBuilder;
+    private BuildingPlacer buildingPlacer;
     private readonly List<BuildMenuButton> buttons = new();
     private UIThemeData theme;
     private TMP_FontAsset cachedFontAsset;
 
-    public void Init(Transform container)
+    public void Init(Transform container, TMP_FontAsset sharedFont = null)
     {
         buildButtonContainer = container;
         theme = Resources.Load<UIThemeData>("UITheme");
-        if (theme != null && theme.medievalFont != null)
+        if (sharedFont != null)
+            cachedFontAsset = sharedFont;
+        else if (theme != null && theme.medievalFont != null)
             cachedFontAsset = TMP_FontAsset.CreateFontAsset(theme.medievalFont);
     }
 
@@ -26,6 +30,7 @@ public class BuildMenuUI : MonoBehaviour
     {
         localPlayer = player;
         heroBuilder = player.GetComponent<HeroBuilder>();
+        buildingPlacer = player.GetComponent<BuildingPlacer>();
         RefreshBuildMenu();
     }
 
@@ -40,14 +45,16 @@ public class BuildMenuUI : MonoBehaviour
         var race = raceDb.GetRace(localPlayer.SelectedRaceId);
         if (race == null || race.buildings == null) return;
 
+        int hotkeyIndex = 1;
         foreach (var buildingData in race.buildings)
         {
             if (buildingData == null) continue;
-            CreateBuildButton(buildingData);
+            CreateBuildButton(buildingData, hotkeyIndex <= 9 ? hotkeyIndex : 0);
+            hotkeyIndex++;
         }
     }
 
-    private void CreateBuildButton(BuildingData data)
+    private void CreateBuildButton(BuildingData data, int hotkey = 0)
     {
         if (buildButtonContainer == null) return;
 
@@ -65,7 +72,7 @@ public class BuildMenuUI : MonoBehaviour
         if (menuButton == null)
             menuButton = buttonObj.AddComponent<BuildMenuButton>();
 
-        menuButton.Setup(data, OnBuildButtonClicked);
+        menuButton.Setup(data, OnBuildButtonClicked, hotkey);
         buttons.Add(menuButton);
     }
 
@@ -154,23 +161,78 @@ public class BuildMenuUI : MonoBehaviour
     {
         if (localPlayer == null || heroBuilder == null) return;
         heroBuilder.StartBuilding(data);
+        activePlacingData = (buildingPlacer != null && buildingPlacer.IsPlacing) ? data : null;
     }
+
+    private BuildingData activePlacingData;
 
     private void Update()
     {
         UpdateButtonStates();
+        HandleKeyboardShortcuts();
     }
 
     private void UpdateButtonStates()
     {
         if (localPlayer == null) return;
 
-        foreach (var button in buttons)
+        if (activePlacingData != null)
         {
+            if (buildingPlacer == null || !buildingPlacer.IsPlacing)
+                activePlacingData = null;
+        }
+
+        for (int i = 0; i < buttons.Count; i++)
+        {
+            var button = buttons[i];
             if (button == null || button.Data == null) continue;
             bool canAfford = localPlayer.Gold >= button.Data.cost;
             button.SetInteractable(canAfford);
+            button.SetActiveIndicator(activePlacingData != null && button.Data == activePlacingData);
         }
+    }
+
+    private void HandleKeyboardShortcuts()
+    {
+        if (localPlayer == null || heroBuilder == null) return;
+
+        var keyboard = Keyboard.current;
+        if (keyboard == null) return;
+
+        for (int i = 0; i < buttons.Count && i < 9; i++)
+        {
+            var key = GetNumberKey(keyboard, i + 1);
+            if (key != null && key.wasPressedThisFrame)
+            {
+                var data = buttons[i]?.Data;
+                if (data != null)
+                    OnBuildButtonClicked(data);
+                break;
+            }
+        }
+    }
+
+    private static UnityEngine.InputSystem.Controls.KeyControl GetNumberKey(Keyboard kb, int num)
+    {
+        return num switch
+        {
+            1 => kb.digit1Key,
+            2 => kb.digit2Key,
+            3 => kb.digit3Key,
+            4 => kb.digit4Key,
+            5 => kb.digit5Key,
+            6 => kb.digit6Key,
+            7 => kb.digit7Key,
+            8 => kb.digit8Key,
+            9 => kb.digit9Key,
+            _ => null
+        };
+    }
+
+    /// <summary>Sets which building is currently being placed, for UI highlight.</summary>
+    public void SetActivePlacing(BuildingData data)
+    {
+        activePlacingData = data;
     }
 
     private void ClearButtons()

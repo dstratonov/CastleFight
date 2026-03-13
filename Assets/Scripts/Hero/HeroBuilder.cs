@@ -25,11 +25,17 @@ public class HeroBuilder : NetworkBehaviour
         if (data == null) return;
 
         if (networkPlayer != null && networkPlayer.Gold < data.cost)
+        {
+            HUDManager.Instance?.ShowNotification("Not enough gold!");
             return;
+        }
 
         var race = RaceDatabase.Instance?.GetRace(networkPlayer.SelectedRaceId);
         if (race != null && !race.IsBuildingUnlocked(data.buildingId, builtBuildingIds))
+        {
+            HUDManager.Instance?.ShowNotification("Building locked!");
             return;
+        }
 
         placer?.StartPlacing(data);
     }

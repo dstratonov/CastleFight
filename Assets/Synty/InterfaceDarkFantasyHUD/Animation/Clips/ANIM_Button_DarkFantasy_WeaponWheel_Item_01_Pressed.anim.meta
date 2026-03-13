@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 7ae8f50019a46b8419691d3ea59c8481
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Animation/Clips/ANIM_Button_DarkFantasy_WeaponWheel_Item_01_Pressed.anim
+  uploadId: 782052

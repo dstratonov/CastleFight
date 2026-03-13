@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 57286abd282113c4db66f4b3051d2c4a
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/FullscreenFX/FX_DarkFantasy_Spell_01.prefab
+  uploadId: 782052

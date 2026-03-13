@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 8958476cbdf7a0e4f988680376b6169b
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/Minimap/_Parts/HUD_DarkFantasy_Minimap_Contents_01.prefab
+  uploadId: 782052

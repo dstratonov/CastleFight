@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 8ec67d04844faaf44a37c13fe8e46156
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/Reticles_Crosshairs/HUD_DarkFantasy_Reticle_RingTriangular_01.prefab
+  uploadId: 782052

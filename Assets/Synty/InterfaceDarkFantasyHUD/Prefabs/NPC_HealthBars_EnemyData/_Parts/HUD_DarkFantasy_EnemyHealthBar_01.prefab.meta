@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 5b5cc131f76b37545b882c7141184a7a
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/NPC_HealthBars_EnemyData/_Parts/HUD_DarkFantasy_EnemyHealthBar_01.prefab
+  uploadId: 782052

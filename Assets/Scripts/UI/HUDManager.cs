@@ -24,6 +24,9 @@ public class HUDManager : MonoBehaviour
     private NetworkPlayer localPlayer;
     private Castle allyCastle;
     private Castle enemyCastle;
+    private float castleSearchCooldown;
+
+    public float MatchTimer => matchTimer;
 
     public void Init(TextMeshProUGUI gold, TextMeshProUGUI income,
                      TextMeshProUGUI timer, TextMeshProUGUI team,
@@ -51,6 +54,12 @@ public class HUDManager : MonoBehaviour
         if (Instance == this) Instance = null;
     }
 
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        Instance = null;
+    }
+
     private void OnEnable()
     {
         EventBus.Subscribe<GoldChangedEvent>(OnGoldChanged);
@@ -63,6 +72,8 @@ public class HUDManager : MonoBehaviour
         EventBus.Unsubscribe<GameStateChangedEvent>(OnGameStateChanged);
     }
 
+    private int lastDisplayedIncome = -1;
+
     private void Update()
     {
         if (GameManager.Instance != null && GameManager.Instance.CurrentState == GameState.Playing)
@@ -72,15 +83,30 @@ public class HUDManager : MonoBehaviour
         }
 
         if (allyCastle == null || enemyCastle == null)
-            FindCastles();
+        {
+            castleSearchCooldown -= Time.deltaTime;
+            if (castleSearchCooldown <= 0f)
+            {
+                castleSearchCooldown = 1f;
+                FindCastles();
+            }
+        }
+
+        if (localPlayer != null && localPlayer.Income != lastDisplayedIncome)
+        {
+            lastDisplayedIncome = localPlayer.Income;
+            if (incomeText != null) incomeText.text = $"+{localPlayer.Income}";
+        }
 
         UpdateCastleHealthBars();
+        UpdateNotification();
     }
 
     public void SetLocalPlayer(NetworkPlayer player)
     {
         localPlayer = player;
         UpdateGoldDisplay();
+        UpdateTeamDisplay();
         FindCastles();
     }
 
@@ -105,6 +131,13 @@ public class HUDManager : MonoBehaviour
         if (incomeText != null) incomeText.text = $"+{localPlayer.Income}";
     }
 
+    private void UpdateTeamDisplay()
+    {
+        if (localPlayer == null || teamText == null) return;
+        string teamLabel = localPlayer.TeamId == 0 ? "Blue" : "Red";
+        teamText.text = $"Team: {teamLabel}";
+    }
+
     private void UpdateTimerDisplay()
     {
         if (timerText == null) return;
@@ -113,23 +146,42 @@ public class HUDManager : MonoBehaviour
         timerText.text = $"{minutes:00}:{seconds:00}";
     }
 
+    private static readonly Color COL_ALLY_CASTLE = new(0.25f, 0.65f, 0.95f);
+    private static readonly Color COL_ENEMY_CASTLE = new(0.92f, 0.28f, 0.25f);
+    private static readonly Color COL_CRITICAL = new(1f, 0.15f, 0.1f);
+
     private void UpdateCastleHealthBars()
     {
         if (allyCastle != null && allyCastle.Health != null)
         {
+            float pct = allyCastle.Health.HealthPercent;
             if (allyCastleHealthBar != null)
-                allyCastleHealthBar.fillAmount = allyCastle.Health.HealthPercent;
+            {
+                allyCastleHealthBar.fillAmount = pct;
+                allyCastleHealthBar.color = GetCastleBarColor(pct, COL_ALLY_CASTLE);
+            }
             if (allyCastleText != null)
                 allyCastleText.text = $"Ally  {allyCastle.Health.CurrentHealth:F0}/{allyCastle.Health.MaxHealth:F0}";
         }
 
         if (enemyCastle != null && enemyCastle.Health != null)
         {
+            float pct = enemyCastle.Health.HealthPercent;
             if (enemyCastleHealthBar != null)
-                enemyCastleHealthBar.fillAmount = enemyCastle.Health.HealthPercent;
+            {
+                enemyCastleHealthBar.fillAmount = pct;
+                enemyCastleHealthBar.color = GetCastleBarColor(pct, COL_ENEMY_CASTLE);
+            }
             if (enemyCastleText != null)
                 enemyCastleText.text = $"Enemy  {enemyCastle.Health.CurrentHealth:F0}/{enemyCastle.Health.MaxHealth:F0}";
         }
+    }
+
+    private Color GetCastleBarColor(float pct, Color baseColor)
+    {
+        if (pct > 0.3f) return baseColor;
+        float pulse = (Mathf.Sin(Time.time * 4f) + 1f) * 0.5f;
+        return Color.Lerp(baseColor, COL_CRITICAL, pulse * (1f - pct / 0.3f));
     }
 
     private void OnGoldChanged(GoldChangedEvent evt)
@@ -142,5 +194,46 @@ public class HUDManager : MonoBehaviour
     {
         if (evt.NewState == GameState.Playing)
             matchTimer = 0f;
+    }
+
+    // ====================================================================
+    // Notification
+    // ====================================================================
+
+    private TextMeshProUGUI notificationText;
+    private float notificationTimer;
+
+    public void SetNotificationText(TextMeshProUGUI text) => notificationText = text;
+
+    /// <summary>Shows a brief notification message below the HUD bar.</summary>
+    public void ShowNotification(string message)
+    {
+        if (notificationText == null) return;
+        notificationText.text = message;
+        notificationText.gameObject.SetActive(true);
+        notificationTimer = 2f;
+    }
+
+    private void UpdateNotification()
+    {
+        if (notificationText == null || !notificationText.gameObject.activeSelf) return;
+
+        notificationTimer -= Time.deltaTime;
+        if (notificationTimer <= 0f)
+        {
+            notificationText.gameObject.SetActive(false);
+        }
+        else if (notificationTimer < 0.5f)
+        {
+            var c = notificationText.color;
+            c.a = notificationTimer / 0.5f;
+            notificationText.color = c;
+        }
+        else
+        {
+            var c = notificationText.color;
+            c.a = 1f;
+            notificationText.color = c;
+        }
     }
 }

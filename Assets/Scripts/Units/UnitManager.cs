@@ -6,6 +6,8 @@ public class UnitManager : NetworkBehaviour
 {
     public static UnitManager Instance { get; private set; }
 
+    private static readonly IReadOnlyList<Unit> EmptyUnitList = new List<Unit>();
+
     private readonly Dictionary<int, List<Unit>> teamUnits = new()
     {
         { 0, new List<Unit>() },
@@ -13,6 +15,10 @@ public class UnitManager : NetworkBehaviour
     };
 
     private readonly List<Unit> allUnits = new();
+
+    private SpatialHashGrid spatialHash;
+    public SpatialHashGrid SpatialHash => spatialHash;
+    public IReadOnlyList<Unit> AllUnits => allUnits;
 
     private void Awake()
     {
@@ -22,11 +28,18 @@ public class UnitManager : NetworkBehaviour
             return;
         }
         Instance = this;
+        spatialHash = new SpatialHashGrid(4f);
     }
 
     private void OnDestroy()
     {
         if (Instance == this) Instance = null;
+    }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        Instance = null;
     }
 
     private void OnEnable()
@@ -77,6 +90,7 @@ public class UnitManager : NetworkBehaviour
             teamUnits[team] = new List<Unit>();
         teamUnits[team].Add(unit);
         allUnits.Add(unit);
+        spatialHash.Insert(unit);
     }
 
     public void UnregisterUnit(Unit unit)
@@ -85,59 +99,22 @@ public class UnitManager : NetworkBehaviour
         if (teamUnits.TryGetValue(unit.TeamId, out var list))
             list.Remove(unit);
         allUnits.Remove(unit);
+        spatialHash.Remove(unit);
     }
 
     public IReadOnlyList<Unit> GetTeamUnits(int teamId)
     {
-        return teamUnits.TryGetValue(teamId, out var list) ? list : new List<Unit>();
+        return teamUnits.TryGetValue(teamId, out var list) ? list : EmptyUnitList;
     }
 
     public Unit FindNearestEnemy(Vector3 position, int myTeamId, float maxRange)
     {
-        Unit nearest = null;
-        float nearestDist = maxRange * maxRange;
-
-        int enemyTeam = TeamManager.Instance != null
-            ? TeamManager.Instance.GetEnemyTeamId(myTeamId)
-            : (myTeamId == 0 ? 1 : 0);
-
-        if (!teamUnits.TryGetValue(enemyTeam, out var enemies)) return null;
-
-        for (int i = enemies.Count - 1; i >= 0; i--)
-        {
-            var enemy = enemies[i];
-            if (enemy == null || enemy.IsDead) continue;
-
-            float distSq = (enemy.transform.position - position).sqrMagnitude;
-            if (distSq < nearestDist)
-            {
-                nearestDist = distSq;
-                nearest = enemy;
-            }
-        }
-
-        return nearest;
+        return spatialHash.FindNearest(position, maxRange, myTeamId);
     }
 
-    /// <summary>
-    /// Returns all live units (any team) within radius of position. Used for separation steering.
-    /// </summary>
     public List<Unit> GetUnitsInRadius(Vector3 position, float radius)
     {
-        var result = new List<Unit>();
-        float radiusSq = radius * radius;
-
-        for (int i = allUnits.Count - 1; i >= 0; i--)
-        {
-            var u = allUnits[i];
-            if (u == null || u.IsDead) continue;
-
-            float distSq = (u.transform.position - position).sqrMagnitude;
-            if (distSq <= radiusSq)
-                result.Add(u);
-        }
-
-        return result;
+        return spatialHash.QueryRadius(position, radius);
     }
 
     private void OnUnitKilled(UnitKilledEvent evt)
@@ -155,17 +132,25 @@ public class UnitManager : NetworkBehaviour
         }
     }
 
+    private static readonly System.Predicate<Unit> IsNullPredicate = u => u == null;
+
     private void LateUpdate()
     {
         for (int i = allUnits.Count - 1; i >= 0; i--)
         {
             if (allUnits[i] == null)
+            {
                 allUnits.RemoveAt(i);
+            }
+            else
+            {
+                spatialHash.UpdateUnit(allUnits[i]);
+            }
         }
 
         foreach (var kvp in teamUnits)
         {
-            kvp.Value.RemoveAll(u => u == null);
+            kvp.Value.RemoveAll(IsNullPredicate);
         }
     }
 }

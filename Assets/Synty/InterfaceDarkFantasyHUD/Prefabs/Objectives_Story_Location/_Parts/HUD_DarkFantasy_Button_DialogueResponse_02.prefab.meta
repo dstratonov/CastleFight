@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: cd9bcc569f14b2745879b183cd4fb018
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/Objectives_Story_Location/_Parts/HUD_DarkFantasy_Button_DialogueResponse_02.prefab
+  uploadId: 782052

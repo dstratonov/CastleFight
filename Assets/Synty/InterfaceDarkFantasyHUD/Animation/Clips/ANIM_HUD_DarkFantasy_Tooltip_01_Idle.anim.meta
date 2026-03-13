@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 2e07c9cb5b83aa34b88d3c2a5e03a20f
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Animation/Clips/ANIM_HUD_DarkFantasy_Tooltip_01_Idle.anim
+  uploadId: 782052

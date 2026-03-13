@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: fc9d7b12d4cc7b04697c36c618036f54
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Animation/Clips/ANIM_Overlay_DarkFantasy_FadeToBlack_01_In.anim
+  uploadId: 782052

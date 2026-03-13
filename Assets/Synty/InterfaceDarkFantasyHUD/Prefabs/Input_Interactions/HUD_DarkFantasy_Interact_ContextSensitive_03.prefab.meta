@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 98cae1e205c9dd644b41534cb834148b
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/Input_Interactions/HUD_DarkFantasy_Interact_ContextSensitive_03.prefab
+  uploadId: 782052

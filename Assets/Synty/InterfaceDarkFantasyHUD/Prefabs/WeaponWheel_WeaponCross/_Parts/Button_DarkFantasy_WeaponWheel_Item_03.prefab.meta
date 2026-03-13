@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: a8fc5fc60aa1b7f4aa8be7000f2807cd
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/WeaponWheel_WeaponCross/_Parts/Button_DarkFantasy_WeaponWheel_Item_03.prefab
+  uploadId: 782052

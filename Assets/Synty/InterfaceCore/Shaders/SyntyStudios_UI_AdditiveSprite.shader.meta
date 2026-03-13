@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 58e2cdd4cd0bb41329e93e90c8244823
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures: []
+  nonModifiableTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceCore/Shaders/SyntyStudios_UI_AdditiveSprite.shader
+  uploadId: 782052

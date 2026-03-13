@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 54ad3f26fa185ea459a5c3060fbf01eb
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/Reticles_Crosshairs/HUD_DarkFantasy_Reticle_Crosshair_08.prefab
+  uploadId: 782052

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 69fc695f80b84414cbe5d27a6546a15f
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Animation/Clips/ANIM_FX_DarkFantasy_Heal_Vignette_01_Inactive.anim
+  uploadId: 782052

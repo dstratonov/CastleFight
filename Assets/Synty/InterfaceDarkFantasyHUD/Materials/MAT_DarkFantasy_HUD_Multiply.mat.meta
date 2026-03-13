@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 4f373258445444344a61541f4670a9a3
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Materials/MAT_DarkFantasy_HUD_Multiply.mat
+  uploadId: 782052

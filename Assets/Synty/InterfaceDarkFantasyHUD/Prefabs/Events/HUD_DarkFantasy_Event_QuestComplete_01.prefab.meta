@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 826d612dcde5caf40bfdc5be2dda08ed
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/Events/HUD_DarkFantasy_Event_QuestComplete_01.prefab
+  uploadId: 782052

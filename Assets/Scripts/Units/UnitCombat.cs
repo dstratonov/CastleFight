@@ -21,8 +21,10 @@ public class UnitCombat : NetworkBehaviour
     private int debugLogCounter;
     private const int DebugLogInterval = 16;
     private bool wasInRange;
-    private float stuckTimer;
+    private float approachStallTimer;
     private int stuckRetryCount;
+    private float lastApproachDist = float.MaxValue;
+    private float idleRecoveryTimer;
 
     private Health cachedApproachTarget;
     private Vector3 cachedApproachPos;
@@ -32,8 +34,20 @@ public class UnitCombat : NetworkBehaviour
     private Health blacklistedTarget;
     private float blacklistExpiry;
 
-    private float approachTimer;
-    private float lastApproachDist = float.MaxValue;
+    private static readonly Dictionary<int, Health> cachedCastles = new();
+
+    private static readonly List<(Health health, float distSq)> scanCandidateBuffer = new(32);
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        targetEngageCounts.Clear();
+        slotReservations.Clear();
+        cachedCastles.Clear();
+        structureCache.Clear();
+        engageCleanupTimer = 0f;
+        scanCandidateBuffer.Clear();
+    }
 
     public Transform AttackTarget => targetHealth != null && !targetHealth.IsDead ? targetHealth.transform : null;
 
@@ -44,15 +58,12 @@ public class UnitCombat : NetworkBehaviour
     {
         if (unit == null || unit.Data == null) return 1f;
 
-        float modelRadius = unit.EffectiveRadius;
+        float dataRange = unit.Data.attackRange;
 
         if (!unit.Data.isRanged)
-        {
-            return Mathf.Clamp(modelRadius + 0.3f, 0.8f, 3f);
-        }
+            return Mathf.Clamp(dataRange, 0.3f, 2f);
 
-        float dataRange = unit.Data.attackRange;
-        return Mathf.Clamp(dataRange, modelRadius + 1f, 5f);
+        return Mathf.Clamp(dataRange, 1f, 8f);
     }
 
     private void Awake()
@@ -66,23 +77,32 @@ public class UnitCombat : NetworkBehaviour
     {
         ReleaseSlotReservation();
         UnregisterFromTarget();
+        if (unit != null)
+            AttackPositionFinder.ReleaseAllSlots(unit.GetInstanceID());
     }
 
     private void RegisterToTarget(Health newTarget)
     {
         if (newTarget == targetHealth) return;
+        if (GameDebug.Combat)
+        {
+            string oldName = targetHealth != null ? targetHealth.name : "none";
+            string newName = newTarget != null ? newTarget.name : "none";
+            Debug.Log($"{UnitTag()} TARGET CHANGE: {oldName} -> {newName}");
+        }
         UnregisterFromTarget();
         targetHealth = newTarget;
         wasInRange = false;
-        stuckTimer = 0f;
+        approachStallTimer = 0f;
         stuckRetryCount = 0;
-        approachTimer = 0f;
         lastApproachDist = float.MaxValue;
         InvalidateApproachCache();
         if (targetHealth != null)
         {
             targetEngageCounts.TryGetValue(targetHealth, out int count);
             targetEngageCounts[targetHealth] = count + 1;
+            if (GameDebug.Combat)
+                Debug.Log($"{UnitTag()} engagers on {targetHealth.name}: {count + 1}");
         }
     }
 
@@ -92,6 +112,8 @@ public class UnitCombat : NetworkBehaviour
         cachedApproachTarget = null;
         approachRecalcCooldown = 0f;
         ReleaseSlotReservation();
+        if (unit != null)
+            AttackPositionFinder.ReleaseAllSlots(unit.GetInstanceID());
     }
 
     private void ReleaseSlotReservation()
@@ -141,8 +163,13 @@ public class UnitCombat : NetworkBehaviour
         return count;
     }
 
+    private static int lastCleanupFrame = -1;
+
     private static void CleanupStaleEngageCounts()
     {
+        if (Time.frameCount == lastCleanupFrame) return;
+        lastCleanupFrame = Time.frameCount;
+
         engageCleanupTimer -= Time.deltaTime;
         if (engageCleanupTimer > 0f) return;
         engageCleanupTimer = 5f;
@@ -190,7 +217,8 @@ public class UnitCombat : NetworkBehaviour
         scanTimer -= Time.deltaTime;
         if (scanTimer <= 0f)
         {
-            scanTimer = scanInterval;
+            bool isIdle = stateMachine != null && stateMachine.CurrentState == UnitState.Idle;
+            scanTimer = isIdle && targetHealth == null ? scanInterval * 0.5f : scanInterval;
             ScanForTarget();
         }
 
@@ -199,19 +227,6 @@ public class UnitCombat : NetworkBehaviour
             if (movement != null && movement.IsDestinationUnreachable)
             {
                 stuckRetryCount++;
-                if (GameDebug.Combat)
-                    Debug.Log($"{UnitTag()} movement reports unreachable for {targetHealth.name}, retry={stuckRetryCount}");
-
-                if (stuckRetryCount >= 3)
-                {
-                    if (GameDebug.Combat)
-                        Debug.Log($"{UnitTag()} giving up on unreachable target {targetHealth.name}");
-                    BlacklistTarget(targetHealth);
-                    RegisterToTarget(null);
-                    stateMachine?.SetState(UnitState.Idle);
-                    movement?.SetDestinationToEnemyCastle();
-                    return;
-                }
 
                 InvalidateApproachCache();
                 approachRecalcCooldown = 0f;
@@ -224,46 +239,27 @@ public class UnitCombat : NetworkBehaviour
             float myRadius = unit != null ? unit.EffectiveRadius : 0.5f;
             float effectiveRange = range + myRadius;
 
+            bool targetIsStructure = IsStructure(targetHealth);
+
             float disengageRange = wasInRange
-                ? effectiveRange + Mathf.Max(1f, effectiveRange * 0.2f)
+                ? effectiveRange + effectiveRange * 0.15f
                 : effectiveRange;
             bool inRange = dist <= disengageRange;
 
             bool pathDone = movement != null && !movement.IsMoving && !movement.HasPath;
+
+            // When the unit has finished moving (arrived as close as it can), grant a
+            // generous tolerance so it doesn't endlessly re-approach. The tolerance
+            // grows with each stuck retry to eventually always succeed.
             if (!inRange && pathDone)
             {
-                stuckTimer += Time.deltaTime;
-                float leeway = disengageRange + 0.5f;
-                if (dist <= leeway)
+                float arrivalTolerance = myRadius + stuckRetryCount * 0.5f;
+                if (dist <= disengageRange + arrivalTolerance)
                 {
                     inRange = true;
-                    stuckTimer = 0f;
+                    if (GameDebug.Combat && ShouldLog())
+                        Debug.Log($"{UnitTag()} IN RANGE(tolerance) dist={dist:F2} effRange={disengageRange:F2} tolerance={arrivalTolerance:F2}");
                 }
-                else if (stuckTimer > 2.5f)
-                {
-                    stuckRetryCount++;
-                    if (stuckRetryCount >= 3)
-                    {
-                        if (GameDebug.Combat)
-                            Debug.Log($"{UnitTag()} stuck too many times on {targetHealth.name}, dropping target");
-                        BlacklistTarget(targetHealth);
-                        RegisterToTarget(null);
-                        stateMachine?.SetState(UnitState.Idle);
-                        movement?.SetDestinationToEnemyCastle();
-                        return;
-                    }
-
-                    if (GameDebug.Combat)
-                        Debug.Log($"{UnitTag()} can't reach {targetHealth.name} dist={dist:F2} effRange={effectiveRange:F2}, re-pathing (retry={stuckRetryCount})");
-                    stuckTimer = 0f;
-                    InvalidateApproachCache();
-                    approachRecalcCooldown = 0f;
-                    MoveTowardTarget();
-                }
-            }
-            else if (inRange || (movement != null && movement.IsMoving))
-            {
-                stuckTimer = 0f;
             }
 
             if (inRange)
@@ -272,35 +268,56 @@ public class UnitCombat : NetworkBehaviour
                     Debug.Log($"{UnitTag()} IN RANGE of {targetHealth.name} dist={dist:F2} effRange={effectiveRange:F2} disengage={disengageRange:F2}");
                 wasInRange = true;
                 stuckRetryCount = 0;
-                approachTimer = 0f;
+                approachStallTimer = 0f;
                 movement?.Stop();
                 stateMachine?.SetState(UnitState.Fighting);
+                FaceTarget();
                 TryAttack();
             }
             else
             {
-                if (wasInRange && GameDebug.Combat)
-                    Debug.Log($"{UnitTag()} LEFT RANGE of {targetHealth.name} dist={dist:F2} effRange={effectiveRange:F2} disengage={disengageRange:F2}");
-                wasInRange = false;
-
-                approachTimer += Time.deltaTime;
-                if (dist < lastApproachDist - 0.5f)
-                {
-                    lastApproachDist = dist;
-                    approachTimer = 0f;
-                }
-
-                if (approachTimer > 5f && GameDebug.Combat && Time.frameCount % 60 == 0)
-                    Debug.Log($"{UnitTag()} APPROACH STALL t={approachTimer:F1}s target={targetHealth.name} dist={dist:F2} lastBest={lastApproachDist:F2} moving={movement?.IsMoving} hasPath={movement?.HasPath}");
-
-                if (approachTimer > 10f)
+                if (wasInRange)
                 {
                     if (GameDebug.Combat)
-                        Debug.Log($"{UnitTag()} APPROACH TIMEOUT on {targetHealth.name} dist={dist:F2}, no progress for 10s");
-                    BlacklistTarget(targetHealth);
-                    RegisterToTarget(null);
-                    stateMachine?.SetState(UnitState.Idle);
-                    movement?.SetDestinationToEnemyCastle();
+                        Debug.Log($"{UnitTag()} LEFT RANGE of {targetHealth.name} dist={dist:F2} effRange={effectiveRange:F2} disengage={disengageRange:F2}");
+
+                    if (stateMachine != null && stateMachine.CurrentState == UnitState.Fighting)
+                        stateMachine.SetState(UnitState.Idle);
+                }
+                wasInRange = false;
+
+                float progressThreshold = targetIsStructure ? 2f : 0.5f;
+                if (dist < lastApproachDist - progressThreshold)
+                {
+                    lastApproachDist = dist;
+                    approachStallTimer = 0f;
+                }
+                else
+                {
+                    approachStallTimer += Time.deltaTime;
+                }
+
+                float retryTime = targetIsStructure ? 2f : 3f;
+                if (approachStallTimer > retryTime)
+                {
+                    stuckRetryCount++;
+                    if (stuckRetryCount >= 4)
+                    {
+                        BlacklistTarget(targetHealth);
+                        RegisterToTarget(null);
+                        stateMachine?.SetState(UnitState.Idle);
+                        movement?.SetDestinationToEnemyCastle();
+                        return;
+                    }
+
+                    if (GameDebug.Combat)
+                        Debug.Log($"{UnitTag()} APPROACH STALL retry={stuckRetryCount} t={approachStallTimer:F1}s dist={dist:F2}");
+
+                    InvalidateApproachCache();
+                    approachRecalcCooldown = 0f;
+                    approachStallTimer = 0f;
+                    lastApproachDist = float.MaxValue;
+                    MoveTowardTarget();
                     return;
                 }
 
@@ -311,13 +328,33 @@ public class UnitCombat : NetworkBehaviour
         else
         {
             wasInRange = false;
-            stuckTimer = 0f;
+            approachStallTimer = 0f;
+            lastApproachDist = float.MaxValue;
+            RegisterToTarget(null);
             if (stateMachine != null && stateMachine.CurrentState == UnitState.Fighting)
-            {
-                if (GameDebug.Combat)
-                    Debug.Log($"{UnitTag()} Target lost/dead -> Idle");
                 stateMachine.SetState(UnitState.Idle);
+            movement?.Resume();
+            movement?.SetDestinationToEnemyCastle();
+        }
+
+        if (targetHealth == null && movement != null
+            && !movement.IsMoving && !movement.HasPath
+            && !movement.IsDestinationUnreachable && !movement.IsWaitingForPath
+            && stateMachine != null && stateMachine.CurrentState == UnitState.Idle)
+        {
+            idleRecoveryTimer -= Time.deltaTime;
+            if (idleRecoveryTimer <= 0f)
+            {
+                idleRecoveryTimer = 2f;
+                if (GameDebug.Combat)
+                    Debug.Log($"{UnitTag()} IDLE RECOVERY: no target, no path — resuming castle march");
+                movement.Resume();
+                movement.SetDestinationToEnemyCastle();
             }
+        }
+        else
+        {
+            idleRecoveryTimer = 0f;
         }
     }
 
@@ -401,7 +438,7 @@ public class UnitCombat : NetworkBehaviour
         }
 
         RegisterToTarget(null);
-        if (movement != null && !movement.HasPath && !movement.IsMoving)
+        if (movement != null && (!movement.HasPath || !movement.IsMoving))
         {
             if (log)
                 Debug.Log($"{UnitTag()} SCAN: NO TARGET found, starting castle march");
@@ -416,33 +453,32 @@ public class UnitCombat : NetworkBehaviour
         if (UnitManager.Instance == null) return null;
 
         int enemyTeam = GetEnemyTeam();
-        var enemies = UnitManager.Instance.GetTeamUnits(enemyTeam);
-        float maxRangeSq = maxRange * maxRange;
+        var nearby = UnitManager.Instance.GetUnitsInRadius(transform.position, maxRange);
 
-        var candidates = new List<(Health health, float distSq)>();
-        foreach (var enemy in enemies)
+        scanCandidateBuffer.Clear();
+        foreach (var enemy in nearby)
         {
             if (enemy == null || enemy.IsDead) continue;
+            if (enemy.TeamId != enemyTeam) continue;
             float distSq = (enemy.transform.position - transform.position).sqrMagnitude;
-            if (distSq > maxRangeSq) continue;
 
             var h = enemy.GetComponent<Health>();
             if (h == null || h.IsDead) continue;
             if (IsBlacklisted(h)) continue;
 
-            candidates.Add((h, distSq));
+            scanCandidateBuffer.Add((h, distSq));
         }
 
-        candidates.Sort((a, b) => a.distSq.CompareTo(b.distSq));
+        scanCandidateBuffer.Sort((a, b) => a.distSq.CompareTo(b.distSq));
 
-        foreach (var (health, _) in candidates)
+        foreach (var (health, _) in scanCandidateBuffer)
         {
             if (GetEngageCount(health) < MaxEngagersPerUnit)
                 return health;
         }
 
-        if (candidates.Count > 0)
-            return candidates[0].health;
+        if (scanCandidateBuffer.Count > 0)
+            return scanCandidateBuffer[0].health;
 
         return null;
     }
@@ -469,6 +505,8 @@ public class UnitCombat : NetworkBehaviour
     {
         blacklistedTarget = target;
         blacklistExpiry = Time.time + 8f;
+        if (GameDebug.Combat)
+            Debug.Log($"{UnitTag()} BLACKLISTED {(target != null ? target.name : "null")} for 8s (stuckRetry={stuckRetryCount})");
     }
 
     private bool IsBlacklisted(Health target)
@@ -481,9 +519,17 @@ public class UnitCombat : NetworkBehaviour
         return target == blacklistedTarget;
     }
 
+    private static readonly Dictionary<int, bool> structureCache = new();
+
     private bool IsStructure(Health h)
     {
-        return h.GetComponent<Castle>() != null || h.GetComponent<Building>() != null;
+        if (h == null) return false;
+        int id = h.GetInstanceID();
+        if (structureCache.TryGetValue(id, out bool cached))
+            return cached;
+        bool result = h.GetComponent<Castle>() != null || h.GetComponent<Building>() != null;
+        structureCache[id] = result;
+        return result;
     }
 
     private Health FindNearestEnemyBuilding(int enemyTeam, float maxRange)
@@ -513,11 +559,17 @@ public class UnitCombat : NetworkBehaviour
 
     private Health FindEnemyCastle(int enemyTeam)
     {
+        if (cachedCastles.TryGetValue(enemyTeam, out var cached) && cached != null && !cached.IsDead)
+            return cached;
+
         Castle[] castles = FindObjectsByType<Castle>(FindObjectsSortMode.None);
         foreach (var c in castles)
         {
             if (c.TeamId == enemyTeam)
+            {
+                cachedCastles[enemyTeam] = c.Health;
                 return c.Health;
+            }
         }
         return null;
     }
@@ -526,6 +578,12 @@ public class UnitCombat : NetworkBehaviour
     private void MoveTowardTarget()
     {
         if (targetHealth == null || movement == null) return;
+
+        // Moving to approach means the unit is NOT fighting — clear Fighting
+        // state so the walk animation plays instead of attack/idle pose.
+        if (stateMachine != null && stateMachine.CurrentState == UnitState.Fighting)
+            stateMachine.SetState(UnitState.Idle);
+
         bool log = ShouldLog() && GameDebug.Combat;
 
         if (hasApproachCache && cachedApproachTarget == targetHealth)
@@ -555,18 +613,10 @@ public class UnitCombat : NetworkBehaviour
             return;
 
         var grid = GridSystem.Instance;
-        bool isStructure = IsStructure(targetHealth);
+        if (grid == null) return;
 
-        Vector3 destination;
-
-        if (isStructure && grid != null)
-        {
-            destination = FindStructureApproachSlot(grid);
-        }
-        else
-        {
-            destination = FindUnitApproachPoint(grid);
-        }
+        Vector2Int attackCell = AttackPositionFinder.FindAttackPosition(unit, targetHealth, grid, grid.ClearanceMap);
+        Vector3 destination = grid.CellToWorld(attackCell);
 
         cachedApproachTarget = targetHealth;
         cachedApproachPos = destination;
@@ -578,113 +628,28 @@ public class UnitCombat : NetworkBehaviour
             Debug.Log($"{UnitTag()} MOVE(new) -> {targetHealth.name}" +
                 $" myPos={transform.position:F1}" +
                 $" dest={destination:F1}" +
-                $" dist={Vector3.Distance(transform.position, destination):F1}" +
-                $" struct={isStructure}");
+                $" dist={Vector3.Distance(transform.position, destination):F1}");
         }
 
         movement.ForceSetDestinationWorld(destination);
     }
 
-    private Vector3 FindStructureApproachSlot(GridSystem grid)
+    /// <summary>
+    /// Smoothly rotates the unit to face its current attack target every frame.
+    /// Called continuously while in range, not just on attack frames.
+    /// </summary>
+    private void FaceTarget()
     {
-        Vector3 targetCenter = GetTargetCenter(targetHealth);
-        float targetRadius = GetTargetRadius(targetHealth);
-        float attackRange = GetAttackRange();
-        float unitRadius = unit != null ? unit.EffectiveRadius : 0.5f;
+        if (targetHealth == null || targetHealth.IsDead) return;
 
-        Vector2Int centerCell = grid.WorldToCell(targetCenter);
-        int searchRadius = Mathf.CeilToInt((targetRadius + attackRange + unitRadius) / grid.CellSize) + 2;
+        Vector3 hitPos = ClosestPointOnTarget(targetHealth);
+        Vector3 lookDir = hitPos - transform.position;
+        lookDir.y = 0f;
 
-        Vector3 myPos = transform.position;
-        var borderCells = new List<(Vector2Int cell, Vector3 pos, float distToMe)>();
+        if (lookDir.sqrMagnitude < 0.001f) return;
 
-        for (int dx = -searchRadius; dx <= searchRadius; dx++)
-        {
-            for (int dz = -searchRadius; dz <= searchRadius; dz++)
-            {
-                Vector2Int cell = new(centerCell.x + dx, centerCell.y + dz);
-                if (!grid.IsInBounds(cell) || !grid.IsWalkable(cell)) continue;
-
-                bool touchesStructure = false;
-                for (int nx = -1; nx <= 1 && !touchesStructure; nx++)
-                {
-                    for (int nz = -1; nz <= 1 && !touchesStructure; nz++)
-                    {
-                        if (nx == 0 && nz == 0) continue;
-                        Vector2Int neighbor = new(cell.x + nx, cell.y + nz);
-                        if (grid.IsInBounds(neighbor) && !grid.IsWalkable(neighbor))
-                            touchesStructure = true;
-                    }
-                }
-
-                if (!touchesStructure) continue;
-
-                Vector3 cellWorld = grid.CellToWorld(cell);
-                float distToTarget = Vector3.Distance(cellWorld, targetCenter);
-                if (distToTarget > targetRadius + attackRange * 3f) continue;
-
-                float distToMe = Vector3.Distance(cellWorld, myPos);
-                borderCells.Add((cell, cellWorld, distToMe));
-            }
-        }
-
-        if (borderCells.Count == 0)
-            return grid.FindNearestWalkablePosition(targetCenter, myPos);
-
-        borderCells.Sort((a, b) => a.distToMe.CompareTo(b.distToMe));
-
-        foreach (var (cell, pos, _) in borderCells)
-        {
-            if (!IsSlotTaken(targetHealth, cell))
-            {
-                ReserveSlot(targetHealth, cell);
-                return pos;
-            }
-        }
-
-        ReserveSlot(targetHealth, borderCells[0].cell);
-        return borderCells[0].pos;
-    }
-
-    private Vector3 FindUnitApproachPoint(GridSystem grid)
-    {
-        Vector3 targetCenter = GetTargetCenter(targetHealth);
-        float targetRadius = GetTargetRadius(targetHealth);
-        float attackRange = GetAttackRange();
-        float unitRadius = unit != null ? unit.EffectiveRadius : 0.5f;
-
-        Vector3 dirToTarget = transform.position - targetCenter;
-        dirToTarget.y = 0f;
-        if (dirToTarget.sqrMagnitude < 0.01f)
-        {
-            uint hash = (uint)Mathf.Abs(gameObject.GetInstanceID()) * 2654435761u;
-            float angle = ((hash & 0xFFFF) / (float)0xFFFF) * Mathf.PI * 2f;
-            dirToTarget = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
-        }
-        dirToTarget.Normalize();
-
-        float approachDist = targetRadius + attackRange * 0.5f + unitRadius;
-        Vector3 destination = targetCenter + dirToTarget * approachDist;
-        destination.y = transform.position.y;
-
-        if (grid != null)
-        {
-            Vector2Int cell = grid.WorldToCell(destination);
-            if (!grid.IsInBounds(cell) || !grid.IsWalkable(cell))
-                destination = grid.FindNearestWalkablePosition(destination, transform.position);
-        }
-
-        return destination;
-    }
-
-    private Vector3 GetTargetCenter(Health target)
-    {
-        return BoundsHelper.GetCenter(target.gameObject);
-    }
-
-    private float GetTargetRadius(Health target)
-    {
-        return BoundsHelper.GetRadius(target.gameObject);
+        Quaternion targetRot = Quaternion.LookRotation(lookDir.normalized);
+        transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, 15f * Time.deltaTime);
     }
 
     [Server]
@@ -704,6 +669,27 @@ public class UnitCombat : NetworkBehaviour
             return;
         }
 
+        float dist = DistanceToTarget(targetHealth);
+        float range = GetAttackRange();
+        float myRadius = unit != null ? unit.EffectiveRadius : 0.5f;
+        float maxAttackDist = range + myRadius;
+        if (unit.Data != null && unit.Data.isRanged)
+            maxAttackDist *= 1.15f;
+
+        // Grant the same arrival tolerance used in the range check,
+        // so a unit accepted via tolerance can actually execute attacks.
+        maxAttackDist += myRadius;
+
+        if (dist > maxAttackDist)
+        {
+            if (GameDebug.Combat)
+                Debug.Log($"{UnitTag()} ATTACK BLOCKED: dist={dist:F2} > maxAttackDist={maxAttackDist:F2}, re-approaching");
+            wasInRange = false;
+            stateMachine?.SetState(UnitState.Idle);
+            MoveTowardTarget();
+            return;
+        }
+
         float baseDamage = unit.Data != null ? unit.Data.attackDamage : 5f;
         AttackType atkType = unit.Data != null ? unit.Data.attackType : AttackType.Normal;
         ArmorType defArmor = ArmorType.Unarmored;
@@ -714,15 +700,14 @@ public class UnitCombat : NetworkBehaviour
 
         float damage = DamageSystem.CalculateDamage(baseDamage, atkType, defArmor);
 
+        // Snap to face target on the attack frame for visual accuracy
         Vector3 hitPos = ClosestPointOnTarget(targetHealth);
         Vector3 lookDir = hitPos - transform.position;
         lookDir.y = 0;
         if (lookDir.sqrMagnitude > 0.001f)
-            transform.forward = lookDir.normalized;
+            transform.rotation = Quaternion.LookRotation(lookDir.normalized);
 
-        var unitAnim = GetComponent<UnitAnimator>();
-        if (unitAnim != null)
-            unitAnim.PlayAttack();
+        stateMachine?.TriggerAttackAnimation(1f / attackSpeed);
 
         if (unit.Data != null && unit.Data.isRanged)
         {

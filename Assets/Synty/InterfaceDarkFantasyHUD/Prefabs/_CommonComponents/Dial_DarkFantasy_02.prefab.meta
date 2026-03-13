@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: ef15d7e5f8e34624a944bf77345c97ec
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/_CommonComponents/Dial_DarkFantasy_02.prefab
+  uploadId: 782052

@@ -15,6 +15,7 @@ public class SelectionManager : MonoBehaviour
     private Material selectionMaterial;
     private float selectionGroundY;
     private Vector3 selectionCenterOffset;
+    private bool currentSelectionIsEnemy;
 
     public GameObject CurrentSelection => currentSelection;
 
@@ -32,6 +33,12 @@ public class SelectionManager : MonoBehaviour
             selectionMaterial = null;
         }
         if (Instance == this) Instance = null;
+    }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        Instance = null;
     }
 
     private void Update()
@@ -59,17 +66,9 @@ public class SelectionManager : MonoBehaviour
         Ray ray = mainCamera.ScreenPointToRay(mouse.position.ReadValue());
         if (Physics.Raycast(ray, out RaycastHit hit, maxRayDistance, selectableLayers))
         {
-            var hitObj = hit.collider.gameObject;
-            var unit = hitObj.GetComponent<Unit>() ?? hitObj.GetComponentInParent<Unit>();
-            var building = hitObj.GetComponent<Building>() ?? hitObj.GetComponentInParent<Building>();
-            var castle = hitObj.GetComponent<Castle>() ?? hitObj.GetComponentInParent<Castle>();
-
-            if (unit != null)
-                Select(unit.gameObject);
-            else if (building != null)
-                Select(building.gameObject);
-            else if (castle != null)
-                Select(castle.gameObject);
+            var selectable = FindSelectable(hit.collider.gameObject);
+            if (selectable != null)
+                Select(selectable.gameObject);
             else
                 Deselect();
         }
@@ -81,7 +80,24 @@ public class SelectionManager : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (selectionIndicator == null || currentSelection == null) return;
+        if (currentSelection == null)
+        {
+            if (selectionIndicator != null)
+            {
+                RemoveHighlight();
+                EventBus.Raise(new SelectionChangedEvent(null));
+            }
+            return;
+        }
+
+        var health = currentSelection.GetComponent<Health>();
+        if (health != null && health.IsDead)
+        {
+            Deselect();
+            return;
+        }
+
+        if (selectionIndicator == null) return;
 
         Vector3 pos = currentSelection.transform.position + selectionCenterOffset;
         pos.y = selectionGroundY;
@@ -126,11 +142,28 @@ public class SelectionManager : MonoBehaviour
         selectionCenterOffset = boundsCenter - currentSelection.transform.position;
         selectionCenterOffset.y = 0f;
 
-        selectionIndicator = CreateRingQuad(diameter);
+        currentSelectionIsEnemy = IsEnemy(currentSelection);
+        selectionIndicator = CreateRingQuad(diameter, currentSelectionIsEnemy);
 
         Vector3 pos = currentSelection.transform.position + selectionCenterOffset;
         pos.y = selectionGroundY;
         selectionIndicator.transform.position = pos;
+    }
+
+    private static ISelectable FindSelectable(GameObject hitObj)
+    {
+        var selectable = hitObj.GetComponent<ISelectable>();
+        if (selectable != null) return selectable;
+        return hitObj.GetComponentInParent<ISelectable>();
+    }
+
+    private static bool IsEnemy(GameObject target)
+    {
+        var local = NetworkPlayer.Local;
+        if (local == null) return false;
+
+        var selectable = target.GetComponent<ISelectable>();
+        return selectable != null && selectable.TeamId != local.TeamId;
     }
 
     private void ComputeSelectionBounds(GameObject target, out float diameter, out float groundY, out Vector3 boundsCenter)
@@ -147,7 +180,10 @@ public class SelectionManager : MonoBehaviour
         boundsCenter = combined.center;
     }
 
-    private GameObject CreateRingQuad(float diameter)
+    private static readonly Color COLOR_ALLY_RING = new(0.2f, 1f, 0.3f, 0.55f);
+    private static readonly Color COLOR_ENEMY_RING = new(1f, 0.25f, 0.2f, 0.55f);
+
+    private GameObject CreateRingQuad(float diameter, bool isEnemy = false)
     {
         var go = new GameObject("SelectionRing");
 
@@ -158,18 +194,19 @@ public class SelectionManager : MonoBehaviour
         mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         mr.receiveShadows = false;
 
-        if (selectionMaterial != null) Destroy(selectionMaterial);
-
-        var shader = Shader.Find("Custom/SelectionRing");
-        if (shader == null)
+        if (selectionMaterial == null)
         {
-            shader = Shader.Find("Unlit/Color");
-            Debug.LogWarning("[SelectionManager] Custom/SelectionRing shader not found, using fallback");
+            var shader = Shader.Find("Custom/SelectionRing");
+            if (shader == null)
+            {
+                shader = Shader.Find("Unlit/Color");
+                Debug.LogWarning("[SelectionManager] Custom/SelectionRing shader not found, using fallback");
+            }
+            selectionMaterial = new Material(shader);
         }
 
-        selectionMaterial = new Material(shader);
-        selectionMaterial.color = new Color(0.2f, 1f, 0.3f, 0.55f);
-        mr.material = selectionMaterial;
+        selectionMaterial.color = isEnemy ? COLOR_ENEMY_RING : COLOR_ALLY_RING;
+        mr.sharedMaterial = selectionMaterial;
 
         go.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
         go.transform.localScale = new Vector3(diameter, diameter, 1f);

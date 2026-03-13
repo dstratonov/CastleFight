@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 51d2936cd62ddd142933a447266daaeb
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Samples/Prefabs/AssetDemo_DarkFantasy_Button_Basic_01.prefab
+  uploadId: 782052

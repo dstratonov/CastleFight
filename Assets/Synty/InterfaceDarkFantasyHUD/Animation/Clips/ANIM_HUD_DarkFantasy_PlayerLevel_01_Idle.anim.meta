@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 0929ad94f9ad4e74ea43375609015975
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Animation/Clips/ANIM_HUD_DarkFantasy_PlayerLevel_01_Idle.anim
+  uploadId: 782052

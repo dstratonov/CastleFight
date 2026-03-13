@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 8d6b1a0ba1e52564a9b3a0649a4a6829
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/Events/HUD_DarkFantasy_Event_BossBar_05.prefab
+  uploadId: 782052

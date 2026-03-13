@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 3fbe5c1147facd6408e1daa964acc061
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceCore/Scripts/UnityUIExtensions/ShaderLibrary.cs
+  uploadId: 782052

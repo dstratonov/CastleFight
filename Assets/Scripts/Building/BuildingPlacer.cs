@@ -35,13 +35,34 @@ public class BuildingPlacer : NetworkBehaviour
         mainCamera = Camera.main;
     }
 
+    private float pendingTimeout;
+    private const float PENDING_MAX_TIME = 15f;
+
+    private void OnDestroy()
+    {
+        if (ghostObject != null)
+        {
+            Destroy(ghostObject);
+            ghostObject = null;
+        }
+    }
+
     private void Update()
     {
         if (!isLocalPlayer) return;
 
         if (pendingPosition.HasValue)
         {
-            CheckPendingPlacement();
+            pendingTimeout -= Time.deltaTime;
+            if (pendingTimeout <= 0f)
+            {
+                pendingPosition = null;
+                pendingBuildingId = null;
+            }
+            else
+            {
+                CheckPendingPlacement();
+            }
         }
 
         if (!isPlacing) return;
@@ -51,12 +72,23 @@ public class BuildingPlacer : NetworkBehaviour
         if (mouse == null) return;
 
         UpdateGhostPosition(mouse);
+        HandleGhostRotation(keyboard);
 
         if (mouse.leftButton.wasPressedThisFrame)
             TryConfirmPlacement();
 
         if (mouse.rightButton.wasPressedThisFrame || (keyboard != null && keyboard.escapeKey.wasPressedThisFrame))
             CancelPlacement();
+    }
+
+    private void HandleGhostRotation(Keyboard keyboard)
+    {
+        if (ghostObject == null || keyboard == null) return;
+
+        if (keyboard.qKey.wasPressedThisFrame)
+            ghostObject.transform.Rotate(0f, -90f, 0f);
+        if (keyboard.eKey.wasPressedThisFrame)
+            ghostObject.transform.Rotate(0f, 90f, 0f);
     }
 
     public void StartPlacing(BuildingData data)
@@ -129,12 +161,19 @@ public class BuildingPlacer : NetworkBehaviour
         return true;
     }
 
+    private float invalidFeedbackTimer;
+
     private void TryConfirmPlacement()
     {
         if (ghostObject == null) return;
 
         Vector3 position = ghostObject.transform.position;
-        if (!IsInValidZone(position)) return;
+
+        if (!IsInValidZone(position))
+        {
+            PlayInvalidFeedback();
+            return;
+        }
 
         bool inRange = heroBuilder != null && heroBuilder.IsInBuildRange(position);
 
@@ -148,6 +187,7 @@ public class BuildingPlacer : NetworkBehaviour
             pendingPosition = position;
             pendingRotation = ghostObject.transform.rotation;
             pendingBuildingId = currentBuildingData.buildingId;
+            pendingTimeout = PENDING_MAX_TIME;
 
             if (heroController != null)
                 heroController.MoveTo(position);
@@ -160,6 +200,39 @@ public class BuildingPlacer : NetworkBehaviour
             isPlacing = false;
             currentBuildingData = null;
         }
+    }
+
+    private void PlayInvalidFeedback()
+    {
+        if (invalidFeedbackTimer > 0f) return;
+        invalidFeedbackTimer = 0.3f;
+
+        if (ghostObject != null)
+            StartCoroutine(ShakeGhost());
+    }
+
+    private System.Collections.IEnumerator ShakeGhost()
+    {
+        if (ghostObject == null) yield break;
+
+        Vector3 origin = ghostObject.transform.position;
+        float elapsed = 0f;
+        const float duration = 0.25f;
+        const float magnitude = 0.15f;
+
+        while (elapsed < duration && ghostObject != null)
+        {
+            float x = origin.x + Random.Range(-magnitude, magnitude);
+            float z = origin.z + Random.Range(-magnitude, magnitude);
+            ghostObject.transform.position = new Vector3(x, origin.y, z);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        if (ghostObject != null)
+            ghostObject.transform.position = origin;
+
+        invalidFeedbackTimer = 0f;
     }
 
     private void CheckPendingPlacement()

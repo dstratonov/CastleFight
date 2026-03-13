@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 5198c36730dcdb142be47786d3d6a19a
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Animation/Clips/ANIM_Button_DarkFantasy_Basic_01_Normal.anim
+  uploadId: 782052

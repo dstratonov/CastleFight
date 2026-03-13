@@ -65,6 +65,8 @@ public class Projectile : MonoBehaviour
     {
         if (target == null)
         {
+            if (GameDebug.Combat)
+                Debug.Log($"[Projectile] Target lost, destroying");
             Destroy(gameObject);
             return;
         }
@@ -82,7 +84,11 @@ public class Projectile : MonoBehaviour
             {
                 var health = target.GetComponent<Health>();
                 if (health != null && !health.IsDead)
+                {
+                    if (GameDebug.Combat)
+                        Debug.Log($"[Projectile] HIT {target.name} for {damage:F1} dmg");
                     health.TakeDamage(damage, attacker);
+                }
             }
             Destroy(gameObject);
         }

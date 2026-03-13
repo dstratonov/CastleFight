@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: d82c33ce126da5444b132880b0f478fe
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/ActionBar/_Parts/HUD_DarkFantasy_PlayerLevel_03.prefab
+  uploadId: 782052

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 7552c07912014b44798a2a4769d73812
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/Events/HUD_DarkFantasy_Event_NewLocation_02.prefab
+  uploadId: 782052

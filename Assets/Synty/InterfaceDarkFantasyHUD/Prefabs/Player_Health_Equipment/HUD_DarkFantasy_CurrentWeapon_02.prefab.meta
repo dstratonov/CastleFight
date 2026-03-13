@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 979697fd320fe6d4db37fc2ebc8c7eb5
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/Player_Health_Equipment/HUD_DarkFantasy_CurrentWeapon_02.prefab
+  uploadId: 782052

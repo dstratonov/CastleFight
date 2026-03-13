@@ -27,6 +27,12 @@ public class BuildingManager : NetworkBehaviour
         if (Instance == this) Instance = null;
     }
 
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        Instance = null;
+    }
+
     private void OnEnable()
     {
         EventBus.Subscribe<BuildingDestroyedEvent>(OnBuildingDestroyed);
@@ -44,7 +50,16 @@ public class BuildingManager : NetworkBehaviour
 
         var grid = GridSystem.Instance;
         if (grid != null)
+        {
             position = grid.SnapToGrid(position);
+
+            Vector2Int centerCell = grid.WorldToCell(position);
+            if (!grid.IsInBounds(centerCell) || !grid.IsWalkable(centerCell))
+            {
+                Debug.LogWarning($"[Build] Rejected {data.buildingName} at {position:F1}: center cell not walkable");
+                return null;
+            }
+        }
 
         GameObject obj = Instantiate(data.prefab, position, rotation);
         var building = obj.GetComponent<Building>();
@@ -78,9 +93,11 @@ public class BuildingManager : NetworkBehaviour
         return grid.CanPlaceBuilding(position, teamId);
     }
 
-    public List<Building> GetTeamBuildings(int teamId)
+    private static readonly List<Building> EmptyBuildingList = new();
+
+    public IReadOnlyList<Building> GetTeamBuildings(int teamId)
     {
-        return teamBuildings.TryGetValue(teamId, out var buildings) ? buildings : new List<Building>();
+        return teamBuildings.TryGetValue(teamId, out var buildings) ? buildings : EmptyBuildingList;
     }
 
     public int GetBuildingCount(int teamId, string buildingId)

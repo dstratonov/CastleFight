@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 9ee0daa25804b9847bdfc126e6c6238c
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/Compass/_Parts/HUD_DarkFantasy_Compass_Point_Ordinal_01.prefab
+  uploadId: 782052

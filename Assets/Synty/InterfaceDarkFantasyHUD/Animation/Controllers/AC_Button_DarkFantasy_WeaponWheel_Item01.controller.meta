@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 56ce536d8441ea64fa1c6d0fc36eafc0
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Animation/Controllers/AC_Button_DarkFantasy_WeaponWheel_Item01.controller
+  uploadId: 782052

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 06565a6dfcb29aa40b8bccd6253b573b
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Animation/Clips/ANIM_HUD_DarkFantasy_WeaponWheel_01_Out.anim
+  uploadId: 782052

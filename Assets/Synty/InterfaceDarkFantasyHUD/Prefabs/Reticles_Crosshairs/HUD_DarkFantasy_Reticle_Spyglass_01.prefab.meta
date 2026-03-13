@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 375f380734d3d044dac07f13459a9589
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/Reticles_Crosshairs/HUD_DarkFantasy_Reticle_Spyglass_01.prefab
+  uploadId: 782052

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 44396499da8058a4faecef99c16c4eb6
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/Input_Interactions/HUD_DarkFantasy_ItemPickupInfo_01.prefab
+  uploadId: 782052

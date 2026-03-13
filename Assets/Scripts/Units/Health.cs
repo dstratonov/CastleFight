@@ -73,6 +73,8 @@ public class Health : NetworkBehaviour
 
         if (oldHealth > 0 && newHealth <= 0 && maxHealth > 0)
         {
+            if (GameDebug.Health)
+                Debug.Log($"[Health] {gameObject.name} OnHealthChanged DEATH trigger (old={oldHealth:F0} new={newHealth:F0} max={maxHealth:F0})");
             OnDeath?.Invoke(lastAttacker);
         }
     }

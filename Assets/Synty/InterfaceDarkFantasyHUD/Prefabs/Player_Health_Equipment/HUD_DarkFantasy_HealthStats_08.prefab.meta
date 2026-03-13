@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 5407b47e809ff9f428c5945c9a06dccf
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/Player_Health_Equipment/HUD_DarkFantasy_HealthStats_08.prefab
+  uploadId: 782052

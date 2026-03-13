@@ -3,8 +3,10 @@ using Mirror;
 using System.Collections.Generic;
 
 [RequireComponent(typeof(Health))]
-public class Castle : NetworkBehaviour
+public class Castle : NetworkBehaviour, ISelectable
 {
+    [SerializeField] private int initialTeamId = -1;
+
     [SyncVar] private int teamId = -1;
 
     private Health health;
@@ -12,6 +14,7 @@ public class Castle : NetworkBehaviour
 
     public int TeamId => teamId;
     public Health Health => health;
+    public string DisplayName => TeamId == 0 ? "Blue Castle" : "Red Castle";
 
     private void Awake()
     {
@@ -22,13 +25,19 @@ public class Castle : NetworkBehaviour
     {
         if (teamId < 0)
         {
-            int team = gameObject.name.Contains("Team0") ? 0 : 1;
-            var config = Resources.Load<GameConfig>("GameConfig");
+            int team = initialTeamId >= 0 ? initialTeamId : FallbackDetectTeam();
+            var config = GameConfig.Instance;
             int hp = config != null ? config.castleMaxHealth : 5000;
             Initialize(team, hp);
         }
 
         RegisterGridCells();
+    }
+
+    private int FallbackDetectTeam()
+    {
+        Debug.LogWarning($"[Castle] {gameObject.name} has no initialTeamId set, falling back to name detection");
+        return gameObject.name.Contains("Team0") || gameObject.name.Contains("team0") ? 0 : 1;
     }
 
     [Server]

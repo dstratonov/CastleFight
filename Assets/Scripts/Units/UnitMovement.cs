@@ -2,58 +2,91 @@ using UnityEngine;
 using Mirror;
 using System.Collections.Generic;
 
+/// <summary>
+/// Unit movement using SC2-style two-layer pathfinding.
+/// Layer 1 (NavMesh + A* + Funnel) produces waypoints.
+/// Layer 2 (Boids) handles unit-to-unit avoidance each frame.
+/// Wall collision is handled by ValidatePosition (physics layer, not Boids).
+/// </summary>
 public class UnitMovement : NetworkBehaviour
 {
     [SerializeField] private float moveSpeed = 3.5f;
-    [SerializeField] private float repathInterval = 1f;
     [SerializeField] private float waypointThreshold = 0.5f;
-    [SerializeField] private float separationRadius = 1.5f;
-    [SerializeField] private float separationWeight = 1.2f;
     [SerializeField] private float rotationSpeed = 10f;
 
     private Unit unit;
+    private UnitStateMachine stateMachine;
     private GridSystem grid;
+    private Animator cachedAnimator;
+
+    // Current path (Layer 1 output: vertex-expanded waypoints)
     private List<Vector3> waypoints;
     private int waypointIndex;
     private Vector3? worldTarget;
-    private float repathTimer;
     private bool isStopped;
-    private Animator cachedAnimator;
-    private int consecutivePathFails;
-    private bool isPathComplete;
 
+    // Replan scheduling (staggered across units, not every frame)
+    private int replanFrameSlot;
+    private const int ReplanStaggerFrames = 15;
+    private bool needsReplan;
+
+    // Stuck detection
     private Vector3 lastProgressPos;
-    private float progressCheckTimer;
     private float stallTime;
+    private int stuckFrameCount;
+    private const int StuckThresholdFrames = 90; // ~1.5s at 60fps
 
-    private Vector3 smoothedDir;
+    // Near-destination arrival timer: tracks time spent close to destination without arriving.
+    // Independent of stallTime — fires even if the unit is sliding/oscillating.
+    private float nearDestTimer;
+    private const float NearDestArriveTime = 1.5f;
+
+    // Velocity smoothing
+    private Vector3 smoothedVelocity;
+
+    // Network position sync
     private Vector3 serverPosition;
     private bool hasServerPos;
-    private int steerSign;
 
-    public bool IsMoving => !isStopped && waypoints != null && waypointIndex < waypoints.Count;
+    // Previous position (used by Boids for velocity inference)
+    private Vector3 previousPosition;
+    public Vector3 PreviousPosition => previousPosition;
+
+    // Push/yield for anti-ghosting
+    private float yieldTimer;
+    private Vector3 yieldDirection;
+    private const float YieldDuration = 0.4f;
+
+    // Debug log throttle
+    private float debugLogTimer;
+
+    // Public state
+    public bool IsMoving => !isStopped && HasPath && !isDensityStopped;
     public bool HasPath => waypoints != null && waypointIndex < waypoints.Count;
-    public bool IsPathComplete => isPathComplete;
     public bool IsDestinationUnreachable { get; private set; }
     public Vector3? WorldTarget => worldTarget;
     public IReadOnlyList<Vector3> Waypoints => waypoints;
     public int WaypointIndex => waypointIndex;
-    public float SeparationRadius => separationRadius;
+    public bool IsWaitingForPath => false;
 
     public event System.Action OnReachedDestination;
 
-    [Server]
-    public void ForceSetDestinationWorld(Vector3 target)
+    private bool isDensityStopped;
+    private float densityCheckTimer;
+
+    private static readonly Dictionary<int, Castle> cachedEnemyCastles = new();
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetMovementStatics()
     {
-        worldTarget = null;
-        waypoints = null;
-        SetDestinationWorld(target);
+        cachedEnemyCastles.Clear();
     }
 
     private void Awake()
     {
         unit = GetComponent<Unit>();
-        steerSign = (gameObject.GetInstanceID() & 1) == 0 ? 1 : -1;
+        stateMachine = GetComponent<UnitStateMachine>();
+        replanFrameSlot = Mathf.Abs(GetInstanceID()) % ReplanStaggerFrames;
     }
 
     public override void OnStartServer()
@@ -65,6 +98,9 @@ public class UnitMovement : NetworkBehaviour
         cachedAnimator = GetComponentInChildren<Animator>();
         if (cachedAnimator != null)
             cachedAnimator.applyRootMotion = false;
+
+        previousPosition = transform.position;
+        lastProgressPos = transform.position;
     }
 
     private void Update()
@@ -80,244 +116,200 @@ public class UnitMovement : NetworkBehaviour
             return;
         }
 
-        if (grid == null) return;
-        if (unit != null && unit.IsDead) return;
-        if (isStopped) return;
+        if (unit == null || grid == null || unit.IsDead)
+            return;
 
-        if (waypoints != null && waypointIndex < waypoints.Count)
+        previousPosition = transform.position;
+
+        if (isStopped)
         {
-            MoveTowardWaypoint();
+            UpdateYield();
+            return;
         }
-        else if (worldTarget.HasValue)
+
+        UpdateYield();
+
+        if (!HasPath && !worldTarget.HasValue)
+            return;
+
+        // Direct destination-distance check: if the unit is close to worldTarget,
+        // skip waypoint logic and arrive immediately. This prevents getting stuck when
+        // the last waypoint is near an obstacle edge that the unit can't quite reach.
+        if (worldTarget.HasValue)
         {
-            repathTimer -= Time.deltaTime;
-            if (repathTimer <= 0f)
+            float distToDest = Vector3.Distance(transform.position, worldTarget.Value);
+            float arrivalDist = unit != null
+                ? Mathf.Max(waypointThreshold, unit.EffectiveRadius * 1.3f)
+                : waypointThreshold;
+            if (distToDest < arrivalDist)
             {
-                repathTimer = repathInterval;
-                CalculatePath();
-            }
-        }
-    }
-
-    private void MoveTowardWaypoint()
-    {
-        if (cachedAnimator != null && cachedAnimator.applyRootMotion)
-            cachedAnimator.applyRootMotion = false;
-
-        Vector3 target = waypoints[waypointIndex];
-        Vector3 pos = transform.position;
-        Vector3 toTarget = target - pos;
-        toTarget.y = 0;
-
-        float effectiveThreshold = waypointThreshold;
-        if (unit != null)
-            effectiveThreshold = Mathf.Max(waypointThreshold, unit.EffectiveRadius * 0.8f);
-
-        float distToWaypoint = toTarget.magnitude;
-        if (distToWaypoint < effectiveThreshold)
-        {
-            stallTime = 0f;
-            waypointIndex++;
-            if (waypointIndex >= waypoints.Count)
-            {
-                if (GameDebug.Movement)
-                    Debug.Log($"[Move:{gameObject.name}] reached destination at {transform.position:F1}");
-                waypoints = null;
-                worldTarget = null;
-                OnReachedDestination?.Invoke();
+                ArriveAtDestination();
                 return;
             }
-            toTarget = waypoints[waypointIndex] - pos;
-            toTarget.y = 0;
         }
 
-        TrackProgress();
+        // Waypoint management: advance to next waypoint if close enough
+        if (HasPath)
+        {
+            float threshold = unit != null
+                ? Mathf.Max(waypointThreshold, unit.EffectiveRadius * 1.3f)
+                : waypointThreshold;
 
+            while (waypointIndex < waypoints.Count)
+            {
+                float distToWp = Vector3.Distance(transform.position, waypoints[waypointIndex]);
+                if (distToWp < threshold)
+                {
+                    waypointIndex++;
+                    if (waypointIndex >= waypoints.Count)
+                    {
+                        ArriveAtDestination();
+                        return;
+                    }
+                }
+                else break;
+            }
+        }
+
+        // Density stop near destination
+        if (worldTarget.HasValue && HasPath && waypointIndex >= waypoints.Count - 2)
+        {
+            densityCheckTimer -= Time.deltaTime;
+            if (densityCheckTimer <= 0f)
+            {
+                densityCheckTimer = 0.3f;
+                var pfm = PathfindingManager.Instance;
+                isDensityStopped = pfm != null && pfm.ShouldDensityStop(unit, worldTarget.Value);
+            }
+
+            if (isDensityStopped)
+            {
+                smoothedVelocity = Vector3.zero;
+                TrackProgress();
+                return;
+            }
+        }
+
+        // Movement + Boids (every frame)
+        if (HasPath)
+            MoveAlongPath();
+        else if (worldTarget.HasValue)
+            MoveDirectToward(worldTarget.Value);
+
+        // Staggered replan check
+        if ((Time.frameCount % ReplanStaggerFrames) == replanFrameSlot)
+            CheckReplan();
+
+        // Periodic network sync
+        if ((Time.frameCount + (GetInstanceID() & 0xFF)) % 10 == 0)
+            RpcSyncPositionAndRotation(transform.position, transform.rotation);
+    }
+
+    // ================================================================
+    //  CORE MOVEMENT (Layer 1 direction + Layer 2 Boids)
+    // ================================================================
+
+    private void MoveAlongPath()
+    {
         float speed = (unit != null && unit.Data != null) ? unit.Data.moveSpeed : moveSpeed;
+        Vector3 nextWp = waypoints[waypointIndex];
+        Vector3 dir = nextWp - transform.position;
+        dir.y = 0f;
 
-        Vector3 moveDir = toTarget.normalized;
-        Vector3 separation = CalculateSeparation();
-        Vector3 wallRepulsion = CalculateWallRepulsion();
-
-        Vector3 desiredDir;
-
-        if (stallTime > 2f)
-        {
-            Vector3 perp = Vector3.Cross(Vector3.up, moveDir);
-            float steerStrength = Mathf.Clamp01((stallTime - 2f) * 0.5f);
-            float fwd = Mathf.Lerp(0.7f, 0.2f, steerStrength);
-            float side = 1f - fwd;
-
-            desiredDir = (moveDir * fwd + perp * steerSign * side).normalized;
-            desiredDir = (desiredDir + separation * separationWeight * 0.4f + wallRepulsion).normalized;
-        }
-        else
-        {
-            desiredDir = (moveDir + separation * separationWeight + wallRepulsion).normalized;
-        }
-
-        smoothedDir = Vector3.Lerp(smoothedDir, desiredDir, 8f * Time.deltaTime);
-        if (smoothedDir.sqrMagnitude < 0.001f)
-            smoothedDir = desiredDir;
-        smoothedDir.Normalize();
-
-        if (stallTime > 4f && waypointIndex < waypoints.Count - 1)
+        if (dir.sqrMagnitude < 0.0001f)
         {
             waypointIndex++;
-            stallTime = 0f;
-            repathTimer = 0f;
-            if (GameDebug.Movement)
-                Debug.Log($"[Move:{gameObject.name}] stalled, skipping waypoint -> {waypointIndex}");
+            return;
         }
 
-        Vector3 newPos = pos + smoothedDir * speed * Time.deltaTime;
+        Vector3 desiredVelocity = dir.normalized * speed;
+
+        var pfm = PathfindingManager.Instance;
+        bool isMarching = stateMachine == null || stateMachine.CurrentState == UnitState.Moving;
+        Vector3 finalVelocity = pfm != null
+            ? pfm.ComputeSteering(unit, desiredVelocity, speed, isMarching)
+            : desiredVelocity;
+
+        // Deep log: detect when Boids significantly redirects the unit
+        if (GameDebug.Movement && desiredVelocity.sqrMagnitude > 0.01f && finalVelocity.sqrMagnitude > 0.01f)
+        {
+            float dirDot = Vector3.Dot(finalVelocity.normalized, desiredVelocity.normalized);
+            if (dirDot < 0f)
+            {
+                debugLogTimer = 0f; // force next log
+                Debug.LogWarning($"[Move:{gameObject.name}] BOIDS REVERSED direction! " +
+                    $"desired={desiredVelocity:F2} final={finalVelocity:F2} dot={dirDot:F2}");
+            }
+        }
+
+        smoothedVelocity = SmoothDamp(smoothedVelocity, finalVelocity, 10f);
+
+        Vector3 oldPos = transform.position;
+        Vector3 newPos = oldPos + smoothedVelocity * Time.deltaTime;
         newPos.y = grid.GridOrigin.y;
 
-        newPos = ValidatePosition(pos, newPos);
-
+        newPos = ValidatePosition(oldPos, newPos);
         transform.position = newPos;
 
-        Vector3 actualDir = newPos - pos;
-        actualDir.y = 0;
-        if (actualDir.sqrMagnitude > 0.0001f)
+        if (GameDebug.Movement)
         {
-            Quaternion targetRot = Quaternion.LookRotation(actualDir);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationSpeed * Time.deltaTime);
-        }
-
-        if (Time.frameCount % 10 == 0)
-            RpcSyncPosition(transform.position);
-
-        if (!isPathComplete)
-        {
-            repathTimer -= Time.deltaTime;
-            if (repathTimer <= 0f)
+            debugLogTimer -= Time.deltaTime;
+            if (debugLogTimer <= 0f)
             {
-                repathTimer = repathInterval * 3f;
-                CalculatePath();
-            }
-        }
-    }
-
-    private void TrackProgress()
-    {
-        progressCheckTimer -= Time.deltaTime;
-        if (progressCheckTimer > 0f) return;
-
-        progressCheckTimer = 0.4f;
-        float moved = Vector3.Distance(transform.position, lastProgressPos);
-
-        if (moved < 0.15f)
-        {
-            stallTime += 0.4f;
-        }
-        else
-        {
-            stallTime = Mathf.Max(0f, stallTime - 0.2f);
-            consecutivePathFails = 0;
-        }
-
-        lastProgressPos = transform.position;
-    }
-
-    private Vector3 ValidatePosition(Vector3 oldPos, Vector3 newPos)
-    {
-        Vector2Int newCell = grid.WorldToCell(newPos);
-        if (grid.IsInBounds(newCell) && grid.IsWalkable(newCell))
-            return newPos;
-
-        Vector3 slideX = new Vector3(newPos.x, newPos.y, oldPos.z);
-        Vector2Int cellX = grid.WorldToCell(slideX);
-        if (grid.IsInBounds(cellX) && grid.IsWalkable(cellX))
-            return slideX;
-
-        Vector3 slideZ = new Vector3(oldPos.x, newPos.y, newPos.z);
-        Vector2Int cellZ = grid.WorldToCell(slideZ);
-        if (grid.IsInBounds(cellZ) && grid.IsWalkable(cellZ))
-            return slideZ;
-
-        return oldPos;
-    }
-
-    private Vector3 CalculateWallRepulsion()
-    {
-        if (grid == null) return Vector3.zero;
-
-        Vector3 pos = transform.position;
-        Vector2Int myCell = grid.WorldToCell(pos);
-        float cellSize = grid.CellSize;
-        Vector3 force = Vector3.zero;
-        float checkRadius = cellSize;
-
-        for (int dx = -1; dx <= 1; dx++)
-        {
-            for (int dz = -1; dz <= 1; dz++)
-            {
-                if (dx == 0 && dz == 0) continue;
-                Vector2Int neighbor = new(myCell.x + dx, myCell.y + dz);
-                if (!grid.IsInBounds(neighbor) || grid.IsWalkable(neighbor)) continue;
-
-                Vector3 wallPos = grid.CellToWorld(neighbor);
-                Vector3 offset = pos - wallPos;
-                offset.y = 0;
-                float dist = offset.magnitude;
-
-                if (dist < checkRadius && dist > 0.01f)
-                {
-                    float strength = 1f - (dist / checkRadius);
-                    force += offset.normalized * strength * 2f;
-                }
+                debugLogTimer = 2f;
+                float distToWp = waypointIndex < waypoints.Count ? Vector3.Distance(transform.position, waypoints[waypointIndex]) : -1;
+                float distToTarget = worldTarget.HasValue ? Vector3.Distance(transform.position, worldTarget.Value) : -1;
+                Debug.Log($"[Move:{gameObject.name}] pos={transform.position:F1} wpIdx={waypointIndex}/{waypoints.Count} " +
+                    $"distToWp={distToWp:F1} distToTarget={distToTarget:F1} " +
+                    $"speed={smoothedVelocity.magnitude:F2}/{speed:F1} stall={stallTime:F1} " +
+                    $"marching={isMarching} densStop={isDensityStopped}");
             }
         }
 
-        return force;
+        ApplyRotation(newPos - oldPos);
+        TrackProgress();
     }
 
-    private float GetEffectiveSeparationRadius()
+    private void MoveDirectToward(Vector3 target)
     {
-        if (unit != null)
-            return Mathf.Max(separationRadius, unit.EffectiveRadius * 3f);
-        return separationRadius;
-    }
-
-    private Vector3 CalculateSeparation()
-    {
-        if (UnitManager.Instance == null) return Vector3.zero;
-
-        float myRadius = unit != null ? unit.EffectiveRadius : 0.5f;
-        float effectiveRadius = GetEffectiveSeparationRadius();
-        Vector3 force = Vector3.zero;
-        var nearby = UnitManager.Instance.GetUnitsInRadius(transform.position, effectiveRadius);
-
-        foreach (var other in nearby)
+        float speed = (unit != null && unit.Data != null) ? unit.Data.moveSpeed : moveSpeed;
+        Vector3 dir = target - transform.position;
+        dir.y = 0f;
+        if (dir.sqrMagnitude < 0.01f)
         {
-            if (other == null || other.gameObject == gameObject) continue;
-
-            float otherRadius = 0.5f;
-            var otherUnit = other.GetComponent<Unit>();
-            if (otherUnit != null)
-                otherRadius = otherUnit.EffectiveRadius;
-
-            float combinedRadius = myRadius + otherRadius;
-
-            Vector3 offset = transform.position - other.transform.position;
-            offset.y = 0;
-            float dist = offset.magnitude;
-            if (dist < 0.01f)
-            {
-                offset = new Vector3(Random.Range(-1f, 1f), 0, Random.Range(-1f, 1f));
-                dist = 0.1f;
-            }
-
-            if (dist < combinedRadius * 1.5f)
-            {
-                float sizeRatio = Mathf.Clamp(otherRadius / myRadius, 0.1f, 3f);
-                force += offset.normalized * (1f - dist / effectiveRadius) * sizeRatio;
-            }
+            ArriveAtDestination();
+            return;
         }
 
-        return force;
+        float dist = dir.magnitude;
+        float threshold = unit != null ? Mathf.Max(waypointThreshold, unit.EffectiveRadius * 1.3f) : waypointThreshold;
+        if (dist < threshold)
+        {
+            ArriveAtDestination();
+            return;
+        }
+
+        Vector3 desiredVelocity = (dir / dist) * speed;
+        var pfm = PathfindingManager.Instance;
+        Vector3 finalVelocity = pfm != null
+            ? pfm.ComputeSteering(unit, desiredVelocity, speed, true)
+            : desiredVelocity;
+
+        smoothedVelocity = SmoothDamp(smoothedVelocity, finalVelocity, 10f);
+
+        Vector3 oldPos = transform.position;
+        Vector3 newPos = oldPos + smoothedVelocity * Time.deltaTime;
+        newPos.y = grid.GridOrigin.y;
+        newPos = ValidatePosition(oldPos, newPos);
+        transform.position = newPos;
+
+        ApplyRotation(newPos - oldPos);
+        TrackProgress();
     }
+
+    // ================================================================
+    //  PATH REQUESTS
+    // ================================================================
 
     [Server]
     public void SetDestinationWorld(Vector3 target)
@@ -327,29 +319,62 @@ public class UnitMovement : NetworkBehaviour
             Vector2Int cell = grid.WorldToCell(target);
             if (!grid.IsInBounds(cell) || !grid.IsWalkable(cell))
             {
-                Vector3 corrected = grid.FindNearestWalkablePosition(target, transform.position);
+                var pfm = PathfindingManager.Instance;
+                Vector3 corrected = pfm != null
+                    ? pfm.FindNearestWalkable(target)
+                    : grid.FindNearestWalkablePosition(target, transform.position);
                 if (GameDebug.Movement)
-                    Debug.Log($"[Move:{gameObject.name}] dest {target:F1} not walkable, corrected to {corrected:F1}");
+                    Debug.Log($"[Move:{gameObject.name}] dest not walkable, corrected {target:F1} -> {corrected:F1}");
                 target = corrected;
             }
         }
 
-        if (worldTarget.HasValue && waypoints != null && waypointIndex < waypoints.Count)
+        if (worldTarget.HasValue && HasPath)
         {
             float threshold = grid != null ? grid.CellSize : 1.5f;
-            float distToExisting = Vector3.Distance(target, worldTarget.Value);
-            if (distToExisting < threshold)
+            if (Vector3.Distance(target, worldTarget.Value) < threshold)
                 return;
         }
+
+        if (GameDebug.Movement)
+            Debug.Log($"[Move:{gameObject.name}] SetDest pos={transform.position:F1} -> target={target:F1}");
 
         worldTarget = target;
         isStopped = false;
         stallTime = 0f;
+        stuckFrameCount = 0;
+        nearDestTimer = 0f;
+        isDensityStopped = false;
         IsDestinationUnreachable = false;
         lastProgressPos = transform.position;
-        smoothedDir = (target - transform.position).normalized;
-        smoothedDir.y = 0f;
-        CalculatePath();
+        smoothedVelocity = Vector3.zero;
+        needsReplan = false;
+
+        ComputePath();
+    }
+
+    [Server]
+    public void ForceSetDestinationWorld(Vector3 target)
+    {
+        // Preserve nearDestTimer if the new target is close to the old one —
+        // combat recalcs every 2s and shouldn't reset the "almost arrived" timer.
+        float preservedNearDestTimer = 0f;
+        if (worldTarget.HasValue)
+        {
+            float shift = Vector3.Distance(target, worldTarget.Value);
+            if (shift < (grid != null ? grid.CellSize * 2f : 3f))
+                preservedNearDestTimer = nearDestTimer;
+        }
+
+        if (GameDebug.Movement)
+            Debug.Log($"[Move:{gameObject.name}] FORCE dest={target:F1}");
+        worldTarget = null;
+        waypoints = null;
+        waypointIndex = 0;
+        smoothedVelocity = Vector3.zero;
+        SetDestinationWorld(target);
+
+        nearDestTimer = preservedNearDestTimer;
     }
 
     [Server]
@@ -361,25 +386,137 @@ public class UnitMovement : NetworkBehaviour
             ? TeamManager.Instance.GetEnemyTeamId(unit.TeamId)
             : (unit.TeamId == 0 ? 1 : 0);
 
-        Castle[] castles = FindObjectsByType<Castle>(FindObjectsSortMode.None);
-        foreach (var c in castles)
+        if (!cachedEnemyCastles.TryGetValue(enemyTeam, out var castle) || castle == null)
         {
-            if (c.TeamId == enemyTeam)
+            Castle[] castles = FindObjectsByType<Castle>(FindObjectsSortMode.None);
+            foreach (var c in castles)
             {
-                Vector3 target = grid.FindNearestWalkablePosition(c.transform.position, transform.position);
-                ForceSetDestinationWorld(target);
-                return;
+                if (c.TeamId == enemyTeam)
+                {
+                    castle = c;
+                    cachedEnemyCastles[enemyTeam] = c;
+                    break;
+                }
+            }
+        }
+
+        if (castle != null)
+        {
+            Vector3 castlePos = castle.transform.position;
+            // Spread units around the castle so they don't all converge on the same point.
+            // Use a deterministic hash-based offset per unit so each unit approaches from a different angle.
+            uint hash = (uint)Mathf.Abs(GetInstanceID()) * 2654435761u;
+            float angle = ((hash & 0xFFFF) / (float)0xFFFF) * Mathf.PI * 2f;
+            float spreadRadius = 3f;
+            Vector3 offset = new Vector3(Mathf.Cos(angle) * spreadRadius, 0f, Mathf.Sin(angle) * spreadRadius);
+            Vector3 spreadTarget = castlePos + offset;
+
+            Vector3 target = grid.FindNearestWalkablePosition(spreadTarget, transform.position);
+
+            // If the spread position ended up the same as the castle center, try without offset
+            Vector2Int targetCell = grid.WorldToCell(target);
+            if (!grid.IsWalkable(targetCell))
+                target = grid.FindNearestWalkablePosition(castlePos, transform.position);
+
+            if (GameDebug.Movement)
+                Debug.Log($"[Move:{gameObject.name}] SetDestToEnemyCastle team={enemyTeam} target={target:F1} angle={angle * Mathf.Rad2Deg:F0}°");
+            ForceSetDestinationWorld(target);
+        }
+    }
+
+    /// <summary>
+    /// Compute a new path from current position to worldTarget using NavMesh A* + Funnel.
+    /// </summary>
+    private void ComputePath()
+    {
+        if (!worldTarget.HasValue || grid == null) return;
+
+        var pfm = PathfindingManager.Instance;
+        if (pfm == null || !pfm.IsInitialized)
+        {
+            waypoints = new List<Vector3> { worldTarget.Value };
+            waypointIndex = 0;
+            return;
+        }
+
+        float unitRadius = unit != null ? unit.EffectiveRadius : 0.5f;
+        var path = pfm.RequestPath(transform.position, worldTarget.Value, unitRadius);
+
+        if (path != null && path.Count > 0)
+        {
+            waypoints = path;
+            waypointIndex = 0;
+            IsDestinationUnreachable = false;
+
+            if (GameDebug.Movement)
+            {
+                float pathLen = 0f;
+                for (int i = 1; i < path.Count; i++)
+                    pathLen += Vector3.Distance(path[i - 1], path[i]);
+                float directDist = Vector3.Distance(transform.position, worldTarget.Value);
+                float ratio = directDist > 0.5f ? pathLen / directDist : 1f;
+                Debug.Log($"[Move:{gameObject.name}] Path computed: {path.Count} waypoints ratio={ratio:F1}");
+            }
+        }
+        else
+        {
+            if (GameDebug.Movement)
+                Debug.Log($"[Move:{gameObject.name}] Path FAILED, destination unreachable");
+            IsDestinationUnreachable = true;
+            waypoints = null;
+            waypointIndex = 0;
+        }
+    }
+
+    /// <summary>
+    /// Called by PathfindingManager when the NavMesh changes (building placed/destroyed).
+    /// Unit replans on its next stagger slot.
+    /// </summary>
+    public void FlagForReplan()
+    {
+        needsReplan = true;
+    }
+
+    private void CheckReplan()
+    {
+        if (!worldTarget.HasValue) return;
+
+        if (needsReplan)
+        {
+            needsReplan = false;
+            ComputePath();
+            return;
+        }
+
+        // Stuck detection: if unit hasn't made progress in StuckThresholdFrames
+        if (stuckFrameCount > StuckThresholdFrames && HasPath)
+        {
+            stuckFrameCount = 0;
+            var pfm = PathfindingManager.Instance;
+            if (pfm != null && pfm.TryConsumePathRequest())
+            {
+                if (GameDebug.Movement)
+                    Debug.Log($"[Move:{gameObject.name}] Stuck replan (stallTime={stallTime:F1}s)");
+                ComputePath();
             }
         }
     }
 
+    // ================================================================
+    //  CONTROL METHODS
+    // ================================================================
+
     [Server]
     public void Stop()
     {
+        if (GameDebug.Movement)
+            Debug.Log($"[Move:{gameObject.name}] STOP at {transform.position:F1}");
         waypoints = null;
         waypointIndex = 0;
         worldTarget = null;
         isStopped = true;
+        smoothedVelocity = Vector3.zero;
+        isDensityStopped = false;
 
         if (grid != null)
         {
@@ -395,107 +532,226 @@ public class UnitMovement : NetworkBehaviour
     [Server]
     public void Resume()
     {
+        if (GameDebug.Movement)
+            Debug.Log($"[Move:{gameObject.name}] RESUME target={worldTarget?.ToString("F1") ?? "none"}");
         isStopped = false;
+        stallTime = 0f;
+        stuckFrameCount = 0;
+        nearDestTimer = 0f;
+        isDensityStopped = false;
         if (worldTarget.HasValue)
-            CalculatePath();
+            ComputePath();
     }
 
-    private void CalculatePath()
+    private void ArriveAtDestination()
     {
-        if (!worldTarget.HasValue || grid == null) return;
+        if (GameDebug.Movement)
+            Debug.Log($"[Move:{gameObject.name}] Arrived at {transform.position:F1}");
+        waypoints = null;
+        waypointIndex = 0;
+        worldTarget = null;
+        stallTime = 0f;
+        stuckFrameCount = 0;
+        nearDestTimer = 0f;
+        smoothedVelocity = Vector3.zero;
+        isDensityStopped = false;
+        OnReachedDestination?.Invoke();
+    }
 
-        Vector2Int startCell = grid.WorldToCell(transform.position);
-        Vector2Int goalCell = grid.WorldToCell(worldTarget.Value);
+    // ================================================================
+    //  PUSH / YIELD (Anti-ghosting Layer 2 supplement)
+    // ================================================================
 
-        if (!grid.IsInBounds(startCell))
-            startCell = ClampToGrid(startCell);
-        if (!grid.IsInBounds(goalCell))
-            goalCell = ClampToGrid(goalCell);
+    [Server]
+    public void RequestYield(Vector3 requesterPosition, Vector3 requesterDirection)
+    {
+        if (yieldTimer > 0f) return;
+        bool isIdle = stateMachine == null || stateMachine.CurrentState == UnitState.Idle;
+        if (!isIdle || IsMoving) return;
 
-        if (!grid.IsWalkable(startCell))
+        Vector3 toMe = transform.position - requesterPosition;
+        toMe.y = 0;
+        if (toMe.sqrMagnitude < 0.01f) return;
+
+        Vector3 perp = Vector3.Cross(Vector3.up, requesterDirection).normalized;
+        float dot = Vector3.Dot(toMe.normalized, perp);
+        yieldDirection = dot >= 0 ? perp : -perp;
+        yieldTimer = YieldDuration;
+    }
+
+    private void UpdateYield()
+    {
+        if (yieldTimer <= 0f) return;
+        yieldTimer -= Time.deltaTime;
+
+        float speed = (unit != null && unit.Data != null) ? unit.Data.moveSpeed : moveSpeed;
+        Vector3 move = yieldDirection * speed * 0.6f * Time.deltaTime;
+        Vector3 newPos = transform.position + move;
+        newPos.y = grid != null ? grid.GridOrigin.y : newPos.y;
+        if (grid != null)
+            newPos = ValidatePosition(transform.position, newPos);
+        transform.position = newPos;
+    }
+
+    // ================================================================
+    //  STUCK DETECTION
+    // ================================================================
+
+    private void TrackProgress()
+    {
+        float moved = Vector3.Distance(transform.position, lastProgressPos);
+        float effectiveRadius = unit != null ? unit.EffectiveRadius : 0.5f;
+
+        float distToGoal = float.MaxValue;
+        if (worldTarget.HasValue)
+            distToGoal = Vector3.Distance(transform.position, worldTarget.Value);
+
+        bool isStalled = moved < 0.1f * Time.deltaTime * 60f;
+
+        if (isStalled)
         {
-            Vector3 nearest = grid.FindNearestWalkablePosition(transform.position, transform.position);
-            if (GameDebug.Movement)
-                Debug.Log($"[Move:{gameObject.name}] start cell {startCell} non-walkable, relocating to {nearest:F1}");
-            transform.position = nearest;
-            startCell = grid.WorldToCell(nearest);
-        }
+            stallTime += Time.deltaTime;
+            stuckFrameCount++;
 
-        var result = GridPathfinding.FindPath(startCell, goalCell, grid);
+            if (stallTime > 1f)
+                TryRequestYieldFromBlockers();
 
-        if (result.HasPath)
-        {
-            consecutivePathFails = 0;
-            isPathComplete = result.IsComplete;
-            waypoints = GridPathfinding.SmoothPath(result.Path, grid);
-
-            if (result.IsComplete && waypoints.Count > 1)
-                waypoints[waypoints.Count - 1] = worldTarget.Value;
-
-            if (!result.IsComplete)
-                repathTimer = repathInterval * 3f;
-
-            waypointIndex = 0;
-            SkipPassedWaypoints();
-
-            if (GameDebug.Movement)
-                Debug.Log($"[Move:{gameObject.name}] path {startCell}->{goalCell} cells={result.Path.Count} wp={waypoints.Count} complete={result.IsComplete}");
-        }
-        else
-        {
-            consecutivePathFails++;
-            isPathComplete = false;
-            if (GameDebug.Movement)
-                Debug.Log($"[Move:{gameObject.name}] path FAILED {startCell}->{goalCell} (fails={consecutivePathFails})");
-
-            if (consecutivePathFails >= 5)
+            if (stallTime > 3f && worldTarget.HasValue)
             {
                 if (GameDebug.Movement)
-                    Debug.Log($"[Move:{gameObject.name}] path blocked, giving up on target");
-                worldTarget = null;
-                consecutivePathFails = 0;
+                    Debug.Log($"[Move:{gameObject.name}] Stalled {stallTime:F1}s — destination unreachable, idling");
                 IsDestinationUnreachable = true;
-            }
-
-            waypoints = null;
-        }
-    }
-
-    private void SkipPassedWaypoints()
-    {
-        if (waypoints == null || waypoints.Count == 0) return;
-
-        float bestDist = float.MaxValue;
-        int bestIdx = 0;
-        for (int i = 0; i < waypoints.Count; i++)
-        {
-            float d = (waypoints[i] - transform.position).sqrMagnitude;
-            if (d < bestDist)
-            {
-                bestDist = d;
-                bestIdx = i;
+                waypoints = null;
+                waypointIndex = 0;
+                worldTarget = null;
+                stallTime = 0f;
+                stuckFrameCount = 0;
+                smoothedVelocity = Vector3.zero;
+                return;
             }
         }
-
-        if (bestIdx < waypoints.Count - 1)
-            waypointIndex = bestIdx + 1;
         else
-            waypointIndex = bestIdx;
+        {
+            stallTime = Mathf.Max(0f, stallTime - Time.deltaTime * 0.5f);
+            stuckFrameCount = 0;
+        }
+
+        lastProgressPos = transform.position;
+
+        if (worldTarget.HasValue)
+        {
+            float nearThreshold = Mathf.Max(1.5f, effectiveRadius * 1.5f);
+            if (distToGoal < nearThreshold)
+            {
+                nearDestTimer += Time.deltaTime;
+                if (nearDestTimer > NearDestArriveTime)
+                {
+                    if (GameDebug.Movement)
+                        Debug.Log($"[Move:{gameObject.name}] Near-dest timer fired: dist={distToGoal:F1} radius={effectiveRadius:F1}");
+                    ArriveAtDestination();
+                    return;
+                }
+            }
+            else
+            {
+                nearDestTimer = 0f;
+            }
+        }
+        else
+        {
+            nearDestTimer = 0f;
+        }
     }
 
-    private Vector2Int ClampToGrid(Vector2Int cell)
+    private void TryRequestYieldFromBlockers()
     {
-        return new Vector2Int(
-            Mathf.Clamp(cell.x, 0, grid.Width - 1),
-            Mathf.Clamp(cell.y, 0, grid.Height - 1)
-        );
+        if (UnitManager.Instance == null || !worldTarget.HasValue) return;
+        float myRadius = unit != null ? unit.EffectiveRadius : 0.5f;
+
+        Vector3 moveDir = worldTarget.Value - transform.position;
+        moveDir.y = 0;
+        if (moveDir.sqrMagnitude < 0.01f) return;
+        moveDir.Normalize();
+
+        var nearby = UnitManager.Instance.GetUnitsInRadius(transform.position, myRadius * 4f);
+        foreach (var other in nearby)
+        {
+            if (other == null || other == unit || other.IsDead) continue;
+            if (other.TeamId != unit.TeamId) continue;
+
+            var otherSm = other.StateMachine;
+            if (otherSm != null && otherSm.CurrentState != UnitState.Idle) continue;
+
+            Vector3 toOther = other.transform.position - transform.position;
+            toOther.y = 0;
+            if (Vector3.Dot(toOther.normalized, moveDir) < 0.3f) continue;
+
+            float dist = toOther.magnitude;
+            float combinedRadius = myRadius + other.EffectiveRadius;
+            if (dist > combinedRadius * 2f) continue;
+
+            other.Movement?.RequestYield(transform.position, moveDir);
+        }
+    }
+
+    // ================================================================
+    //  WALL COLLISION (terrain boundary — NOT Boids)
+    // ================================================================
+
+    private Vector3 ValidatePosition(Vector3 oldPos, Vector3 newPos)
+    {
+        Vector2Int newCell = grid.WorldToCell(newPos);
+        if (grid.IsInBounds(newCell) && grid.IsWalkable(newCell))
+            return newPos;
+
+        Vector3 slideX = new Vector3(newPos.x, newPos.y, oldPos.z);
+        Vector2Int cellX = grid.WorldToCell(slideX);
+        bool xOk = grid.IsInBounds(cellX) && grid.IsWalkable(cellX);
+
+        Vector3 slideZ = new Vector3(oldPos.x, newPos.y, newPos.z);
+        Vector2Int cellZ = grid.WorldToCell(slideZ);
+        bool zOk = grid.IsInBounds(cellZ) && grid.IsWalkable(cellZ);
+
+        if (xOk && zOk)
+            return Mathf.Abs(smoothedVelocity.x) >= Mathf.Abs(smoothedVelocity.z) ? slideX : slideZ;
+        if (xOk) return slideX;
+        if (zOk) return slideZ;
+
+        return oldPos;
+    }
+
+    // ================================================================
+    //  UTILITIES
+    // ================================================================
+
+    private void ApplyRotation(Vector3 moveDelta)
+    {
+        Vector3 dir = smoothedVelocity;
+        dir.y = 0;
+        if (dir.sqrMagnitude < 0.01f)
+        {
+            dir = moveDelta;
+            dir.y = 0;
+        }
+        if (dir.sqrMagnitude > 0.001f)
+        {
+            Quaternion targetRot = Quaternion.LookRotation(dir);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationSpeed * Time.deltaTime);
+        }
+    }
+
+    private static Vector3 SmoothDamp(Vector3 current, Vector3 target, float rate)
+    {
+        float t = 1f - Mathf.Exp(-rate * Time.deltaTime);
+        return Vector3.Lerp(current, target, t);
     }
 
     [ClientRpc]
-    private void RpcSyncPosition(Vector3 pos)
+    private void RpcSyncPositionAndRotation(Vector3 pos, Quaternion rot)
     {
         if (isServer) return;
         serverPosition = pos;
         hasServerPos = true;
+        transform.rotation = Quaternion.Slerp(transform.rotation, rot, 15f * Time.deltaTime);
     }
 }

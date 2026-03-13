@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: e5226a8cf18aa6147bf9ca1b173f3366
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/Minimap/_Parts/Map_DarkFantasy_Icon_Home_01.prefab
+  uploadId: 782052

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 4f3ab3e428bff914cab70c65a302b8a6
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Animation/Clips/ANIM_HUD_DarkFantasy_Reticle_RingTriangular_01_AimStart.anim
+  uploadId: 782052

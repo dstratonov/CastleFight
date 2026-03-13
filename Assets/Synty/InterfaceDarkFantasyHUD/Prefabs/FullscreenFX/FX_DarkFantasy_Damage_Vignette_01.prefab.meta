@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: bf171b28b4c873d40a2ab10e3474a767
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/FullscreenFX/FX_DarkFantasy_Damage_Vignette_01.prefab
+  uploadId: 782052

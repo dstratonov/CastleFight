@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: d6d4f0969668d5d4d98e6c5039f02fc3
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Animation/Clips/ANIM_Button_DarkFantasy_ChatLog_Header_01_Selected.anim
+  uploadId: 782052

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: d76e481e324314447bf376dd269fe11e
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/FullscreenOverlays/Overlay_DarkFantasy_FadeToBlack_01.prefab
+  uploadId: 782052

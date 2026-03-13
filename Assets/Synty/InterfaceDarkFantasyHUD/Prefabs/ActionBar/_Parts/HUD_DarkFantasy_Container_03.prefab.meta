@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: cf237083ebf3bb24c8995cbaed81d7e7
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/ActionBar/_Parts/HUD_DarkFantasy_Container_03.prefab
+  uploadId: 782052

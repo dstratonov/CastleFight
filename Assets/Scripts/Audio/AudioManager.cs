@@ -6,7 +6,6 @@ public class AudioManager : MonoBehaviour
     public static AudioManager Instance { get; private set; }
 
     [SerializeField] private AudioSource musicSource;
-    [SerializeField] private AudioSource sfxSource;
     [SerializeField] private int sfxPoolSize = 10;
 
     private readonly List<AudioSource> sfxPool = new();
@@ -28,6 +27,12 @@ public class AudioManager : MonoBehaviour
     private void OnDestroy()
     {
         if (Instance == this) Instance = null;
+    }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        Instance = null;
     }
 
     private void InitializeSfxPool()

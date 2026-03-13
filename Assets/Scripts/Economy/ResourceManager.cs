@@ -21,6 +21,12 @@ public class ResourceManager : NetworkBehaviour
         if (Instance == this) Instance = null;
     }
 
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        Instance = null;
+    }
+
     [Server]
     public bool TrySpendGold(NetworkPlayer player, int amount)
     {

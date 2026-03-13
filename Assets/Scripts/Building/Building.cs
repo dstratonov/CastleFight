@@ -3,7 +3,7 @@ using Mirror;
 using System.Collections.Generic;
 
 [RequireComponent(typeof(Health))]
-public class Building : NetworkBehaviour
+public class Building : NetworkBehaviour, ISelectable
 {
     [SyncVar] private int teamId;
     [SyncVar] private int ownerId;
@@ -17,6 +17,8 @@ public class Building : NetworkBehaviour
     public int TeamId => teamId;
     public int OwnerId => ownerId;
     public IReadOnlyList<Vector2Int> OccupiedCells => occupiedCells;
+    public string DisplayName => data != null ? data.buildingName : "Building";
+    Health ISelectable.Health => health;
 
     public void SetOccupiedCells(List<Vector2Int> cells)
     {

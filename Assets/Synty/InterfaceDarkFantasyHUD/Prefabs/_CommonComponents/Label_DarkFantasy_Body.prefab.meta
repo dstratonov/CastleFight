@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: ae4053be543463b42878f3f1dec7a33d
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/_CommonComponents/Label_DarkFantasy_Body.prefab
+  uploadId: 782052

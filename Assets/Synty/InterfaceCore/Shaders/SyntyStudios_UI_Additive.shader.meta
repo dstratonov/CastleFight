@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 90a74c0efd893c2409585738bebc76f7
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures: []
+  nonModifiableTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceCore/Shaders/SyntyStudios_UI_Additive.shader
+  uploadId: 782052

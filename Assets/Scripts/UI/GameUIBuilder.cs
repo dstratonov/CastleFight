@@ -11,6 +11,8 @@ public class GameUIBuilder : MonoBehaviour
     private BuildMenuUI buildMenuUI;
     private InfoPanelUI infoPanelUI;
     private SelectionManager selectionManager;
+    private TooltipUI tooltipUI;
+    private GameOverUI gameOverUI;
     private UIThemeData theme;
     private TMP_FontAsset cachedFontAsset;
 
@@ -48,6 +50,12 @@ public class GameUIBuilder : MonoBehaviour
         if (Instance == this) Instance = null;
     }
 
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        Instance = null;
+    }
+
     private void CreateUI()
     {
         var canvasObj = new GameObject("GameCanvas");
@@ -62,6 +70,8 @@ public class GameUIBuilder : MonoBehaviour
         CreateHUD(canvasObj.transform);
         CreateBuildPanel(canvasObj.transform);
         CreateInfoPanel(canvasObj.transform);
+        CreateTooltip(canvasObj.transform);
+        CreateGameOverPanel(canvasObj.transform);
         CreateSelectionManager();
         CreateDebugSystem(canvasObj.transform);
         CreateCombatVFX();
@@ -112,6 +122,21 @@ public class GameUIBuilder : MonoBehaviour
         hudManager = hudObj.AddComponent<HUDManager>();
         hudManager.Init(goldText, incomeText, timerText, teamText,
                         allyCastleBar, enemyCastleBar, allyCastleText, enemyCastleText);
+
+        var notifText = CreateText("NotificationText", parent, "", 20, TextAlignmentOptions.Center, 0);
+        var notifRect = notifText.GetComponent<RectTransform>();
+        notifRect.anchorMin = new Vector2(0.3f, 1);
+        notifRect.anchorMax = new Vector2(0.7f, 1);
+        notifRect.pivot = new Vector2(0.5f, 1);
+        notifRect.anchoredPosition = new Vector2(0, -65);
+        notifRect.sizeDelta = new Vector2(0, 30);
+        notifText.color = new Color(1f, 0.4f, 0.3f);
+        notifText.fontStyle = FontStyles.Bold;
+        notifText.enableAutoSizing = true;
+        notifText.fontSizeMin = 14;
+        notifText.fontSizeMax = 20;
+        notifText.gameObject.SetActive(false);
+        hudManager.SetNotificationText(notifText);
     }
 
     private void CreateGoldGroup(Transform parent, out TextMeshProUGUI goldText, out TextMeshProUGUI incomeText)
@@ -265,7 +290,7 @@ public class GameUIBuilder : MonoBehaviour
         grid.constraintCount = 2;
 
         buildMenuUI = panelObj.AddComponent<BuildMenuUI>();
-        buildMenuUI.Init(containerObj.transform);
+        buildMenuUI.Init(containerObj.transform, cachedFontAsset);
     }
 
     // ====================================================================
@@ -557,6 +582,143 @@ public class GameUIBuilder : MonoBehaviour
         labelLe.flexibleWidth = 1;
 
         return iconImg;
+    }
+
+    // ====================================================================
+    // TOOLTIP
+    // ====================================================================
+
+    private void CreateTooltip(Transform parent)
+    {
+        var tooltipObj = CreatePanel("Tooltip", parent);
+        var rect = tooltipObj.GetComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.zero;
+        rect.pivot = new Vector2(0, 1);
+        rect.sizeDelta = new Vector2(280, 160);
+
+        var bg = tooltipObj.AddComponent<Image>();
+        if (theme != null && theme.tooltipBackground != null)
+        {
+            bg.sprite = theme.tooltipBackground;
+            bg.type = Image.Type.Sliced;
+            bg.color = new Color(0.06f, 0.05f, 0.04f, 0.95f);
+        }
+        else
+        {
+            bg.color = new Color(0.06f, 0.05f, 0.04f, 0.95f);
+        }
+
+        var layout = tooltipObj.AddComponent<VerticalLayoutGroup>();
+        layout.padding = new RectOffset(12, 12, 8, 8);
+        layout.spacing = 4;
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = false;
+
+        var csf = tooltipObj.AddComponent<ContentSizeFitter>();
+        csf.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+        csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        var titleTxt = CreateText("TooltipTitle", tooltipObj.transform, "", 16, TextAlignmentOptions.TopLeft, 0);
+        titleTxt.color = COL_TITLE;
+        titleTxt.fontStyle = FontStyles.Bold;
+        var titleLe = titleTxt.gameObject.AddComponent<LayoutElement>();
+        titleLe.preferredWidth = 256;
+
+        var descTxt = CreateText("TooltipDesc", tooltipObj.transform, "", 13, TextAlignmentOptions.TopLeft, 0);
+        descTxt.color = COL_STAT;
+        var descLe = descTxt.gameObject.AddComponent<LayoutElement>();
+        descLe.preferredWidth = 256;
+
+        var statsTxt = CreateText("TooltipStats", tooltipObj.transform, "", 13, TextAlignmentOptions.TopLeft, 0);
+        statsTxt.color = COL_INCOME;
+        var statsLe = statsTxt.gameObject.AddComponent<LayoutElement>();
+        statsLe.preferredWidth = 256;
+
+        tooltipUI = tooltipObj.AddComponent<TooltipUI>();
+        tooltipUI.Init(tooltipObj, titleTxt, descTxt, statsTxt);
+    }
+
+    // ====================================================================
+    // GAME OVER
+    // ====================================================================
+
+    private void CreateGameOverPanel(Transform parent)
+    {
+        var panelObj = CreatePanel("GameOverPanel", parent);
+        var rect = panelObj.GetComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+
+        var dimBg = panelObj.AddComponent<Image>();
+        dimBg.color = new Color(0f, 0f, 0f, 0.7f);
+
+        var contentObj = CreatePanel("GameOverContent", panelObj.transform);
+        var contentRect = contentObj.GetComponent<RectTransform>();
+        contentRect.anchorMin = new Vector2(0.5f, 0.5f);
+        contentRect.anchorMax = new Vector2(0.5f, 0.5f);
+        contentRect.pivot = new Vector2(0.5f, 0.5f);
+        contentRect.sizeDelta = new Vector2(500, 280);
+
+        var contentBg = contentObj.AddComponent<Image>();
+        if (theme != null && theme.infoPanelBackground != null)
+        {
+            contentBg.sprite = theme.infoPanelBackground;
+            contentBg.type = Image.Type.Sliced;
+            contentBg.color = COL_SPRITE_DARK;
+        }
+        else
+        {
+            contentBg.color = COL_PANEL_BG;
+        }
+
+        var contentLayout = contentObj.AddComponent<VerticalLayoutGroup>();
+        contentLayout.padding = new RectOffset(30, 30, 30, 30);
+        contentLayout.spacing = 16;
+        contentLayout.childAlignment = TextAnchor.MiddleCenter;
+        contentLayout.childControlWidth = true;
+        contentLayout.childControlHeight = true;
+        contentLayout.childForceExpandWidth = true;
+        contentLayout.childForceExpandHeight = false;
+
+        var resultTxt = CreateText("ResultText", contentObj.transform, "VICTORY", 42, TextAlignmentOptions.Center, 0);
+        resultTxt.fontStyle = FontStyles.Bold;
+        resultTxt.color = Color.green;
+
+        var statsTxt = CreateText("StatsText", contentObj.transform, "Match Duration: 00:00", 18, TextAlignmentOptions.Center, 0);
+        statsTxt.color = COL_STAT;
+
+        var btnObj = CreatePanel("ReturnButton", contentObj.transform);
+        var btnBg = btnObj.AddComponent<Image>();
+        if (theme != null && theme.buildButtonNormal != null)
+        {
+            btnBg.sprite = theme.buildButtonNormal;
+            btnBg.type = Image.Type.Sliced;
+            btnBg.color = new Color(0.22f, 0.19f, 0.15f);
+        }
+        else
+        {
+            btnBg.color = new Color(0.2f, 0.2f, 0.2f);
+        }
+        var btnLe = btnObj.AddComponent<LayoutElement>();
+        btnLe.preferredHeight = 44;
+        btnLe.preferredWidth = 200;
+        var btn = btnObj.AddComponent<Button>();
+
+        var btnLabel = CreateText("BtnLabel", btnObj.transform, "Return to Menu", 18, TextAlignmentOptions.Center, 0);
+        btnLabel.color = COL_NAME;
+        var labelRect = btnLabel.GetComponent<RectTransform>();
+        labelRect.anchorMin = Vector2.zero;
+        labelRect.anchorMax = Vector2.one;
+        labelRect.offsetMin = Vector2.zero;
+        labelRect.offsetMax = Vector2.zero;
+
+        gameOverUI = panelObj.AddComponent<GameOverUI>();
+        gameOverUI.Init(panelObj, resultTxt, statsTxt, btn);
     }
 
     // ====================================================================

@@ -4,8 +4,8 @@ using System.Collections.Generic;
 public class AIPlayer : MonoBehaviour
 {
     [Header("Timing")]
-    [SerializeField] private float buildInterval = 5f;
-    [SerializeField] private float initialDelay = 8f;
+    [SerializeField] private float buildInterval = 10f;
+    [SerializeField] private float initialDelay = 5f;
 
     [Header("Limits")]
     [SerializeField] private int maxBuildingsTotal = 15;
@@ -43,7 +43,7 @@ public class AIPlayer : MonoBehaviour
         aiPlayerId = nextAIPlayerId--;
 
 
-        var config = Resources.Load<GameConfig>("GameConfig");
+        var config = GameConfig.Instance;
         gold = config != null ? config.startingGold : 500;
         income = config != null ? config.passiveIncomeAmount : 25;
         incomeTickInterval = config != null ? config.incomeTickInterval : 5f;
@@ -186,10 +186,11 @@ public class AIPlayer : MonoBehaviour
         if (chosen == null) return;
         if (gold < chosen.cost) return;
 
-        Vector3? pos = FindValidPosition();
+        Vector3? pos = FindValidPosition(chosen);
         if (!pos.HasValue)
         {
-            Debug.LogWarning($"{Tag} Could not find valid build position");
+            if (GameDebug.AI)
+                Debug.LogWarning($"{Tag} Could not find valid build position for {chosen.buildingName}");
             return;
         }
 
@@ -307,14 +308,16 @@ public class AIPlayer : MonoBehaviour
         return count;
     }
 
-    private Vector3? FindValidPosition()
+    private Vector3? FindValidPosition(BuildingData data)
     {
         if (!hasBuildZone) return null;
 
         var grid = GridSystem.Instance;
         if (grid == null) return null;
 
-        for (int attempt = 0; attempt < 20; attempt++)
+        int footprintRadius = data != null && data.prefab != null ? EstimateBuildingRadius(data) : 2;
+
+        for (int attempt = 0; attempt < 30; attempt++)
         {
             float x = Random.Range(buildZoneBounds.min.x, buildZoneBounds.max.x);
             float z = Random.Range(buildZoneBounds.min.z, buildZoneBounds.max.z);
@@ -325,24 +328,33 @@ public class AIPlayer : MonoBehaviour
             if (!grid.CanPlaceBuilding(candidate, teamId))
                 continue;
 
-            if (!IsAreaClear(grid, candidate, 2))
+            if (!IsAreaClear(grid, candidate, footprintRadius + 1))
+                continue;
+
+            if (!IsAreaFreeOfUnits(candidate, footprintRadius))
+                continue;
+
+            if (!IsAreaFreeOfBuildings(candidate, footprintRadius))
                 continue;
 
             return candidate;
         }
 
-        for (int attempt = 0; attempt < 10; attempt++)
-        {
-            float x = Random.Range(buildZoneBounds.min.x, buildZoneBounds.max.x);
-            float z = Random.Range(buildZoneBounds.min.z, buildZoneBounds.max.z);
-            Vector3 candidate = new(x, buildZoneBounds.center.y, z);
-            candidate = grid.SnapToGrid(candidate);
-
-            if (grid.CanPlaceBuilding(candidate, teamId) && IsAreaClear(grid, candidate, 1))
-                return candidate;
-        }
-
         return null;
+    }
+
+    private int EstimateBuildingRadius(BuildingData data)
+    {
+        if (data.prefab == null) return 2;
+        var renderers = data.prefab.GetComponentsInChildren<Renderer>();
+        if (renderers.Length == 0) return 2;
+        Bounds b = renderers[0].bounds;
+        foreach (var r in renderers)
+            b.Encapsulate(r.bounds);
+        float maxExtent = Mathf.Max(b.extents.x, b.extents.z);
+        var grid = GridSystem.Instance;
+        float cellSize = grid != null ? grid.CellSize : 2f;
+        return Mathf.CeilToInt(maxExtent / cellSize) + 1;
     }
 
     private bool IsAreaClear(GridSystem grid, Vector3 position, int checkRadius)
@@ -356,6 +368,33 @@ public class AIPlayer : MonoBehaviour
                 if (!grid.IsInBounds(c) || !grid.IsWalkable(c))
                     return false;
             }
+        }
+        return true;
+    }
+
+    private bool IsAreaFreeOfUnits(Vector3 position, int radius)
+    {
+        if (UnitManager.Instance == null) return true;
+        var grid = GridSystem.Instance;
+        float checkDist = grid != null ? radius * grid.CellSize + 1f : radius * 2f + 1f;
+        var nearby = UnitManager.Instance.GetUnitsInRadius(position, checkDist);
+        return nearby.Count == 0;
+    }
+
+    private bool IsAreaFreeOfBuildings(Vector3 position, int radius)
+    {
+        if (BuildingManager.Instance == null) return true;
+        var grid = GridSystem.Instance;
+        float cellSize = grid != null ? grid.CellSize : 2f;
+        float minDist = (radius + 1) * cellSize;
+
+        var buildings = BuildingManager.Instance.GetTeamBuildings(teamId);
+        foreach (var b in buildings)
+        {
+            if (b == null) continue;
+            float dist = Vector3.Distance(position, b.transform.position);
+            if (dist < minDist)
+                return false;
         }
         return true;
     }

@@ -20,6 +20,7 @@ public class UnitStateMachine : NetworkBehaviour
     private UnitAnimator unitAnimator;
 
     public UnitState CurrentState => currentState;
+    public UnitAnimator Animator => unitAnimator;
 
     private void Awake()
     {
@@ -54,10 +55,22 @@ public class UnitStateMachine : NetworkBehaviour
         if (unitAnimator != null) return;
 
         var animator = GetComponentInChildren<Animator>();
-        if (animator == null) return;
+        if (animator == null)
+        {
+            if (GameDebug.Animation)
+                Debug.LogWarning($"[State:{gameObject.name}] No Animator found in children — animations disabled");
+            return;
+        }
 
         unitAnimator = gameObject.AddComponent<UnitAnimator>();
         unitAnimator.Initialize(animator);
+
+        if (unit != null && unit.Data != null)
+            unitAnimator.SetMoveSpeed(unit.Data.moveSpeed);
+
+        if (GameDebug.Animation)
+            Debug.Log($"[State:{gameObject.name}] Animator setup complete: hasAnim={unitAnimator.HasAnimator} " +
+                $"idle={unitAnimator.HasIdleAnim} walk={unitAnimator.HasWalkAnim} atk={unitAnimator.HasAttackAnim} death={unitAnimator.HasDeathAnim}");
     }
 
     private void OnEnable()
@@ -94,11 +107,14 @@ public class UnitStateMachine : NetworkBehaviour
             return;
         }
 
-        if (movement != null && movement.IsMoving)
+        if (currentState == UnitState.Fighting)
+            return;
+
+        if (movement != null && (movement.IsMoving || movement.IsWaitingForPath))
         {
             SetState(UnitState.Moving);
         }
-        else if (currentState != UnitState.Fighting)
+        else
         {
             SetState(UnitState.Idle);
         }
@@ -133,9 +149,10 @@ public class UnitStateMachine : NetworkBehaviour
                 unitAnimator.PlayIdle();
                 break;
             case UnitState.Fighting:
-                unitAnimator.HoldPose();
+                unitAnimator.PlayIdle();
                 break;
             case UnitState.Moving:
+                unitAnimator.CancelOneShot();
                 unitAnimator.PlayWalk();
                 break;
             case UnitState.Dying:
@@ -147,11 +164,46 @@ public class UnitStateMachine : NetworkBehaviour
     private void OnDamaged(float amount, GameObject attacker)
     {
         if (unitAnimator != null && currentState != UnitState.Dying)
+        {
+            if (GameDebug.Animation)
+                Debug.Log($"[State:{gameObject.name}] OnDamaged {amount:F1} from {attacker?.name ?? "null"}, playing hit (state={currentState} oneShot={unitAnimator.IsPlayingOneShot})");
+            unitAnimator.PlayHit();
+            if (isServer)
+                RpcPlayHit();
+        }
+    }
+
+    /// <summary>Triggers the attack one-shot animation on server and syncs to clients.</summary>
+    [Server]
+    public void TriggerAttackAnimation(float attackCooldown)
+    {
+        if (unitAnimator == null || currentState == UnitState.Dying) return;
+        if (GameDebug.Animation)
+            Debug.Log($"[State:{gameObject.name}] TriggerAttack cooldown={attackCooldown:F2}s state={currentState} oneShot={unitAnimator.IsPlayingOneShot}");
+        unitAnimator.PlayAttack(attackCooldown);
+        RpcPlayAttack(attackCooldown);
+    }
+
+    [ClientRpc]
+    private void RpcPlayAttack(float attackCooldown)
+    {
+        if (isServer) return;
+        if (unitAnimator != null && currentState != UnitState.Dying)
+            unitAnimator.PlayAttack(attackCooldown);
+    }
+
+    [ClientRpc]
+    private void RpcPlayHit()
+    {
+        if (isServer) return;
+        if (unitAnimator != null && currentState != UnitState.Dying)
             unitAnimator.PlayHit();
     }
 
     private void OnDeath(GameObject killer)
     {
+        if (GameDebug.StateMachine)
+            Debug.Log($"[State:{gameObject.name}] OnDeath killer={killer?.name ?? "null"} isServer={isServer}");
         if (isServer)
             SetState(UnitState.Dying);
     }

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: b0bc0fed1853a9f4eab79e732068ccb3
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/Player_Health_Equipment/_Parts/HUD_DarkFantasy_ToggleBullet_03.prefab
+  uploadId: 782052

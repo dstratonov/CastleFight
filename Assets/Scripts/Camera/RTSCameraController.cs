@@ -66,6 +66,11 @@ public class RTSCameraController : MonoBehaviour
         var mouse = Mouse.current;
         if (keyboard == null || mouse == null) return;
 
+        if (keyboard.spaceKey.wasPressedThisFrame)
+        {
+            FocusOnAllyCastle();
+        }
+
         if (focusTarget.HasValue)
         {
             UpdateFocus(keyboard, mouse);
@@ -243,6 +248,23 @@ public class RTSCameraController : MonoBehaviour
     {
         focusTarget = new Vector3(worldPosition.x, transform.position.y, worldPosition.z);
         velocity = Vector3.zero;
+    }
+
+    /// <summary>Snaps camera to the local player's allied castle.</summary>
+    public void FocusOnAllyCastle()
+    {
+        var local = NetworkPlayer.Local;
+        if (local == null) return;
+
+        var castles = Object.FindObjectsByType<Castle>(FindObjectsSortMode.None);
+        foreach (var c in castles)
+        {
+            if (c.TeamId == local.TeamId)
+            {
+                FocusOn(c.transform.position);
+                return;
+            }
+        }
     }
 
     private void UpdateFocus(Keyboard keyboard, Mouse mouse)

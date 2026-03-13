@@ -20,6 +20,12 @@ public class CombatVFX : MonoBehaviour
         if (Instance == this) Instance = null;
     }
 
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        Instance = null;
+    }
+
     private void OnEnable()
     {
         // VFX events disabled for now -- will re-enable when skills are implemented

@@ -15,6 +15,10 @@ public class LobbyUI : MonoBehaviour
 
     private bool isReady;
     private readonly List<GameObject> playerEntries = new();
+    private float refreshCooldown;
+    private int lastKnownPlayerCount = -1;
+
+    private const float REFRESH_INTERVAL = 0.5f;
 
     private void OnEnable()
     {
@@ -38,8 +42,18 @@ public class LobbyUI : MonoBehaviour
 
     private void Update()
     {
-        if (panel != null && panel.activeSelf)
-            RefreshPlayerList();
+        if (panel == null || !panel.activeSelf) return;
+
+        refreshCooldown -= Time.unscaledDeltaTime;
+        if (refreshCooldown > 0f) return;
+        refreshCooldown = REFRESH_INTERVAL;
+
+        var players = FindObjectsByType<NetworkPlayer>(FindObjectsSortMode.None);
+        if (players.Length != lastKnownPlayerCount)
+        {
+            lastKnownPlayerCount = players.Length;
+            RefreshPlayerList(players);
+        }
     }
 
     public void Show()
@@ -52,13 +66,13 @@ public class LobbyUI : MonoBehaviour
         if (panel != null) panel.SetActive(false);
     }
 
-    private void RefreshPlayerList()
+    private void RefreshPlayerList(NetworkPlayer[] players = null)
     {
         ClearEntries();
 
         if (playerEntryPrefab == null || playerListContainer == null) return;
 
-        var players = FindObjectsByType<NetworkPlayer>(FindObjectsSortMode.None);
+        players ??= FindObjectsByType<NetworkPlayer>(FindObjectsSortMode.None);
         foreach (var player in players)
         {
             var entry = Instantiate(playerEntryPrefab, playerListContainer);
@@ -70,7 +84,12 @@ public class LobbyUI : MonoBehaviour
                 string teamLabel = player.TeamId == 0 ? "Blue" : "Red";
                 bool ready = LobbyManager.Instance != null && LobbyManager.Instance.IsPlayerReady(player.PlayerId);
                 string readyLabel = ready ? " [Ready]" : "";
-                nameText.text = $"Player {player.PlayerId} - {teamLabel}{readyLabel}";
+                bool isLocal = player.isLocalPlayer;
+                string youLabel = isLocal ? " (You)" : "";
+                nameText.text = $"Player {player.PlayerId} - {teamLabel}{readyLabel}{youLabel}";
+
+                if (isLocal)
+                    nameText.color = new Color(1f, 0.85f, 0.3f);
             }
         }
     }

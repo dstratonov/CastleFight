@@ -83,6 +83,12 @@ public class InfoPanelUI : MonoBehaviour
         if (Instance == this) Instance = null;
     }
 
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        Instance = null;
+    }
+
     private void OnEnable()
     {
         EventBus.Subscribe<SelectionChangedEvent>(OnSelectionChanged);
@@ -96,8 +102,18 @@ public class InfoPanelUI : MonoBehaviour
 
     private void Update()
     {
-        if (showingHero && trackedTarget == null)
-            TryShowHero();
+        if (trackedTarget == null)
+        {
+            if (!showingHero)
+            {
+                UntrackHealth();
+                TryShowHero();
+            }
+            else
+            {
+                TryShowHero();
+            }
+        }
 
         UpdateHealthBar();
         UpdateSpawnTimer();
@@ -228,7 +244,8 @@ public class InfoPanelUI : MonoBehaviour
         if (nameText != null)
             nameText.text = isEnemy ? "Enemy Castle" : "Allied Castle";
 
-        SetStatRow(damageIcon, damageText, theme?.iconCastle, $"Team: {castle.TeamId}");
+        string teamLabel = castle.TeamId == 0 ? "Blue" : "Red";
+        SetStatRow(damageIcon, damageText, theme?.iconCastle, $"Team: {teamLabel}");
         SetStatRow(armorIcon, armorText, theme?.iconArmor, "Armor: Fortified");
         SetStatRow(extraIcon, extraText, null, "");
 
@@ -314,10 +331,22 @@ public class InfoPanelUI : MonoBehaviour
 
         float pct = trackedHealth.HealthPercent;
         if (hpBarFill != null)
+        {
             hpBarFill.fillAmount = pct;
+            hpBarFill.color = GetHealthColor(pct);
+        }
 
         if (hpText != null)
             hpText.text = $"{trackedHealth.CurrentHealth:F0} / {trackedHealth.MaxHealth:F0}";
+    }
+
+    private static Color GetHealthColor(float pct)
+    {
+        if (pct > 0.6f)
+            return Color.Lerp(new Color(0.85f, 0.85f, 0.15f), new Color(0.2f, 0.8f, 0.2f), (pct - 0.6f) / 0.4f);
+        if (pct > 0.25f)
+            return Color.Lerp(new Color(0.9f, 0.35f, 0.1f), new Color(0.85f, 0.85f, 0.15f), (pct - 0.25f) / 0.35f);
+        return Color.Lerp(new Color(0.8f, 0.1f, 0.1f), new Color(0.9f, 0.35f, 0.1f), pct / 0.25f);
     }
 
     private void UntrackHealth()

@@ -5,21 +5,46 @@ public static class GameDebug
     public static bool Combat = false;
     public static bool Movement = false;
     public static bool Animation = false;
-    public static bool Spawning = true;
+    public static bool Spawning = false;
     public static bool Economy = false;
     public static bool Building = false;
     public static bool Health = false;
     public static bool Pathfinding = false;
     public static bool AI = false;
     public static bool StateMachine = false;
+    public static bool Boids = false;
+    public static bool UnitLifecycle = false;
 
-    public static void Log(string prefix, string msg)
+    public static void EnableAll()
     {
-        Debug.Log($"{prefix} {msg}");
+        Combat = true;
+        Movement = true;
+        Animation = true;
+        Spawning = true;
+        Economy = true;
+        Building = true;
+        Health = true;
+        Pathfinding = true;
+        AI = true;
+        StateMachine = true;
+        Boids = true;
+        UnitLifecycle = true;
+        Debug.Log("[GameDebug] ALL debug flags ENABLED");
     }
 
-    public static void Warn(string prefix, string msg)
+    public static void DisableAll()
     {
-        Debug.LogWarning($"{prefix} {msg}");
+        Combat = false;
+        Movement = false;
+        Animation = false;
+        Spawning = false;
+        Economy = false;
+        Building = false;
+        Health = false;
+        Pathfinding = false;
+        AI = false;
+        StateMachine = false;
+        Boids = false;
+        UnitLifecycle = false;
     }
 }

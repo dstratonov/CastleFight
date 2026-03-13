@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: f5e6bbb804bc8b84fb2deb0383f7b835
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Materials/MAT_DarkFantasy_ParticleFX_FireSheet_Additive.mat
+  uploadId: 782052

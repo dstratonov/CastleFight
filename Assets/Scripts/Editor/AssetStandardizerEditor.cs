@@ -4,7 +4,6 @@ using UnityEditor;
 using UnityEditor.Animations;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 
 public static class AssetStandardizerEditor
 {

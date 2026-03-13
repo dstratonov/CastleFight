@@ -3,6 +3,27 @@ using UnityEngine;
 [CreateAssetMenu(menuName = "CastleFight/Game Config")]
 public class GameConfig : ScriptableObject
 {
+    private static GameConfig cachedInstance;
+
+    /// <summary>
+    /// Cached accessor — loads from Resources once, then reuses.
+    /// </summary>
+    public static GameConfig Instance
+    {
+        get
+        {
+            if (cachedInstance == null)
+                cachedInstance = Resources.Load<GameConfig>("GameConfig");
+            return cachedInstance;
+        }
+    }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        cachedInstance = null;
+    }
+
     [Header("Economy")]
     public int startingGold = 500;
     public int passiveIncomeAmount = 25;

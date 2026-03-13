@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 6d960602ea7595945841bec882d34202
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/ActionBar/HUD_DarkFantasy_HotBar_01.prefab
+  uploadId: 782052

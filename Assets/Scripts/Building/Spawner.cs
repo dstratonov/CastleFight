@@ -57,33 +57,104 @@ public class Spawner : NetworkBehaviour
 
         Vector3 pos = basePos;
         var grid = GridSystem.Instance;
-        float spawnSpread = Mathf.Max(3f, unitData.unitRadius * 3f);
-        bool foundWalkable = false;
-        for (int attempt = 0; attempt < 10; attempt++)
+        float unitRadius = unitData.unitRadius > 0 ? unitData.unitRadius : 0.5f;
+        float spawnSpread = Mathf.Max(3f, unitRadius * 3f);
+        bool foundValid = false;
+
+        for (int attempt = 0; attempt < 20; attempt++)
         {
             float spread = spawnSpread + attempt * 0.5f;
             Vector3 offset = new Vector3(Random.Range(-spread, spread), 0, Random.Range(-spread, spread));
             Vector3 candidate = basePos + offset;
-            if (grid == null || grid.IsWalkable(grid.WorldToCell(candidate)))
+
+            if (grid != null)
             {
-                pos = candidate;
-                foundWalkable = true;
-                break;
+                Vector2Int cell = grid.WorldToCell(candidate);
+                if (!grid.IsWalkable(cell)) continue;
+
+                int cellRadius = Mathf.CeilToInt(unitRadius / grid.CellSize) + 1;
+                bool hasClearance = true;
+                for (int dx = -cellRadius; dx <= cellRadius && hasClearance; dx++)
+                {
+                    for (int dz = -cellRadius; dz <= cellRadius && hasClearance; dz++)
+                    {
+                        Vector2Int adj = new(cell.x + dx, cell.y + dz);
+                        if (!grid.IsInBounds(adj) || !grid.IsWalkable(adj))
+                            hasClearance = false;
+                    }
+                }
+                if (!hasClearance) continue;
+            }
+
+            if (!IsSpawnPositionClear(candidate, unitRadius))
+                continue;
+
+            pos = candidate;
+            foundValid = true;
+            break;
+        }
+
+        if (!foundValid && grid != null)
+        {
+            pos = grid.FindNearestWalkablePosition(basePos, basePos);
+            if (!IsSpawnPositionClear(pos, unitRadius))
+            {
+                for (int fallbackAttempt = 0; fallbackAttempt < 8; fallbackAttempt++)
+                {
+                    float angle = fallbackAttempt * 45f * Mathf.Deg2Rad;
+                    float dist = spawnSpread * (1f + fallbackAttempt * 0.5f);
+                    Vector3 fallbackOffset = new Vector3(Mathf.Cos(angle) * dist, 0f, Mathf.Sin(angle) * dist);
+                    Vector3 candidate = basePos + fallbackOffset;
+                    Vector2Int candidateCell = grid.WorldToCell(candidate);
+                    if (grid.IsInBounds(candidateCell) && grid.IsWalkable(candidateCell)
+                        && IsSpawnPositionClear(candidate, unitRadius))
+                    {
+                        pos = candidate;
+                        foundValid = true;
+                        break;
+                    }
+                }
+                if (!foundValid)
+                {
+                    pos = grid.FindNearestWalkablePosition(basePos + Vector3.forward * spawnSpread, basePos);
+                    if (GameDebug.Spawning)
+                        Debug.LogWarning($"[Spawn] All fallback attempts failed for {unitData.unitName}, using nearest walkable {pos:F1}");
+                }
             }
         }
 
-        if (!foundWalkable && grid != null)
-            pos = grid.FindNearestWalkablePosition(basePos, basePos);
+        if (grid != null)
+            pos.y = grid.GridOrigin.y;
 
         var unitObj = UnitManager.Instance?.SpawnUnit(unitData, pos, rot, teamId);
         if (unitObj != null)
         {
+            var unit = unitObj.GetComponent<Unit>();
+            unit?.Movement?.SetDestinationToEnemyCastle();
+
             if (GameDebug.Spawning)
-                Debug.Log($"[Spawn] {unitData.unitName} at {pos:F1} team={teamId} walkable={foundWalkable}");
+                Debug.Log($"[Spawn] {unitData.unitName} at {pos:F1} team={teamId} valid={foundValid}");
         }
         else if (GameDebug.Spawning)
         {
             Debug.LogWarning($"[Spawn] FAILED to spawn {unitData.unitName} at {pos:F1}");
         }
+    }
+
+    private bool IsSpawnPositionClear(Vector3 position, float radius)
+    {
+        if (UnitManager.Instance == null) return true;
+
+        float checkRadius = radius * 2.5f;
+        var nearby = UnitManager.Instance.GetUnitsInRadius(position, checkRadius);
+        foreach (var other in nearby)
+        {
+            if (other == null || other.IsDead) continue;
+            float combinedRadius = radius + other.EffectiveRadius;
+            float dist = Vector3.Distance(position, other.transform.position);
+            if (dist < combinedRadius * 0.8f)
+                return false;
+        }
+        return true;
     }
 }

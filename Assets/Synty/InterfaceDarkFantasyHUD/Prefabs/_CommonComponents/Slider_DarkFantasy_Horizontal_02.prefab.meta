@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 95f859543e6b8e74ca9be4978fe3db49
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/_CommonComponents/Slider_DarkFantasy_Horizontal_02.prefab
+  uploadId: 782052

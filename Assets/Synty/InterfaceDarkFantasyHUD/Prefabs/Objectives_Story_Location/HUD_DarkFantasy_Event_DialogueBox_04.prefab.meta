@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: ce4680a4e2db01842b85bc0bdca26627
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/Objectives_Story_Location/HUD_DarkFantasy_Event_DialogueBox_04.prefab
+  uploadId: 782052

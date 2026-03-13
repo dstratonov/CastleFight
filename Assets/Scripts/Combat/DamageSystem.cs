@@ -14,13 +14,20 @@ public static class DamageSystem
         float typeMultiplier = 1f;
         if (damageTable != null)
             typeMultiplier = damageTable.GetMultiplier(attackType, armorType);
+        else if (GameDebug.Combat)
+            Debug.LogWarning("[Dmg] DamageTable is NULL — all type multipliers default to 1.0");
 
         float result = baseDamage * typeMultiplier * bonusMultiplier;
 
-        if (GameDebug.Combat && typeMultiplier != 1f)
-            Debug.Log($"[Dmg] {attackType} vs {armorType} mult={typeMultiplier:F2} base={baseDamage:F0} -> {result:F1}");
+        if (GameDebug.Combat)
+            Debug.Log($"[Dmg] {attackType} vs {armorType} mult={typeMultiplier:F2} base={baseDamage:F0} bonus={bonusMultiplier:F2} -> {result:F1}");
 
         return result;
     }
 
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        damageTable = null;
+    }
 }

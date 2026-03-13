@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 5d4502ccd4c44224aa7e55eb231ae04b
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/Timed/HUD_DarkFantasy_GameTime_02.prefab
+  uploadId: 782052

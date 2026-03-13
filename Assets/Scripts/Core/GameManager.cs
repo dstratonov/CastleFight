@@ -38,6 +38,12 @@ public class GameManager : NetworkBehaviour
         if (Instance == this) Instance = null;
     }
 
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        Instance = null;
+    }
+
     private void OnGameStateChanged(GameState oldState, GameState newState)
     {
         OnStateChanged?.Invoke(oldState, newState);
@@ -56,6 +62,10 @@ public class GameManager : NetworkBehaviour
     [Server]
     public void StartMatch()
     {
+        if (PathfindingManager.Instance != null)
+            PathfindingManager.Instance.RequestInitialize();
+        else if (GridSystem.Instance != null)
+            GridSystem.Instance.BuildClearanceMap();
         SetState(GameState.Playing);
     }
 

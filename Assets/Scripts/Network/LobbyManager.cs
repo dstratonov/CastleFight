@@ -25,6 +25,12 @@ public class LobbyManager : NetworkBehaviour
         if (Instance == this) Instance = null;
     }
 
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        Instance = null;
+    }
+
     public override void OnStartClient()
     {
         readyStates.OnChange += OnReadyStateChanged;

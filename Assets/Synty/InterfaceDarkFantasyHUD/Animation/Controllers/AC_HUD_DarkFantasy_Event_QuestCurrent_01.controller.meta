@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 1a254e40918753d43b1a8a8539512182
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Animation/Controllers/AC_HUD_DarkFantasy_Event_QuestCurrent_01.controller
+  uploadId: 782052

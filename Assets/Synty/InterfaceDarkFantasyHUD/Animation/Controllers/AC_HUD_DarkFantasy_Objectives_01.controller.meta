@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 5dfe1e4e908ac384caf9aa95e4e5c6e4
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Animation/Controllers/AC_HUD_DarkFantasy_Objectives_01.controller
+  uploadId: 782052

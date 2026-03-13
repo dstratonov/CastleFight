@@ -15,6 +15,9 @@ public class NetworkGameManager : NetworkManager
     [SerializeField] private bool aiVsAiMode = true;
     [SerializeField] private string aiRaceId = "";
 
+    [Header("Defaults")]
+    [SerializeField] private string defaultRaceId = "horde";
+
     private readonly Dictionary<int, NetworkPlayer> players = new();
     private AIPlayer aiPlayerTeam0;
     private AIPlayer aiPlayerTeam1;
@@ -35,7 +38,7 @@ public class NetworkGameManager : NetworkManager
 
         InitializeDamageSystem();
 
-        GameManager.Instance?.SetState(GameState.Playing);
+        GameManager.Instance?.StartMatch();
 
         if (enableAI)
             SpawnAIPlayer();
@@ -128,7 +131,7 @@ public class NetworkGameManager : NetworkManager
         if (networkPlayer != null)
         {
             networkPlayer.Initialize(conn.connectionId, teamId);
-            networkPlayer.SetRace("horde");
+            networkPlayer.SetRace(defaultRaceId);
             players[conn.connectionId] = networkPlayer;
             TeamManager.Instance.AddPlayerToTeam(conn.connectionId, teamId);
         }

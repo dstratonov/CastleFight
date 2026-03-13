@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 42779e67b7eaf5c4bb132462889d6a07
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/Objectives_Story_Location/HUD_DarkFantasy_WorldSpace_InteractIcon_01.prefab
+  uploadId: 782052

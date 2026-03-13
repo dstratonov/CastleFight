@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 5a4d34eee64a0da4cbe08949a7743b2d
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Animation/Controllers/AC_Greeble_DarkFantasy_Ring_Large_01.controller
+  uploadId: 782052

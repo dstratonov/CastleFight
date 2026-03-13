@@ -27,12 +27,18 @@ public class NetworkPlayer : NetworkBehaviour
         if (Local == this) Local = null;
     }
 
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        Local = null;
+    }
+
     [Server]
     public void Initialize(int id, int team)
     {
         playerId = id;
         teamId = team;
-        var config = Resources.Load<GameConfig>("GameConfig");
+        var config = GameConfig.Instance;
         gold = config != null ? config.startingGold : 100;
         income = config != null ? config.passiveIncomeAmount : 10;
     }

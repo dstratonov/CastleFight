@@ -15,6 +15,14 @@ public class TooltipUI : MonoBehaviour
     private RectTransform panelRect;
     private Canvas parentCanvas;
 
+    public void Init(GameObject panel, TextMeshProUGUI title, TextMeshProUGUI desc, TextMeshProUGUI stats)
+    {
+        tooltipPanel = panel;
+        titleText = title;
+        descriptionText = desc;
+        statsText = stats;
+    }
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -36,6 +44,12 @@ public class TooltipUI : MonoBehaviour
     private void OnDestroy()
     {
         if (Instance == this) Instance = null;
+    }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        Instance = null;
     }
 
     private void Update()
@@ -94,14 +108,36 @@ public class TooltipUI : MonoBehaviour
     {
         if (panelRect == null || parentCanvas == null) return;
 
+        var canvasRect = parentCanvas.transform as RectTransform;
+        if (canvasRect == null) return;
+
         Vector2 mousePos = Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
         RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            parentCanvas.transform as RectTransform,
+            canvasRect,
             mousePos,
             parentCanvas.worldCamera,
             out Vector2 localPoint
         );
 
-        panelRect.anchoredPosition = localPoint + offset;
+        Vector2 pos = localPoint + offset;
+
+        Vector2 canvasSize = canvasRect.rect.size;
+        Vector2 panelSize = panelRect.rect.size;
+        Vector2 pivotOffset = panelRect.pivot;
+
+        float minX = -canvasSize.x * 0.5f + panelSize.x * pivotOffset.x;
+        float maxX = canvasSize.x * 0.5f - panelSize.x * (1f - pivotOffset.x);
+        float minY = -canvasSize.y * 0.5f + panelSize.y * pivotOffset.y;
+        float maxY = canvasSize.y * 0.5f - panelSize.y * (1f - pivotOffset.y);
+
+        if (pos.x + panelSize.x * (1f - pivotOffset.x) > canvasSize.x * 0.5f)
+            pos.x = localPoint.x - offset.x - panelSize.x;
+        if (pos.y - panelSize.y * (1f - pivotOffset.y) < -canvasSize.y * 0.5f)
+            pos.y = localPoint.y - offset.y + panelSize.y;
+
+        pos.x = Mathf.Clamp(pos.x, minX, maxX);
+        pos.y = Mathf.Clamp(pos.y, minY, maxY);
+
+        panelRect.anchoredPosition = pos;
     }
 }

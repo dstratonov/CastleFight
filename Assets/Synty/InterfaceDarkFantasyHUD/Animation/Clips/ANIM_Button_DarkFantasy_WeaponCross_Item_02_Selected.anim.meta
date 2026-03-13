@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: c2a82ca8972718842af5c74d9066df76
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Animation/Clips/ANIM_Button_DarkFantasy_WeaponCross_Item_02_Selected.anim
+  uploadId: 782052

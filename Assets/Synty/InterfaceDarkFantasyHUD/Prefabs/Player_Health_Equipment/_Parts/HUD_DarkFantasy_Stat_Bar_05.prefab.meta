@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 1f6e23c0a621b5d4fb43c26469245c78
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323247
+  packageName: Dark Fantasy HUD - Synty INTERFACE - GUI
+  packageVersion: 1.0.1
+  assetPath: Assets/Synty/InterfaceDarkFantasyHUD/Prefabs/Player_Health_Equipment/_Parts/HUD_DarkFantasy_Stat_Bar_05.prefab
+  uploadId: 782052

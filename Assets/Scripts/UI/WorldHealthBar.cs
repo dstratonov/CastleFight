@@ -21,6 +21,10 @@ public class WorldHealthBar : MonoBehaviour
     private static Material allyFillMat;
     private static Material enemyFillMat;
 
+    private Camera cachedCamera;
+    private float cameraCacheTime;
+    private bool wasFullHealth = true;
+
     private void Start()
     {
         health = GetComponent<Health>();
@@ -98,18 +102,37 @@ public class WorldHealthBar : MonoBehaviour
         return obj;
     }
 
+    private Camera GetCamera()
+    {
+        if (cachedCamera != null) return cachedCamera;
+        if (Time.time - cameraCacheTime < 1f) return null;
+        cameraCacheTime = Time.time;
+        cachedCamera = Camera.main;
+        return cachedCamera;
+    }
+
     private void LateUpdate()
     {
-        if (fillTransform == null || barRoot == null) return;
-
-        var cam = Camera.main;
-        if (cam == null || health == null) return;
+        if (fillTransform == null || barRoot == null || health == null) return;
 
         if (health.IsDead)
         {
             barRoot.gameObject.SetActive(false);
             return;
         }
+
+        float pct = health.HealthPercent;
+        bool isFullHealth = pct >= 0.999f;
+
+        if (isFullHealth && wasFullHealth)
+        {
+            barRoot.gameObject.SetActive(false);
+            return;
+        }
+        wasFullHealth = isFullHealth;
+
+        var cam = GetCamera();
+        if (cam == null) return;
 
         Vector3 worldPos = transform.position + boundsOffset + Vector3.up * yOffset;
         float camDist = Vector3.Distance(cam.transform.position, worldPos);
@@ -127,12 +150,43 @@ public class WorldHealthBar : MonoBehaviour
         float scale = Mathf.Max(camDist * SCREEN_SCALE_FACTOR, 1f);
         barRoot.localScale = Vector3.one * scale;
 
-        float pct = health.HealthPercent;
         float innerW = barWidth - BORDER * 2f;
         float innerH = BAR_HEIGHT - BORDER * 2f;
         float fw = innerW * pct;
         fillTransform.localScale = new Vector3(fw, innerH, 1f);
         fillTransform.localPosition = new Vector3((fw - innerW) * 0.5f, 0f, -0.002f);
+
+        UpdateFillColor(pct);
+    }
+
+    private MeshRenderer fillRenderer;
+    private MaterialPropertyBlock fillPropBlock;
+    private static readonly int ColorPropId = Shader.PropertyToID("_BaseColor");
+    private static readonly int FallbackColorPropId = Shader.PropertyToID("_Color");
+
+    private void UpdateFillColor(float pct)
+    {
+        if (fillRenderer == null)
+        {
+            fillRenderer = fillTransform.GetComponent<MeshRenderer>();
+            fillPropBlock = new MaterialPropertyBlock();
+        }
+        if (fillRenderer == null) return;
+
+        Color c = GetWorldHealthColor(pct);
+        fillRenderer.GetPropertyBlock(fillPropBlock);
+        fillPropBlock.SetColor(ColorPropId, c);
+        fillPropBlock.SetColor(FallbackColorPropId, c);
+        fillRenderer.SetPropertyBlock(fillPropBlock);
+    }
+
+    private static Color GetWorldHealthColor(float pct)
+    {
+        if (pct > 0.6f)
+            return Color.Lerp(new Color(0.85f, 0.85f, 0.15f), new Color(0.1f, 0.75f, 0.1f), (pct - 0.6f) / 0.4f);
+        if (pct > 0.25f)
+            return Color.Lerp(new Color(0.9f, 0.35f, 0.1f), new Color(0.85f, 0.85f, 0.15f), (pct - 0.25f) / 0.35f);
+        return Color.Lerp(new Color(0.8f, 0.1f, 0.1f), new Color(0.9f, 0.35f, 0.1f), pct / 0.25f);
     }
 
     private static void EnsureSharedResources()
@@ -181,5 +235,15 @@ public class WorldHealthBar : MonoBehaviour
         mat.color = color;
         mat.renderQueue = 3500;
         return mat;
+    }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void CleanupStatics()
+    {
+        if (borderMat != null) { Destroy(borderMat); borderMat = null; }
+        if (bgMat != null) { Destroy(bgMat); bgMat = null; }
+        if (allyFillMat != null) { Destroy(allyFillMat); allyFillMat = null; }
+        if (enemyFillMat != null) { Destroy(enemyFillMat); enemyFillMat = null; }
+        if (sharedQuad != null) { Destroy(sharedQuad); sharedQuad = null; }
     }
 }

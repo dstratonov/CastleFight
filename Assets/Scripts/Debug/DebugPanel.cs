@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.InputSystem;
 using TMPro;
 
 public class DebugPanel : MonoBehaviour
@@ -22,7 +23,8 @@ public class DebugPanel : MonoBehaviour
 
     private void Update()
     {
-        if (Input.GetKeyDown(KeyCode.F1))
+        var keyboard = Keyboard.current;
+        if (keyboard != null && keyboard.f1Key.wasPressedThisFrame)
             SetDebugActive(!debugActive);
     }
 
@@ -44,7 +46,7 @@ public class DebugPanel : MonoBehaviour
         rect.anchorMin = new Vector2(0, 1);
         rect.anchorMax = new Vector2(0, 1);
         rect.pivot = new Vector2(0, 1);
-        rect.anchoredPosition = new Vector2(10, -10);
+        rect.anchoredPosition = new Vector2(10, -70);
         rect.sizeDelta = new Vector2(200, 230);
 
         var bg = panelRoot.AddComponent<Image>();
