@@ -10,7 +10,7 @@ public class ClearanceMap
     public int Width => width;
     public int Height => height;
 
-    public void ComputeFull(GridSystem grid)
+    public void ComputeFull(IGrid grid)
     {
         width = grid.Width;
         height = grid.Height;
@@ -38,7 +38,7 @@ public class ClearanceMap
         BrushFireBFS(queue, grid);
     }
 
-    public void UpdateRegion(Vector2Int min, Vector2Int max, GridSystem grid)
+    public void UpdateRegion(Vector2Int min, Vector2Int max, IGrid grid)
     {
         int pad = Mathf.CeilToInt(Mathf.Max(width, height));
         pad = Mathf.Min(pad, 20);
@@ -76,7 +76,7 @@ public class ClearanceMap
         new(1, 1), new(1, -1), new(-1, 1), new(-1, -1)
     };
 
-    private void BrushFireBFS(Queue<Vector2Int> queue, GridSystem grid)
+    private void BrushFireBFS(Queue<Vector2Int> queue, IGrid grid)
     {
         float cellSize = grid.CellSize;
 
@@ -105,7 +105,7 @@ public class ClearanceMap
         }
     }
 
-    private void BrushFireBFS(Queue<Vector2Int> queue, GridSystem grid, int x0, int y0, int x1, int y1)
+    private void BrushFireBFS(Queue<Vector2Int> queue, IGrid grid, int x0, int y0, int x1, int y1)
     {
         float cellSize = grid.CellSize;
 

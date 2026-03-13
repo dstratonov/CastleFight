@@ -10,7 +10,7 @@ public class NavMeshBuilder
 {
     private NavMeshData baseNavMesh;
     private NavMeshData activeNavMesh;
-    private GridSystem grid;
+    private IGrid grid;
     private float gridY;
 
     public NavMeshData ActiveNavMesh => activeNavMesh;
@@ -20,7 +20,7 @@ public class NavMeshBuilder
     /// Build the base NavMesh from the initial grid state (terrain only, no buildings).
     /// Called once at map load.
     /// </summary>
-    public void BuildBase(GridSystem gridSystem)
+    public void BuildBase(IGrid gridSystem)
     {
         grid = gridSystem;
         gridY = grid.GridOrigin.y;

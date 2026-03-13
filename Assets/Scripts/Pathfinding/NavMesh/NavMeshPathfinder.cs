@@ -511,27 +511,27 @@ public static class NavMeshPathfinder
     public static float StatDensityMaxCost;
     public static int StatDensityUnitsOutsideMesh;
 
-    public static void ApplyUnitDensityCosts(NavMeshData mesh, IReadOnlyList<Unit> allUnits, float idlePenalty = 30f, float movingPenalty = 5f, float maxPenalty = 100f)
+    public static void ApplyUnitDensityCosts(NavMeshData mesh, IReadOnlyList<IPathfindingAgent> allAgents, float idlePenalty = 30f, float movingPenalty = 5f, float maxPenalty = 100f)
     {
         for (int i = 0; i < mesh.TriangleCount; i++)
             mesh.Triangles[i].CostMultiplier = 1f;
 
-        if (allUnits == null) return;
+        if (allAgents == null) return;
 
         int affected = 0;
         float maxCost = 1f;
         int outsideMesh = 0;
 
-        foreach (var unit in allUnits)
+        foreach (var agent in allAgents)
         {
-            if (unit == null || unit.IsDead) continue;
+            if (agent == null || agent.IsDead) continue;
 
-            Vector2 pos = new Vector2(unit.transform.position.x, unit.transform.position.z);
+            Vector3 agentPos = agent.Position;
+            Vector2 pos = new Vector2(agentPos.x, agentPos.z);
             int tri = mesh.FindTriangleAtPosition(pos);
             if (tri < 0) { outsideMesh++; continue; }
 
-            var sm = unit.StateMachine;
-            bool isIdle = sm != null && (sm.CurrentState == UnitState.Idle || sm.CurrentState == UnitState.Fighting);
+            bool isIdle = agent.CurrentState == UnitState.Idle || agent.CurrentState == UnitState.Fighting;
             float penalty = isIdle ? idlePenalty : movingPenalty;
 
             float prevCost = mesh.Triangles[tri].CostMultiplier;

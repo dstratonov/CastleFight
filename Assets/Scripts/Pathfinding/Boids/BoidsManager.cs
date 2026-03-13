@@ -46,16 +46,16 @@ public class BoidsManager
     /// desiredVelocity comes from Layer 1 (waypoint direction * speed).
     /// Returns the final velocity after applying all Boids forces.
     /// </summary>
-    public Vector3 ComputeSteering(Unit unit, Vector3 desiredVelocity, float maxSpeed, bool isMarching)
+    public Vector3 ComputeSteering(IPathfindingAgent agent, Vector3 desiredVelocity, float maxSpeed, bool isMarching)
     {
-        if (unit == null || spatialHash == null)
+        if (agent == null || spatialHash == null)
             return desiredVelocity;
 
-        float myRadius = unit.EffectiveRadius;
+        float myRadius = agent.EffectiveRadius;
         float separationRadius = myRadius * 3f;
         float avoidanceRadius = myRadius * 4f;
 
-        Vector3 myPos = unit.transform.position;
+        Vector3 myPos = agent.Position;
         var nearby = spatialHash.QueryRadius(myPos, avoidanceRadius);
 
         Vector3 separation = Vector3.zero;
@@ -68,9 +68,10 @@ public class BoidsManager
         int cohesionCount = 0;
         int avoidanceSideLocked = 0; // 0=not set, 1=positive, -1=negative
 
+        int agentId = agent.InstanceId;
         foreach (var other in nearby)
         {
-            if (other == null || other == unit || other.IsDead) continue;
+            if (other == null || other.GetInstanceID() == agentId || other.IsDead) continue;
 
             float otherRadius = other.EffectiveRadius;
             Vector3 offset = myPos - other.transform.position;
@@ -78,7 +79,7 @@ public class BoidsManager
             float dist = offset.magnitude;
             if (dist < 0.01f)
             {
-                uint hash = (uint)Mathf.Abs(unit.GetInstanceID()) * 2654435761u;
+                uint hash = (uint)Mathf.Abs(agentId) * 2654435761u;
                 float angle = ((hash & 0xFFFF) / (float)0xFFFF) * Mathf.PI * 2f;
                 offset = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
                 dist = 0.01f;
@@ -114,7 +115,7 @@ public class BoidsManager
             }
 
             // ALIGNMENT: steer toward average heading of neighbors (allies only)
-            if (other.TeamId == unit.TeamId && other.Movement != null)
+            if (other.TeamId == agent.TeamId && other.Movement != null)
             {
                 Vector3 otherVel = other.transform.position - other.Movement.PreviousPosition;
                 otherVel.y = 0f;
@@ -126,7 +127,7 @@ public class BoidsManager
             }
 
             // COHESION: steer toward center of mass of nearby allies
-            if (other.TeamId == unit.TeamId)
+            if (other.TeamId == agent.TeamId)
             {
                 cohesion += other.transform.position;
                 cohesionCount++;
@@ -140,7 +141,7 @@ public class BoidsManager
                 if (otherVel2.sqrMagnitude > 0.01f)
                 {
                     float headingDot = Vector3.Dot(desiredVelocity.normalized, otherVel2.normalized);
-                    if (headingDot < -0.8f) // heading at each other
+                    if (headingDot < -0.8f)
                     {
                         Vector3 relPos = myPos - other.transform.position;
                         relPos.y = 0f;
@@ -203,7 +204,7 @@ public class BoidsManager
             float dot = desiredVelocity.sqrMagnitude > 0.01f
                 ? Vector3.Dot(combined.normalized, desiredVelocity.normalized)
                 : 1f;
-            Debug.Log($"[Boids] {unit.name}: sep={separation.magnitude:F2}({separationCount}) " +
+            Debug.Log($"[Boids] {agent.Name}: sep={separation.magnitude:F2}({separationCount}) " +
                 $"align={alignment.magnitude:F2}({alignmentCount}) " +
                 $"cohes={cohesion.magnitude:F2}({cohesionCount}) " +
                 $"avoid={avoidance.magnitude:F2} " +
@@ -219,11 +220,11 @@ public class BoidsManager
     /// the unit should stop and wait rather than pushing into the pile.
     /// Returns true if the unit should stop.
     /// </summary>
-    public bool ShouldDensityStop(Unit unit, Vector3 destination)
+    public bool ShouldDensityStop(IPathfindingAgent agent, Vector3 destination)
     {
-        if (unit == null || spatialHash == null) return false;
+        if (agent == null || spatialHash == null) return false;
 
-        float distToDest = Vector3.Distance(unit.transform.position, destination);
+        float distToDest = Vector3.Distance(agent.Position, destination);
         if (distToDest < 0.5f) return false;
         if (distToDest > 15f) return false;
 
@@ -235,9 +236,10 @@ public class BoidsManager
         int nearbyCount = 0;
 
         var nearby = spatialHash.QueryRadius(destination, probeRadius);
+        int agentId2 = agent.InstanceId;
         foreach (var other in nearby)
         {
-            if (other == null || other == unit || other.IsDead) continue;
+            if (other == null || other.GetInstanceID() == agentId2 || other.IsDead) continue;
             float otherR = other.EffectiveRadius;
             agentsArea += Mathf.PI * otherR * otherR;
             nearbyCount++;
@@ -256,7 +258,7 @@ public class BoidsManager
         {
             StatDensityStopCount++;
             if (GameDebug.Boids)
-                Debug.Log($"[Boids] DensityStop: {unit.name} dist={distToDest:F1} probe={probeRadius:F1}" +
+                Debug.Log($"[Boids] DensityStop: {agent.Name} dist={distToDest:F1} probe={probeRadius:F1}" +
                     $" density={density:F2} nearby={nearbyCount}");
         }
 

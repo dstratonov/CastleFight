@@ -129,7 +129,7 @@ public class PathfindingManager : MonoBehaviour
         }
 
         pathRequestsThisFrame = 0;
-        costStampManager.Tick();
+        costStampManager.Tick(Time.time);
         AttackPositionFinder.CleanupStaleSlots();
 
         if (pendingRebuild)
@@ -237,21 +237,21 @@ public class PathfindingManager : MonoBehaviour
     /// <summary>
     /// Compute Boids steering for a unit. Layer 2 — unit-to-unit avoidance only.
     /// </summary>
-    public Vector3 ComputeSteering(Unit unit, Vector3 desiredVelocity, float maxSpeed, bool isMarching = true)
+    public Vector3 ComputeSteering(IPathfindingAgent agent, Vector3 desiredVelocity, float maxSpeed, bool isMarching = true)
     {
         if (!isInitialized || boidsManager == null)
             return desiredVelocity;
-        return boidsManager.ComputeSteering(unit, desiredVelocity, maxSpeed, isMarching);
+        return boidsManager.ComputeSteering(agent, desiredVelocity, maxSpeed, isMarching);
     }
 
     /// <summary>
     /// Check if a unit should stop due to density at destination.
     /// </summary>
-    public bool ShouldDensityStop(Unit unit, Vector3 destination)
+    public bool ShouldDensityStop(IPathfindingAgent agent, Vector3 destination)
     {
         if (!isInitialized || boidsManager == null)
             return false;
-        return boidsManager.ShouldDensityStop(unit, destination);
+        return boidsManager.ShouldDensityStop(agent, destination);
     }
 
     // ================================================================

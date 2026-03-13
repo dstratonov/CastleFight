@@ -7,7 +7,7 @@ public enum CellState
     Building
 }
 
-public class GridSystem : MonoBehaviour
+public class GridSystem : MonoBehaviour, IGrid
 {
     public static GridSystem Instance { get; private set; }
 

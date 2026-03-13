@@ -18,7 +18,7 @@ public static class AttackPositionFinder
         1.41421356f, 1.41421356f, 1.41421356f, 1.41421356f
     };
 
-    public static Vector2Int FindAttackPosition(Unit attacker, Health target, GridSystem grid, ClearanceMap clearance)
+    public static Vector2Int FindAttackPosition(Unit attacker, Health target, IGrid grid, ClearanceMap clearance)
     {
         if (target == null || grid == null) return Vector2Int.zero;
 

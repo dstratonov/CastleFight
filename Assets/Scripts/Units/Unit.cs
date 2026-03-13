@@ -1,7 +1,7 @@
 using UnityEngine;
 using Mirror;
 
-public class Unit : NetworkBehaviour, ISelectable
+public class Unit : NetworkBehaviour, ISelectable, IPathfindingAgent
 {
     [SyncVar] private int teamId;
     [SyncVar(hook = nameof(OnUnitDataIdChanged))]
@@ -23,6 +23,12 @@ public class Unit : NetworkBehaviour, ISelectable
     public UnitCombat Combat => combat;
     public string DisplayName => data != null ? data.displayName : "Unit";
     Health ISelectable.Health => health;
+
+    Vector3 IPathfindingAgent.Position => transform.position;
+    Vector3 IPathfindingAgent.PreviousPosition => movement != null ? movement.PreviousPosition : transform.position;
+    UnitState IPathfindingAgent.CurrentState => stateMachine != null ? stateMachine.CurrentState : UnitState.Idle;
+    int IPathfindingAgent.InstanceId => GetInstanceID();
+    string IPathfindingAgent.Name => gameObject.name;
 
     private const float MaxAutoRadius = 2f;
     private const float MaxEffectiveRadius = 3f;
