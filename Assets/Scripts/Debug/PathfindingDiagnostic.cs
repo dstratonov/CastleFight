@@ -84,18 +84,12 @@ public class PathfindingDiagnostic : MonoBehaviour
                     if (shouldBeMoving && moved < 0.1f)
                     {
                         stuckDurations.TryGetValue(id, out float dur);
-                        stuckDurations[id] = dur + STUCK_CHECK_INTERVAL;
+                        float newDur = dur + STUCK_CHECK_INTERVAL;
+                        stuckDurations[id] = newDur;
 
-                        if (dur + STUCK_CHECK_INTERVAL >= 4f && (int)(dur / STUCK_CHECK_INTERVAL) % 3 == 0)
+                        if (newDur >= 4f && (int)(dur / STUCK_CHECK_INTERVAL) % 3 == 0)
                         {
-                            var sm = unit.StateMachine;
-                            string state = sm != null ? sm.CurrentState.ToString() : "?";
-                            string target = movement.WorldTarget.HasValue ? movement.WorldTarget.Value.ToString("F1") : "none";
-                            bool hasPath = movement.HasPath;
-                            int wpCount = movement.Waypoints?.Count ?? 0;
-                            Debug.LogWarning($"[PathDiag] STUCK unit={unit.name} t{unit.TeamId} " +
-                                $"state={state} pos={pos:F1} target={target} " +
-                                $"hasPath={hasPath} wpts={wpCount} stuckFor={dur + STUCK_CHECK_INTERVAL:F0}s");
+                            LogStuckUnit(unit, movement, pos, newDur);
                         }
                     }
                     else
@@ -112,6 +106,62 @@ public class PathfindingDiagnostic : MonoBehaviour
         }
 
         CleanupDeadEntries();
+    }
+
+    private void LogStuckUnit(Unit unit, UnitMovement movement, Vector3 pos, float stuckDuration)
+    {
+        var sm = unit.StateMachine;
+        string state = sm != null ? sm.CurrentState.ToString() : "?";
+        string target = movement.WorldTarget.HasValue ? movement.WorldTarget.Value.ToString("F1") : "none";
+        bool hasPath = movement.HasPath;
+        int wpCount = movement.Waypoints?.Count ?? 0;
+        int wpIdx = movement.WaypointIndex;
+
+        var grid = GridSystem.Instance;
+        string wpDetail = "";
+        if (hasPath && movement.Waypoints != null && wpIdx < movement.Waypoints.Count)
+        {
+            Vector3 wp = movement.Waypoints[wpIdx];
+            float distToWp = Vector3.Distance(pos, wp);
+            bool wpWalkable = false;
+            string cellStr = "?";
+            if (grid != null)
+            {
+                Vector2Int cell = grid.WorldToCell(wp);
+                wpWalkable = grid.IsInBounds(cell) && grid.IsWalkable(cell);
+                cellStr = $"({cell.x},{cell.y})";
+            }
+
+            // Check if position-to-waypoint path crosses an unwalkable cell
+            bool pathCrossesWall = false;
+            if (grid != null)
+            {
+                Vector3 dir = wp - pos;
+                float dist = dir.magnitude;
+                if (dist > 0.1f)
+                {
+                    int steps = Mathf.CeilToInt(dist / (grid.CellSize * 0.5f));
+                    for (int s = 1; s <= steps; s++)
+                    {
+                        Vector3 sample = pos + dir * (s / (float)steps);
+                        Vector2Int sc = grid.WorldToCell(sample);
+                        if (!grid.IsInBounds(sc) || !grid.IsWalkable(sc))
+                        {
+                            pathCrossesWall = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            wpDetail = $" wp[{wpIdx}]={wp:F1} distToWp={distToWp:F1} wpCell={cellStr} wpWalkable={wpWalkable} pathCrossesWall={pathCrossesWall}";
+        }
+
+        int arrives = movement.ArriveCount;
+        Debug.LogWarning($"[PathDiag] STUCK unit={unit.name} t{unit.TeamId} " +
+            $"state={state} pos={pos:F1} target={target} " +
+            $"hasPath={hasPath} wpts={wpCount}{wpDetail} " +
+            $"radius={unit.EffectiveRadius:F2} arrives={arrives} stuckFor={stuckDuration:F0}s");
     }
 
     private void BuildLivingIdSet()
@@ -254,6 +304,9 @@ public class PathfindingDiagnostic : MonoBehaviour
         int req = NavMeshPathfinder.StatPathsRequested;
         int ok = NavMeshPathfinder.StatPathsSucceeded;
         int fail = NavMeshPathfinder.StatPathsFailed;
+        int failOutside = NavMeshPathfinder.StatFailedOutsideMesh;
+        int failAStar = NavMeshPathfinder.StatFailedAStarNoPath;
+        int failBldCross = NavMeshPathfinder.StatFailedBuildingCross;
         int throttled = NavMeshPathfinder.StatThrottled;
         int astarNodes = NavMeshPathfinder.StatTotalAStarNodes;
         int widthReject = NavMeshPathfinder.StatTotalWidthRejections;
@@ -261,19 +314,24 @@ public class PathfindingDiagnostic : MonoBehaviour
         int funnelWpts = NavMeshPathfinder.StatTotalFunnelWaypoints;
         int maxChan = NavMeshPathfinder.StatMaxChannelLength;
         float worstRatio = NavMeshPathfinder.StatWorstPathRatio;
-        int denseTris = NavMeshPathfinder.StatDensityAffectedTris;
-        float denseMax = NavMeshPathfinder.StatDensityMaxCost;
-        int outsideMesh = NavMeshPathfinder.StatDensityUnitsOutsideMesh;
 
         float avgChan = ok > 0 ? (float)chanLen / ok : 0;
         float avgWpts = ok > 0 ? (float)funnelWpts / ok : 0;
         float avgNodes = ok > 0 ? (float)astarNodes / ok : 0;
 
-        Debug.Log($"[PathDiag:DEEP] paths req={req} ok={ok} fail={fail} throttled={throttled}" +
+        Debug.Log($"[PathDiag:DEEP] paths req={req} ok={ok} fail={fail}(outside={failOutside} astar={failAStar} bldCross={failBldCross}) throttled={throttled}" +
                   $" | A* avgNodes={avgNodes:F0} widthReject={widthReject}" +
                   $" | channel avg={avgChan:F1} max={maxChan}" +
-                  $" | funnel avgWpts={avgWpts:F1} worstRatio={worstRatio:F2}" +
-                  $" | density: tris={denseTris} maxCost={denseMax:F0} outsideMesh={outsideMesh}");
+                  $" | funnel avgWpts={avgWpts:F1} worstRatio={worstRatio:F2}");
+
+        if (fail > 0 && req > 0)
+        {
+            float failPct = 100f * fail / req;
+            if (failPct > 50f)
+                Debug.LogError($"[PathDiag] CRITICAL: {failPct:F0}% path failure rate ({fail}/{req})! outside={failOutside} astar={failAStar} bldCross={failBldCross}");
+            else if (failPct > 20f)
+                Debug.LogWarning($"[PathDiag] HIGH path failure rate: {failPct:F0}% ({fail}/{req}) outside={failOutside} astar={failAStar} bldCross={failBldCross}");
+        }
 
         NavMeshPathfinder.ResetStats();
 
@@ -298,25 +356,9 @@ public class PathfindingDiagnostic : MonoBehaviour
 
     private void ReportAttackPositionSlots()
     {
-        var slotField = typeof(AttackPositionFinder).GetField("slotRegistry",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-        if (slotField == null) return;
-
-        var registry = slotField.GetValue(null) as Dictionary<int, Dictionary<Vector2Int, int>>;
-        if (registry == null) return;
-
-        int totalTargets = registry.Count;
-        int totalSlots = 0;
-        int maxSlotsPerTarget = 0;
-        foreach (var kvp in registry)
-        {
-            totalSlots += kvp.Value.Count;
-            if (kvp.Value.Count > maxSlotsPerTarget)
-                maxSlotsPerTarget = kvp.Value.Count;
-        }
-
+        var (targets, totalSlots, maxPerTarget) = AttackPositionFinder.GetSlotStats();
         if (totalSlots > 0)
-            Debug.Log($"[PathDiag:SLOTS] targets={totalTargets} totalSlots={totalSlots} maxPerTarget={maxSlotsPerTarget}");
+            Debug.Log($"[PathDiag:SLOTS] targets={targets} totalSlots={totalSlots} maxPerTarget={maxPerTarget}");
     }
 
     private void DetailedUnitReport()
@@ -386,10 +428,20 @@ public class PathfindingDiagnostic : MonoBehaviour
                     }
                 }
 
+                string wpInfo = "";
+                if (hasPath && movement.Waypoints != null && wpIdx < movement.Waypoints.Count)
+                {
+                    Vector3 wp = movement.Waypoints[wpIdx];
+                    float distToWp = Vector3.Distance(pos, wp);
+                    Vector2Int wpCell = grid != null ? grid.WorldToCell(wp) : Vector2Int.zero;
+                    bool wpWalkable = grid != null && grid.IsInBounds(wpCell) && grid.IsWalkable(wpCell);
+                    wpInfo = $" wp[{wpIdx}]={wp:F2} distToWp={distToWp:F2} wpCell=({wpCell.x},{wpCell.y}) wpWalkable={wpWalkable}";
+                }
+
                 Debug.LogWarning($"[PathDiag] DETAIL worst stuck unit={unit.name} t{unit.TeamId} " +
                     $"state={state} pos={pos:F2} walkable={onWalkable} inNavMesh={inNavMesh} " +
                     $"target={target} isMoving={isMoving} hasPath={hasPath} " +
-                    $"wpts={wpCount} wpIdx={wpIdx} " +
+                    $"wpts={wpCount} wpIdx={wpIdx}{wpInfo} " +
                     $"combatTarget={combatTarget} " +
                     $"radius={unit.EffectiveRadius:F2} nearby={nearbyCount} overlapping={overlapping} " +
                     $"stuckFor={worstStuckTime:F0}s");

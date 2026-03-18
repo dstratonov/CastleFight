@@ -58,7 +58,7 @@ public class Spawner : NetworkBehaviour
         Vector3 pos = basePos;
         var grid = GridSystem.Instance;
         float unitRadius = unitData.unitRadius > 0 ? unitData.unitRadius : 0.5f;
-        float spawnSpread = Mathf.Max(3f, unitRadius * 3f);
+        float spawnSpread = SpawnPositionFinder.ComputeSpawnSpread(unitRadius);
         bool foundValid = false;
 
         for (int attempt = 0; attempt < 20; attempt++)
@@ -101,9 +101,7 @@ public class Spawner : NetworkBehaviour
             {
                 for (int fallbackAttempt = 0; fallbackAttempt < 8; fallbackAttempt++)
                 {
-                    float angle = fallbackAttempt * 45f * Mathf.Deg2Rad;
-                    float dist = spawnSpread * (1f + fallbackAttempt * 0.5f);
-                    Vector3 fallbackOffset = new Vector3(Mathf.Cos(angle) * dist, 0f, Mathf.Sin(angle) * dist);
+                    Vector3 fallbackOffset = SpawnPositionFinder.ComputeFallbackOffset(fallbackAttempt, spawnSpread);
                     Vector3 candidate = basePos + fallbackOffset;
                     Vector2Int candidateCell = grid.WorldToCell(candidate);
                     if (grid.IsInBounds(candidateCell) && grid.IsWalkable(candidateCell)
@@ -133,7 +131,8 @@ public class Spawner : NetworkBehaviour
             unit?.Movement?.SetDestinationToEnemyCastle();
 
             if (GameDebug.Spawning)
-                Debug.Log($"[Spawn] {unitData.unitName} at {pos:F1} team={teamId} valid={foundValid}");
+                Debug.Log($"[Spawn] {unitData.unitName} at {pos:F1} team={teamId} valid={foundValid}" +
+                    $" basePos={basePos:F1} offset={Vector3.Distance(pos, basePos):F1}");
         }
         else if (GameDebug.Spawning)
         {

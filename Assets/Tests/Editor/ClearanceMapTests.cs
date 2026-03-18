@@ -167,4 +167,177 @@ public class ClearanceMapTests
         Assert.AreEqual(0f, after, "After marking cell unwalkable and updating, clearance should be 0");
         Assert.Greater(before, after, "Clearance should decrease after placing obstacle");
     }
+
+    // ================================================================
+    //  CORRIDOR BETWEEN TWO WALLS
+    // ================================================================
+
+    [Test]
+    public void ComputeFull_CorridorBetweenWalls_CorrectClearance()
+    {
+        // 20-wide grid, walls at rows 5 and 14 (gap of 8 cells: rows 6-13)
+        var grid = new FakeGrid(20, 20);
+        for (int x = 0; x < 20; x++)
+        {
+            grid.SetUnwalkable(x, 5);
+            grid.SetUnwalkable(x, 14);
+        }
+
+        var map = new ClearanceMap();
+        map.ComputeFull(grid);
+
+        // Center of the corridor is at y=9 or y=10, distance to nearest wall ~4-5 cells
+        float centerClearance = map.GetClearance(new Vector2Int(10, 10));
+        float nearWallClearance = map.GetClearance(new Vector2Int(10, 6));
+
+        Assert.Greater(centerClearance, nearWallClearance,
+            "Center of corridor should have higher clearance than near the wall");
+        Assert.Greater(centerClearance, 3f,
+            "Center of 8-cell corridor should have clearance > 3");
+        Assert.Greater(nearWallClearance, 0f);
+    }
+
+    [Test]
+    public void ComputeFull_NarrowCorridor3Wide_CenterClearanceLimited()
+    {
+        // Grid with two walls leaving a 3-cell-wide gap
+        var grid = new FakeGrid(10, 10);
+        for (int x = 0; x < 10; x++)
+        {
+            grid.SetUnwalkable(x, 3);
+            grid.SetUnwalkable(x, 7);
+        }
+
+        var map = new ClearanceMap();
+        map.ComputeFull(grid);
+
+        float center = map.GetClearance(new Vector2Int(5, 5));
+        Assert.Greater(center, 1f);
+        Assert.Less(center, 4f,
+            "Center of 3-cell corridor should have limited clearance");
+    }
+
+    // ================================================================
+    //  OBSTACLE REMOVAL
+    // ================================================================
+
+    [Test]
+    public void UpdateRegion_ObstacleRemoved_ClearanceIncreases()
+    {
+        var grid = new FakeGrid(10, 10);
+        grid.SetUnwalkable(5, 5);
+
+        var map = new ClearanceMap();
+        map.ComputeFull(grid);
+        float withObstacle = map.GetClearance(new Vector2Int(5, 4));
+
+        // "Remove" the obstacle by making it walkable again
+        // FakeGrid doesn't have SetWalkable, so we create a new grid without the obstacle
+        var gridClean = new FakeGrid(10, 10);
+        map.UpdateRegion(new Vector2Int(3, 3), new Vector2Int(7, 7), gridClean);
+
+        float withoutObstacle = map.GetClearance(new Vector2Int(5, 4));
+        Assert.Greater(withoutObstacle, withObstacle,
+            "Clearance should increase after removing adjacent obstacle");
+    }
+
+    // ================================================================
+    //  EXACT CLEARANCE BOUNDARY
+    // ================================================================
+
+    [Test]
+    public void CanPass_ExactClearance_ReturnsTrue()
+    {
+        var grid = new FakeGrid(10, 10);
+        grid.SetUnwalkable(5, 5);
+
+        var map = new ClearanceMap();
+        map.ComputeFull(grid);
+
+        float clearance = map.GetClearance(new Vector2Int(4, 5));
+        // CanPass uses >= so exact clearance should pass
+        Assert.IsTrue(map.CanPass(new Vector2Int(4, 5), clearance),
+            "CanPass with exactly matching clearance should return true (>= comparison)");
+    }
+
+    [Test]
+    public void CanPass_SlightlyOverClearance_ReturnsFalse()
+    {
+        var grid = new FakeGrid(10, 10);
+        grid.SetUnwalkable(5, 5);
+
+        var map = new ClearanceMap();
+        map.ComputeFull(grid);
+
+        float clearance = map.GetClearance(new Vector2Int(4, 5));
+        Assert.IsFalse(map.CanPass(new Vector2Int(4, 5), clearance + 0.01f),
+            "CanPass with radius slightly over clearance should return false");
+    }
+
+    // ================================================================
+    //  NON-UNIT CELL SIZE
+    // ================================================================
+
+    [Test]
+    public void ComputeFull_CellSize2_ScalesClearance()
+    {
+        var grid1 = new FakeGrid(10, 10, cellSize: 1f);
+        grid1.SetUnwalkable(5, 5);
+        var map1 = new ClearanceMap();
+        map1.ComputeFull(grid1);
+
+        var grid2 = new FakeGrid(10, 10, cellSize: 2f);
+        grid2.SetUnwalkable(5, 5);
+        var map2 = new ClearanceMap();
+        map2.ComputeFull(grid2);
+
+        float c1 = map1.GetClearance(new Vector2Int(4, 5));
+        float c2 = map2.GetClearance(new Vector2Int(4, 5));
+
+        Assert.Greater(c2, c1,
+            "Clearance with CellSize=2 should be larger than CellSize=1 (BFS step scales)");
+    }
+
+    // ================================================================
+    //  CORNER OF GRID
+    // ================================================================
+
+    [Test]
+    public void ComputeFull_CornerCell_HasClearance()
+    {
+        var grid = new FakeGrid(10, 10);
+        var map = new ClearanceMap();
+        map.ComputeFull(grid);
+
+        float corner = map.GetClearance(new Vector2Int(0, 0));
+        float center = map.GetClearance(new Vector2Int(5, 5));
+
+        Assert.Greater(corner, 0f, "Corner should have positive clearance on fully walkable grid");
+        // Note: corner clearance is bounded by grid boundary so it may be
+        // less than center, but BFS doesn't treat boundary as obstacle
+        // The BFS only seeds from unwalkable cells, so if there are none,
+        // all cells keep MaxValue. This is valid behavior.
+    }
+
+    // ================================================================
+    //  MULTIPLE OBSTACLES
+    // ================================================================
+
+    [Test]
+    public void ComputeFull_TwoObstaclesNarrowPassage_LowClearance()
+    {
+        var grid = new FakeGrid(10, 10);
+        // Two obstacles with a 2-cell gap at y=5
+        for (int x = 0; x < 4; x++)
+            grid.SetUnwalkable(x, 5);
+        for (int x = 6; x < 10; x++)
+            grid.SetUnwalkable(x, 5);
+
+        var map = new ClearanceMap();
+        map.ComputeFull(grid);
+
+        float passage = map.GetClearance(new Vector2Int(5, 5));
+        Assert.Greater(passage, 0f, "Passage between two obstacles should be walkable");
+        Assert.Less(passage, 3f, "Narrow passage clearance should be limited");
+    }
 }

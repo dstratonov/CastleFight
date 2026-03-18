@@ -7,25 +7,79 @@
 
 ## Active Task
 
-**Task name:** Sanity check pathfinding vs guide + play-mode debug  
-**Started:** 2026-03-12  
+**Task name:** SC2-style pathfinding & crowd simulation comparison + fixes  
+**Started:** 2026-03-17  
 **Status:** ✅ Done
 
 | Subtask | Agent | Status | Output |
 |---|---|---|---|
-| Architecture check (Section 14) | CODE | ✅ pass | Two layers fully separate, no shared state, units never in NavMesh |
-| NavMesh construction check | CODE | ✅ pass | CDT, base cached, widths precomputed (3 per tri), spatial grid |
-| A* + Funnel + Expansion check | CODE | ✅ pass | Triangles as nodes, Demyen width filter, funnel applied, vertex expansion |
-| Boids check | CODE | ✅ pass | Side-steering, side-lock, density stop 60%, spatial hash, no wall avoidance |
-| Attack position check | CODE | ⚠️ 2 bugs | Slot leak + missing clearance map (see fixes) |
-| Performance check | CODE | ✅ pass | 15-frame stagger, 20 A* cap, clamp_magnitude |
-| FIX: slot leak on death/disengage | CODE | ✅ fixed | ReleaseAllSlots now called on OnDestroy + InvalidateApproachCache |
-| FIX: ClearanceMap not passed | CODE | ✅ fixed | grid.ClearanceMap now passed to AttackPositionFinder |
-| Play-mode verification | QA | ✅ done | 120s match, 46 units, 0 stuck, 0 unreachable, overlaps 0-3 |
+| Full pathfinding system review vs SC2 | CODE | ✅ done | NavMeshPathfinder, PathfindingManager, GridSystem, ClearanceMap, AttackPositionFinder |
+| Full crowd simulation review vs SC2 | CODE | ✅ done | BoidsManager, SpatialHashGrid, density stop, separation push |
+| Full unit interaction review vs SC2 | CODE | ✅ done | UnitMovement stuck detection, UnitCombat approach, ValidatePosition |
+| Web research: SC2 pathfinding architecture | CODE | ✅ done | CDT→A*→Funnel, Boids steering, density stop only for marching |
+| FIX 1: Density stop during combat | CODE | ✅ fixed | MovementLogic.ShouldCheckDensity + UnitMovement combat bypass |
+| FIX 2: Approach progress threshold | CODE | ✅ fixed | Structure threshold 2.0→0.5, unit threshold 0.5→0.3 |
+| FIX 3: Stuck handler combat awareness | CODE | ✅ fixed | EvaluateStuckTier isCombatApproach — Tier2_Replan instead of unreachable |
+| FIX 4: Attack position fallback | CODE | ✅ fixed | SC2-style fallback when all slots claimed — closest walkable cell |
+| FIX 5: MoveTowardTarget fallback | CODE | ✅ fixed | Direct approach toward target when no optimal position found |
+| FIX 6: ValidatePosition wall sliding | CODE | ✅ fixed | Uses actual movement delta instead of lagging smoothedVelocity |
+| FIX 7: UnitMovement combat stuck handler | CODE | ✅ fixed | Tier3 stuck in combat replans instead of marking unreachable |
+| SC2 comparison test suite | QA | ✅ done | 14 new tests in SC2PathfindingComparisonTests.cs |
+| Full test suite verification | QA | ✅ done | 629/629 tests pass |
 
 ---
 
-## Orchestrator Summary — Sanity Check Pathfinding vs Guide
+## Orchestrator Summary — SC2-Style Pathfinding & Crowd Simulation Fixes
+
+**Scope:** Deep review of entire pathfinding system (NavMesh, A*, Funnel, Boids, AttackPositionFinder, UnitMovement, UnitCombat) compared against StarCraft 2's proven architecture. Identified 7 behavioral differences and fixed them.
+
+**Root cause of "units stuck near buildings":**
+The primary issue was density stop firing during combat approach. When multiple units converged on a building to attack, the density computation detected crowding and stopped approaching units before they reached attack range. SC2 explicitly bypasses density stop for combat approach — it only applies to marching formations.
+
+**Bugs found and fixed (7):**
+
+1. **HIGH: Density stop fires during combat approach** — UnitMovement's density stop had no combat awareness. Now checks `unit.Combat.AttackTarget != null` and bypasses density stop entirely during combat via `MovementLogic.ShouldCheckDensity()`.
+
+2. **HIGH: Stuck handler marks unreachable during combat** — TrackProgress Tier 3 permanently marked combat destinations as unreachable. Now returns `Tier2_Replan` during combat so units keep retrying approach angles instead of giving up.
+
+3. **HIGH: No fallback when all attack slots claimed** — AttackPositionFinder returned `found=false` when all optimal slots were claimed. Now performs SC2-style fallback: finds closest walkable cell within attack range, ignoring slot claims.
+
+4. **HIGH: MoveTowardTarget holds position with no fallback** — When AttackPositionFinder failed, the unit did nothing. Now calculates direct approach toward closest point on target surface within attack range.
+
+5. **MEDIUM: Approach progress threshold too strict for structures** — Required 2.0 units of progress for structures. With boids lateral deflection, units rarely achieved this, triggering premature stall retries. Reduced to 0.5 for structures and 0.3 for units.
+
+6. **MEDIUM: ValidatePosition wall slide uses lagging velocity** — Tie-breaking between X-slide and Z-slide used `smoothedVelocity` instead of actual movement delta. Now uses the real displacement vector.
+
+7. **MEDIUM: TrackProgress combat stuck handler** — UnitMovement Tier 3 stuck handler now detects combat approach and replans instead of marking unreachable. Works in conjunction with UnitCombat's approach stall retry.
+
+**SC2 reference architecture (from web research):**
+- CDT → A* → Funnel for planning (matches our implementation)
+- Boids for local avoidance (matches our implementation)
+- Units treated as discs with finite radius (matches)
+- Density stop only for marching formations, never combat (**was missing, now fixed**)
+- Continuous position evaluation for combat approach (**was missing, now fixed**)
+- Units never permanently give up on attack targets (**was missing, now fixed**)
+
+**Test results:** 629/629 pass (14 new SC2 comparison tests + updated 2 existing tests)
+
+**Files modified (6):**
+- `MovementLogic.cs` — Added `ShouldCheckDensity()`, updated `EvaluateStuckTier()` with `isCombatApproach` param
+- `CombatTargeting.cs` — Reduced `IsApproachProgressing` thresholds (structure: 2.0→0.5, unit: 0.5→0.3)
+- `AttackPositionFinder.cs` — Added SC2-style fallback when all slots claimed
+- `UnitMovement.cs` — Combat-aware density stop, combat-aware stuck handler, ValidatePosition fix
+- `UnitCombat.cs` — Direct approach fallback when no optimal attack position found
+
+**Test files modified/created (3):**
+- `SC2PathfindingComparisonTests.cs` — NEW: 14 SC2 comparison tests
+- `CombatRecoveryTests.cs` — Updated test for new fallback behavior
+- `CombatTargetingTests.cs` — Updated test for new thresholds
+
+**Linter errors:** 0
+**Compilation errors:** 0
+
+---
+
+## Previous Orchestrator Summary — Sanity Check Pathfinding vs Guide
 
 **Scope:** Systematic comparison of all pathfinding code against RTS_Pathfinding_Guide Section 14 checklist, plus play-mode verification via Unity MCP.
 
@@ -460,3 +514,6 @@ F1=Pathfinding, F2=Movement, F3=Boids, F4=NavMesh, F5=Widths, F6=Velocities, F7=
 | Review and update debug visualization logic | 2026-03-12 | ✅ Done |
 | Dead code cleanup | 2026-03-12 | ✅ Done |
 | Play-mode pathfinding debug via MCP | 2026-03-12 | ✅ Done |
+| CDTriangulator adjacency index optimization (freeze fix) | 2026-03-16 | ✅ Done |
+| Separate logic from visual + unit test coverage expansion | 2026-03-16 | ✅ Done |
+| SC2-style pathfinding & crowd simulation comparison + fixes | 2026-03-17 | ✅ Done |

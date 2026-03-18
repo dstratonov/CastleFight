@@ -83,13 +83,11 @@ public class AIPlayer : MonoBehaviour
     private void OnEnable()
     {
         EventBus.Subscribe<BuildingDestroyedEvent>(OnBuildingDestroyed);
-        EventBus.Subscribe<UnitKilledEvent>(OnUnitKilled);
     }
 
     private void OnDisable()
     {
         EventBus.Unsubscribe<BuildingDestroyedEvent>(OnBuildingDestroyed);
-        EventBus.Unsubscribe<UnitKilledEvent>(OnUnitKilled);
     }
 
     private void OnBuildingDestroyed(BuildingDestroyedEvent evt)
@@ -110,22 +108,9 @@ public class AIPlayer : MonoBehaviour
         }
     }
 
-    private void OnUnitKilled(UnitKilledEvent evt)
-    {
-        if (evt.BountyGold <= 0 || evt.Killer == null) return;
-
-        var killerUnit = evt.Killer.GetComponent<Unit>();
-        if (killerUnit != null && killerUnit.TeamId == teamId)
-        {
-            gold += evt.BountyGold;
-            if (GameDebug.AI)
-                Debug.Log($"{Tag} Bounty +{evt.BountyGold} gold from {evt.Unit?.name}, total={gold}");
-        }
-    }
-
     private void DiscoverBuildZone()
     {
-        var zones = FindObjectsByType<BuildZone>(FindObjectsSortMode.None);
+        var zones = GameRegistry.BuildZones;
         foreach (var zone in zones)
         {
             if (zone.TeamId == teamId)
@@ -374,7 +359,11 @@ public class AIPlayer : MonoBehaviour
 
     private bool IsAreaFreeOfUnits(Vector3 position, int radius)
     {
-        if (UnitManager.Instance == null) return true;
+        if (UnitManager.Instance == null)
+        {
+            Debug.LogError("[AIPlayer] IsAreaFreeOfUnits: UnitManager.Instance is null — cannot check");
+            return false;
+        }
         var grid = GridSystem.Instance;
         float checkDist = grid != null ? radius * grid.CellSize + 1f : radius * 2f + 1f;
         var nearby = UnitManager.Instance.GetUnitsInRadius(position, checkDist);
@@ -383,7 +372,11 @@ public class AIPlayer : MonoBehaviour
 
     private bool IsAreaFreeOfBuildings(Vector3 position, int radius)
     {
-        if (BuildingManager.Instance == null) return true;
+        if (BuildingManager.Instance == null)
+        {
+            Debug.LogError("[AIPlayer] IsAreaFreeOfBuildings: BuildingManager.Instance is null — cannot check");
+            return false;
+        }
         var grid = GridSystem.Instance;
         float cellSize = grid != null ? grid.CellSize : 2f;
         float minDist = (radius + 1) * cellSize;
@@ -416,10 +409,10 @@ public class AIPlayer : MonoBehaviour
         }
 
         float c0hp = -1, c0max = -1, c1hp = -1, c1max = -1;
-        var castles = FindObjectsByType<Castle>(FindObjectsSortMode.None);
+        var castles = GameRegistry.Castles;
         foreach (var c in castles)
         {
-            if (c.Health == null) continue;
+            if (c == null || c.Health == null) continue;
             if (c.TeamId == 0) { c0hp = c.Health.CurrentHealth; c0max = c.Health.MaxHealth; }
             else if (c.TeamId == 1) { c1hp = c.Health.CurrentHealth; c1max = c.Health.MaxHealth; }
         }

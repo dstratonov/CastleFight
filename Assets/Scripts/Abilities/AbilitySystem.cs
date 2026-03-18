@@ -23,6 +23,10 @@ public class AbilitySystem : NetworkBehaviour
             if (data == null) continue;
             abilities.Add(new AbilityInstance(data));
         }
+
+        if (GameDebug.Combat)
+            Debug.Log($"[Ability] {gameObject.name} initialized {abilities.Count} abilities" +
+                (abilities.Count > 0 ? $": {string.Join(", ", System.Array.ConvertAll(abilityDatas, a => a?.abilityId ?? "null"))}" : ""));
     }
 
     private void Update()
@@ -32,9 +36,8 @@ public class AbilitySystem : NetworkBehaviour
         foreach (var ability in abilities)
         {
             ability.UpdateCooldown(Time.deltaTime);
-
-            if (ability.Data.abilityType == AbilityType.Aura)
-                ProcessAura(ability);
+            // Aura processing is handled by AuraAbility.Update() — not here,
+            // to avoid double application.
         }
     }
 
@@ -45,6 +48,10 @@ public class AbilitySystem : NetworkBehaviour
 
         var ability = abilities[index];
         if (!ability.IsReady) return false;
+
+        if (GameDebug.Combat)
+            Debug.Log($"[Ability] {gameObject.name} activating [{index}] {ability.Data.abilityId} " +
+                $"at pos={targetPosition:F1} target={targetObject?.name ?? "none"}");
 
         ExecuteAbility(ability, targetPosition, targetObject);
         ability.StartCooldown();
@@ -100,7 +107,12 @@ public class AbilitySystem : NetworkBehaviour
         {
             var buffSystem = target.GetComponent<BuffSystem>();
             if (buffSystem != null)
+            {
                 buffSystem.ApplyBuff(new Buff(data.abilityId, data.duration, data.value, data.abilityType == AbilityType.Aura));
+                if (GameDebug.Combat)
+                    Debug.Log($"[Ability] {gameObject.name} applied {data.abilityId} to {target.name} " +
+                        $"(value={data.value:F1} dur={data.duration:F1}s)");
+            }
         }
     }
 
@@ -110,6 +122,7 @@ public class AbilitySystem : NetworkBehaviour
         int myTeam = unit != null ? unit.TeamId : 0;
         var colliders = Physics.OverlapSphere(center, data.radius);
 
+        int hitCount = 0;
         foreach (var col in colliders)
         {
             var targetHealth = col.GetComponent<Health>();
@@ -117,21 +130,15 @@ public class AbilitySystem : NetworkBehaviour
 
             bool isEnemy = targetHealth.TeamId != myTeam;
             if (targetEnemies == isEnemy)
+            {
                 ApplyEffect(data, col.gameObject);
+                hitCount++;
+            }
         }
-    }
 
-    [Server]
-    private void ProcessAura(AbilityInstance ability)
-    {
-        if (!ability.IsReady) return;
-
-        var data = ability.Data;
-        int myTeam = unit != null ? unit.TeamId : 0;
-
-        bool targetEnemies = data.targetType == AbilityTargetType.AreaEnemy;
-        ApplyAreaEffect(data, transform.position, targetEnemies);
-        ability.StartCooldown();
+        if (GameDebug.Combat)
+            Debug.Log($"[Ability] {gameObject.name} area {data.abilityId} at {center:F1} " +
+                $"r={data.radius:F1} {(targetEnemies ? "enemies" : "allies")} hit={hitCount}");
     }
 
     [ClientRpc]

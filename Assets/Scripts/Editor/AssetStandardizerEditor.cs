@@ -224,6 +224,7 @@ public static class AssetStandardizerEditor
         var existing = AssetDatabase.LoadAssetAtPath<AnimatorController>(BaseControllerPath);
         if (existing != null)
         {
+            EnsureSpeedParameter(existing);
             Debug.Log("[Standardizer] Base controller already exists, reusing");
             return existing;
         }
@@ -231,16 +232,53 @@ public static class AssetStandardizerEditor
         var controller = AnimatorController.CreateAnimatorControllerAtPath(BaseControllerPath);
         var rootSM = controller.layers[0].stateMachine;
 
+        controller.AddParameter("SpeedMultiplier", AnimatorControllerParameterType.Float);
+        var param = controller.parameters[controller.parameters.Length - 1];
+        param.defaultFloat = 1f;
+
         for (int i = 0; i < StateNames.Length; i++)
         {
             var state = rootSM.AddState(StateNames[i]);
             state.motion = placeholders[i];
+            state.speedParameter = "SpeedMultiplier";
+            state.speedParameterActive = true;
         }
 
         rootSM.defaultState = rootSM.states[0].state;
         EditorUtility.SetDirty(controller);
-        Debug.Log("[Standardizer] Created Base_Unit.controller with 5 states");
+        Debug.Log("[Standardizer] Created Base_Unit.controller with 5 states + SpeedMultiplier parameter");
         return controller;
+    }
+
+    /// <summary>
+    /// Ensures existing base controller has SpeedMultiplier parameter and states use it.
+    /// Upgrades older controllers created without per-state speed control.
+    /// </summary>
+    static void EnsureSpeedParameter(AnimatorController controller)
+    {
+        bool hasParam = false;
+        foreach (var p in controller.parameters)
+        {
+            if (p.name == "SpeedMultiplier") { hasParam = true; break; }
+        }
+
+        if (!hasParam)
+        {
+            controller.AddParameter("SpeedMultiplier", AnimatorControllerParameterType.Float);
+            Debug.Log("[Standardizer] Added SpeedMultiplier parameter to existing controller");
+        }
+
+        var rootSM = controller.layers[0].stateMachine;
+        foreach (var childState in rootSM.states)
+        {
+            var state = childState.state;
+            if (!state.speedParameterActive)
+            {
+                state.speedParameter = "SpeedMultiplier";
+                state.speedParameterActive = true;
+            }
+        }
+        EditorUtility.SetDirty(controller);
     }
 
     // ========================================================================

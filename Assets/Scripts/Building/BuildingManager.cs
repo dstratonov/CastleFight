@@ -46,7 +46,16 @@ public class BuildingManager : NetworkBehaviour
     [Server]
     public GameObject PlaceBuilding(BuildingData data, Vector3 position, Quaternion rotation, int teamId, int playerId)
     {
-        if (data == null || data.prefab == null) return null;
+        if (data == null)
+        {
+            Debug.LogError("[BuildingManager] PlaceBuilding: data is null");
+            return null;
+        }
+        if (data.prefab == null)
+        {
+            Debug.LogError($"[BuildingManager] PlaceBuilding: {data.buildingName} has null prefab");
+            return null;
+        }
 
         var grid = GridSystem.Instance;
         if (grid != null)
@@ -132,6 +141,6 @@ public class BuildingManager : NetworkBehaviour
 
     public static Bounds ComputeBuildingBounds(GameObject buildingObj)
     {
-        return BoundsHelper.GetCombinedBounds(buildingObj);
+        return BoundsHelper.GetPhysicalBounds(buildingObj);
     }
 }

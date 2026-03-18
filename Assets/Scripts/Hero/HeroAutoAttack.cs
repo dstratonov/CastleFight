@@ -1,6 +1,5 @@
 using UnityEngine;
 using Mirror;
-using System.Collections.Generic;
 
 public class HeroAutoAttack : NetworkBehaviour
 {
@@ -66,21 +65,26 @@ public class HeroAutoAttack : NetworkBehaviour
     {
         Vector3 spawnPos = firePoint != null ? firePoint.position : transform.position + Vector3.up;
 
-        RpcSpawnProjectile(spawnPos, target.gameObject);
-
         var targetArmor = target.GetComponent<Unit>()?.Data?.armorType ?? ArmorType.Unarmored;
         float finalDamage = DamageSystem.CalculateDamage(attackDamage, attackType, targetArmor);
-        target.TakeDamage(finalDamage, gameObject);
+
+        // Server: spawn damage-dealing projectile — damage applies on impact, not instantly
+        Projectile.Spawn(spawnPos, target.transform, projectileSpeed,
+            finalDamage, gameObject, true, attackType);
+
+        // Client: spawn visual-only projectile
+        var targetNetId = target.GetComponent<NetworkIdentity>();
+        if (targetNetId != null)
+            RpcSpawnProjectile(targetNetId, spawnPos, (int)attackType);
     }
 
     [ClientRpc]
-    private void RpcSpawnProjectile(Vector3 spawnPos, GameObject target)
+    private void RpcSpawnProjectile(NetworkIdentity targetId, Vector3 spawnPos, int atkType)
     {
-        if (projectilePrefab == null || target == null) return;
-        var proj = Instantiate(projectilePrefab, spawnPos, Quaternion.identity);
-        var projScript = proj.GetComponent<Projectile>();
-        if (projScript != null)
-            projScript.Initialize(target.transform, projectileSpeed);
+        if (isServer) return;
+        if (targetId == null) return;
+        Projectile.Spawn(spawnPos, targetId.transform, projectileSpeed,
+            0f, null, false, (AttackType)atkType);
     }
 
     private void OnDrawGizmosSelected()

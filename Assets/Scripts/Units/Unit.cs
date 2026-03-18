@@ -17,7 +17,14 @@ public class Unit : NetworkBehaviour, ISelectable, IPathfindingAgent
 
     public UnitData Data => data;
     public int TeamId => teamId;
-    public bool IsDead => health != null && health.IsDead;
+    public bool IsDead
+    {
+        get
+        {
+            Debug.Assert(health != null, $"[Unit] {gameObject.name} IsDead: health is null", this);
+            return health != null && health.IsDead;
+        }
+    }
     public UnitMovement Movement => movement;
     public UnitStateMachine StateMachine => stateMachine;
     public UnitCombat Combat => combat;
@@ -25,13 +32,27 @@ public class Unit : NetworkBehaviour, ISelectable, IPathfindingAgent
     Health ISelectable.Health => health;
 
     Vector3 IPathfindingAgent.Position => transform.position;
-    Vector3 IPathfindingAgent.PreviousPosition => movement != null ? movement.PreviousPosition : transform.position;
-    UnitState IPathfindingAgent.CurrentState => stateMachine != null ? stateMachine.CurrentState : UnitState.Idle;
+    Vector3 IPathfindingAgent.PreviousPosition
+    {
+        get
+        {
+            Debug.Assert(movement != null, $"[Unit] {gameObject.name} PreviousPosition: movement is null", this);
+            return movement != null ? movement.PreviousPosition : transform.position;
+        }
+    }
+    UnitState IPathfindingAgent.CurrentState
+    {
+        get
+        {
+            Debug.Assert(stateMachine != null, $"[Unit] {gameObject.name} CurrentState: stateMachine is null", this);
+            return stateMachine != null ? stateMachine.CurrentState : UnitState.Idle;
+        }
+    }
     int IPathfindingAgent.InstanceId => GetInstanceID();
     string IPathfindingAgent.Name => gameObject.name;
 
     private const float MaxAutoRadius = 2f;
-    private const float MaxEffectiveRadius = 3f;
+    private const float MaxEffectiveRadius = 1.5f;
 
     public float EffectiveRadius
     {
@@ -68,17 +89,23 @@ public class Unit : NetworkBehaviour, ISelectable, IPathfindingAgent
         movement = GetComponent<UnitMovement>();
         stateMachine = GetComponent<UnitStateMachine>();
         combat = GetComponent<UnitCombat>();
+
+        Debug.Assert(health != null, $"[Unit] {gameObject.name} missing Health component", this);
+        Debug.Assert(movement != null, $"[Unit] {gameObject.name} missing UnitMovement component", this);
+        Debug.Assert(stateMachine != null, $"[Unit] {gameObject.name} missing UnitStateMachine component", this);
+        Debug.Assert(combat != null, $"[Unit] {gameObject.name} missing UnitCombat component", this);
     }
 
     [Server]
     public void Initialize(UnitData unitData, int team)
     {
+        Debug.Assert(unitData != null, $"[Unit] {gameObject.name} Initialize called with null unitData", this);
         data = unitData;
         teamId = team;
         unitDataId = unitData.unitName;
 
-        if (health != null)
-            health.Initialize(unitData.maxHealth, team);
+        Debug.Assert(health != null, $"[Unit] {gameObject.name} Initialize: health is null", this);
+        health.Initialize(unitData.maxHealth, team);
 
         if (GameDebug.UnitLifecycle)
             Debug.Log($"[Unit] INIT {gameObject.name} data={unitData.unitName} team={team} hp={unitData.maxHealth} " +
@@ -127,32 +154,34 @@ public class Unit : NetworkBehaviour, ISelectable, IPathfindingAgent
 
     private void OnEnable()
     {
-        if (health != null)
-            health.OnDeath += HandleDeath;
+        Debug.Assert(health != null, $"[Unit] {gameObject.name} OnEnable: health is null", this);
+        health.OnDeath += HandleDeath;
     }
 
     private void OnDisable()
     {
-        if (health != null)
-            health.OnDeath -= HandleDeath;
+        Debug.Assert(health != null, $"[Unit] {gameObject.name} OnDisable: health is null", this);
+        health.OnDeath -= HandleDeath;
     }
 
     private void HandleDeath(GameObject killer)
     {
-        int bounty = data != null ? data.goldBounty : 0;
+        // HandleDeath is driven by Health.OnDeath which only fires on server,
+        // but guard defensively in case the call chain changes.
+        if (!isServer) return;
+
+        Debug.Assert(data != null, $"[Unit] {gameObject.name} HandleDeath: data is null", this);
+        int bounty = data.goldBounty;
         if (GameDebug.UnitLifecycle)
-            Debug.Log($"[Unit] DEATH {gameObject.name} team={teamId} killer={killer?.name ?? "null"} bounty={bounty} isServer={isServer}");
+            Debug.Log($"[Unit] DEATH {gameObject.name} team={teamId} killer={killer?.name ?? "null"} bounty={bounty}");
         EventBus.Raise(new UnitKilledEvent(gameObject, killer, bounty));
 
-        if (isServer)
-        {
-            float delay = 2f;
-            if (stateMachine != null && stateMachine.Animator != null)
-                delay = stateMachine.Animator.GetDeathDuration(2f) + 0.2f;
-            if (GameDebug.UnitLifecycle)
-                Debug.Log($"[Unit] {gameObject.name} will be destroyed in {delay:F1}s");
-            Invoke(nameof(ServerDestroy), delay);
-        }
+        float delay = 2f;
+        if (stateMachine != null && stateMachine.Animator != null)
+            delay = stateMachine.Animator.GetDeathDuration(2f) + 0.2f;
+        if (GameDebug.UnitLifecycle)
+            Debug.Log($"[Unit] {gameObject.name} will be destroyed in {delay:F1}s");
+        Invoke(nameof(ServerDestroy), delay);
     }
 
     [Server]

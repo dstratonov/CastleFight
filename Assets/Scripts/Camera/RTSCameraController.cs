@@ -256,15 +256,9 @@ public class RTSCameraController : MonoBehaviour
         var local = NetworkPlayer.Local;
         if (local == null) return;
 
-        var castles = Object.FindObjectsByType<Castle>(FindObjectsSortMode.None);
-        foreach (var c in castles)
-        {
-            if (c.TeamId == local.TeamId)
-            {
-                FocusOn(c.transform.position);
-                return;
-            }
-        }
+        var castle = GameRegistry.GetCastle(local.TeamId);
+        if (castle != null)
+            FocusOn(castle.transform.position);
     }
 
     private void UpdateFocus(Keyboard keyboard, Mouse mouse)

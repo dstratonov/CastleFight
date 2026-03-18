@@ -17,6 +17,14 @@ public class ProjectileAbility : Ability
 
         if (proj != null && targetObject != null)
             proj.Initialize(targetObject.transform, projectileSpeed);
+
+        if (GameDebug.Combat)
+            Debug.Log($"[ProjectileAbility] {caster.name} fired {data.abilityId} at {targetObject?.name ?? "pos"} speed={projectileSpeed}");
+
+        // NetworkServer.Spawn makes the projectile visible on all clients.
+        // The prefab must have a NetworkIdentity component for this to work.
+        if (NetworkServer.active)
+            NetworkServer.Spawn(projObj);
     }
 
     public override void Deactivate() { }

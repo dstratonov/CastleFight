@@ -7,6 +7,10 @@ public class Castle : NetworkBehaviour, ISelectable
 {
     [SerializeField] private int initialTeamId = -1;
 
+    [Tooltip("XZ size of the castle's physical ground footprint in world units. " +
+             "Leave at zero to auto-detect from renderers.")]
+    [SerializeField] private Vector2 footprintSize;
+
     [SyncVar] private int teamId = -1;
 
     private Health health;
@@ -19,6 +23,7 @@ public class Castle : NetworkBehaviour, ISelectable
     private void Awake()
     {
         health = GetComponent<Health>();
+        Building.FitFootprintCollider(gameObject, footprintSize);
     }
 
     public override void OnStartServer()
@@ -36,8 +41,9 @@ public class Castle : NetworkBehaviour, ISelectable
 
     private int FallbackDetectTeam()
     {
-        Debug.LogWarning($"[Castle] {gameObject.name} has no initialTeamId set, falling back to name detection");
-        return gameObject.name.Contains("Team0") || gameObject.name.Contains("team0") ? 0 : 1;
+        Debug.LogWarning($"[Castle] {gameObject.name} has no initialTeamId set — defaulting to team 0. " +
+            "Set the Initial Team Id field in the Inspector.");
+        return 0;
     }
 
     [Server]
@@ -57,7 +63,8 @@ public class Castle : NetworkBehaviour, ISelectable
         Bounds bounds = BuildingManager.ComputeBuildingBounds(gameObject);
         occupiedCells = grid.GetCellsOverlappingBounds(bounds);
         grid.MarkCells(occupiedCells, CellState.Building);
-        Debug.Log($"[Castle] {gameObject.name} registered {occupiedCells.Count} grid cells");
+        Debug.Log($"[Castle] {gameObject.name} registered {occupiedCells.Count} grid cells " +
+            $"footprint=({bounds.size.x:F1}, {bounds.size.z:F1})");
     }
 
     public override void OnStartClient()
@@ -68,32 +75,38 @@ public class Castle : NetworkBehaviour, ISelectable
 
     private void OnEnable()
     {
+        GameRegistry.RegisterCastle(this);
         if (health != null)
             health.OnDeath += HandleCastleDestroyed;
     }
 
     private void OnDisable()
     {
+        GameRegistry.UnregisterCastle(this);
         if (health != null)
             health.OnDeath -= HandleCastleDestroyed;
     }
 
     private void HandleCastleDestroyed(GameObject killer)
     {
+        // HandleCastleDestroyed is driven by Health.OnDeath which only fires on server,
+        // but guard defensively in case the call chain changes.
+        if (!isServer) return;
+
         Debug.Log($"[Castle] {gameObject.name} DESTROYED by {(killer != null ? killer.name : "unknown")}!");
         EventBus.Raise(new CastleDestroyedEvent(teamId));
 
-        if (isServer)
-        {
-            var grid = GridSystem.Instance;
-            if (grid != null && occupiedCells.Count > 0)
-                grid.ClearCells(occupiedCells);
+        var grid = GridSystem.Instance;
+        if (grid != null && occupiedCells.Count > 0)
+            grid.ClearCells(occupiedCells);
 
-            int winningTeam = TeamManager.Instance != null
-                ? TeamManager.Instance.GetEnemyTeamId(teamId)
-                : (teamId == 0 ? 1 : 0);
-            Debug.Log($"[Castle] GAME OVER! Team {winningTeam} wins!");
-            GameManager.Instance?.EndMatch(winningTeam);
-        }
+        int winningTeam = TeamManager.Instance != null
+            ? TeamManager.Instance.GetEnemyTeamId(teamId)
+            : (teamId == 0 ? 1 : 0);
+        Debug.Log($"[Castle] GAME OVER! Team {winningTeam} wins!");
+        if (GameManager.Instance != null)
+            GameManager.Instance.EndMatch(winningTeam);
+        else
+            Debug.LogError("[Castle] GameManager.Instance is NULL — cannot end match! Game will continue in broken state.");
     }
 }

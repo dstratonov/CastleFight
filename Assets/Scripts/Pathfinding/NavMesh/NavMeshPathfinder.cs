@@ -14,6 +14,9 @@ public static class NavMeshPathfinder
     public static int StatPathsRequested;
     public static int StatPathsSucceeded;
     public static int StatPathsFailed;
+    public static int StatFailedOutsideMesh;
+    public static int StatFailedAStarNoPath;
+    public static int StatFailedBuildingCross;
     public static int StatTotalAStarNodes;
     public static int StatTotalWidthRejections;
     public static int StatTotalChannelLength;
@@ -21,12 +24,16 @@ public static class NavMeshPathfinder
     public static int StatMaxChannelLength;
     public static float StatWorstPathRatio;
     public static int StatThrottled;
+    public static int StatPortalExpansions;
 
     public static void ResetStats()
     {
         StatPathsRequested = 0;
         StatPathsSucceeded = 0;
         StatPathsFailed = 0;
+        StatFailedOutsideMesh = 0;
+        StatFailedAStarNoPath = 0;
+        StatFailedBuildingCross = 0;
         StatTotalAStarNodes = 0;
         StatTotalWidthRejections = 0;
         StatTotalChannelLength = 0;
@@ -35,9 +42,6 @@ public static class NavMeshPathfinder
         StatWorstPathRatio = 0f;
         StatThrottled = 0;
         StatPortalExpansions = 0;
-        StatDensityAffectedTris = 0;
-        StatDensityMaxCost = 0f;
-        StatDensityUnitsOutsideMesh = 0;
     }
 
     /// <summary>
@@ -56,10 +60,10 @@ public static class NavMeshPathfinder
         if (startTri < 0 || goalTri < 0)
         {
             StatPathsFailed++;
-            if (GameDebug.Pathfinding)
-                Debug.LogWarning($"[NavPathfinder] Position outside NavMesh: start tri={startTri} goal tri={goalTri} " +
-                    $"at ({startPos.x:F1},{startPos.y:F1})->({goalPos.x:F1},{goalPos.y:F1}) " +
-                    $"mesh has {mesh.TriangleCount} triangles, {mesh.VertexCount} vertices");
+            StatFailedOutsideMesh++;
+            Debug.LogWarning($"[NavPathfinder] FAIL: position outside NavMesh — startTri={startTri} goalTri={goalTri} " +
+                $"at ({startPos.x:F1},{startPos.y:F1})->({goalPos.x:F1},{goalPos.y:F1}) " +
+                $"mesh has {mesh.TriangleCount} tris, {mesh.VertexCount} verts");
             return null;
         }
 
@@ -75,14 +79,13 @@ public static class NavMeshPathfinder
         if (channel == null || channel.Count == 0)
         {
             StatPathsFailed++;
-            if (GameDebug.Pathfinding)
-            {
-                ref var sTri = ref mesh.Triangles[startTri];
-                ref var gTri = ref mesh.Triangles[goalTri];
-                Debug.LogWarning($"[NavPathfinder] A* FAILED: startTri={startTri}(walkable={sTri.IsWalkable}, " +
-                    $"N={sTri.N0},{sTri.N1},{sTri.N2}) goalTri={goalTri}(walkable={gTri.IsWalkable}, " +
-                    $"N={gTri.N0},{gTri.N1},{gTri.N2}) radius={unitRadius:F2}");
-            }
+            StatFailedAStarNoPath++;
+            ref var sTri = ref mesh.Triangles[startTri];
+            ref var gTri = ref mesh.Triangles[goalTri];
+            Debug.LogWarning($"[NavPathfinder] FAIL: A* found no path — startTri={startTri}(walkable={sTri.IsWalkable}, " +
+                $"N={sTri.N0},{sTri.N1},{sTri.N2}) goalTri={goalTri}(walkable={gTri.IsWalkable}, " +
+                $"N={gTri.N0},{gTri.N1},{gTri.N2}) radius={unitRadius:F2} " +
+                $"({startPos.x:F1},{startPos.y:F1})->({goalPos.x:F1},{goalPos.y:F1})");
             return null;
         }
 
@@ -197,7 +200,6 @@ public static class NavMeshPathfinder
 
                 Vector2 neighborCentroid = mesh.GetCentroid(neighbor);
                 float edgeCost = Vector2.Distance(currentCentroid, neighborCentroid);
-                edgeCost *= mesh.Triangles[neighbor].CostMultiplier;
 
                 float tentativeG = currentG + edgeCost;
 
@@ -213,6 +215,10 @@ public static class NavMeshPathfinder
 
         StatTotalAStarNodes += iter;
         StatTotalWidthRejections += widthRejections;
+        bool exhausted = iter >= maxIter;
+        Debug.LogWarning($"[NavPathfinder] A* failed: {(exhausted ? "EXHAUSTED iterations" : "no path")} " +
+            $"startTri={startTri} goalTri={goalTri} iter={iter}/{maxIter} " +
+            $"widthReject={widthRejections} radius={unitRadius:F2}");
         return null;
     }
 
@@ -260,8 +266,6 @@ public static class NavMeshPathfinder
     /// along the bisector of its neighboring edges. This guarantees the funnel
     /// produces waypoints inside the corridor without post-hoc validation.
     /// </summary>
-    public static int StatPortalExpansions;
-
     public static List<(Vector2 left, Vector2 right)> ExpandPortals(
         List<(Vector2 left, Vector2 right)> portals, float unitRadius)
     {
@@ -282,11 +286,15 @@ public static class NavMeshPathfinder
 
             Vector2 origDir = right - left;
             Vector2 expandedDir = expandedRight - expandedLeft;
-            if (origDir.sqrMagnitude > 1e-6f && Vector2.Dot(origDir, expandedDir) <= 0f)
+            if (origDir.sqrMagnitude > GeometryConstants.ZeroDistSqr && Vector2.Dot(origDir, expandedDir) <= 0f)
             {
+                // Corridor too narrow for unit radius — expanded left/right crossed over.
+                // Collapse to midpoint instead of skipping: the funnel requires a
+                // continuous portal chain, and gaps cause paths to clip through walls.
                 Vector2 mid = (left + right) * 0.5f;
-                expandedLeft = mid;
-                expandedRight = mid;
+                result.Add((mid, mid));
+                StatPortalExpansions++;
+                continue;
             }
 
             result.Add((expandedLeft, expandedRight));
@@ -385,14 +393,15 @@ public static class NavMeshPathfinder
         Vector2 funLeft = portals[1].left;
         Vector2 funRight = portals[1].right;
         int apexIndex = 0, leftIndex = 1, rightIndex = 1;
-        int maxFunnelIter = portals.Count * 4;
+        int maxFunnelIter = portals.Count * 3;
         int funnelIter = 0;
 
         for (int i = 2; i < portals.Count; i++)
         {
             if (++funnelIter > maxFunnelIter)
             {
-                Debug.LogWarning($"[NavPathfinder] Funnel safety limit hit ({maxFunnelIter} iters) — aborting with {path.Count} waypoints");
+                if (GameDebug.Pathfinding)
+                    Debug.Log($"[NavPathfinder] Funnel safety limit hit ({maxFunnelIter} iters) — returning {path.Count} waypoints");
                 break;
             }
 
@@ -474,7 +483,10 @@ public static class NavMeshPathfinder
         }
 
         if (shared0 < 0 || shared1 < 0)
+        {
+            Debug.LogError($"[NavPathfinder] GetPortalEdge: no shared edge between tri {tri0} and tri {tri1} — BuildAdjacency bug");
             return (mesh.GetCentroid(tri0), mesh.GetCentroid(tri1));
+        }
 
         Vector2 a = mesh.Vertices[shared0];
         Vector2 b = mesh.Vertices[shared1];
@@ -496,54 +508,7 @@ public static class NavMeshPathfinder
 
     private static bool ApproxEqual(Vector2 a, Vector2 b)
     {
-        return (a - b).sqrMagnitude < 0.0001f;
+        return GeometryConstants.ApproxEqual(a, b);
     }
 
-    // ================================================================
-    //  SOFT COST INFLATION (anti-ghosting: penalize triangles with units)
-    // ================================================================
-
-    /// <summary>
-    /// Apply soft cost penalty to triangles containing idle/stationary units.
-    /// A* routes around dense clusters when an alternative exists.
-    /// </summary>
-    public static int StatDensityAffectedTris;
-    public static float StatDensityMaxCost;
-    public static int StatDensityUnitsOutsideMesh;
-
-    public static void ApplyUnitDensityCosts(NavMeshData mesh, IReadOnlyList<IPathfindingAgent> allAgents, float idlePenalty = 30f, float movingPenalty = 5f, float maxPenalty = 100f)
-    {
-        for (int i = 0; i < mesh.TriangleCount; i++)
-            mesh.Triangles[i].CostMultiplier = 1f;
-
-        if (allAgents == null) return;
-
-        int affected = 0;
-        float maxCost = 1f;
-        int outsideMesh = 0;
-
-        foreach (var agent in allAgents)
-        {
-            if (agent == null || agent.IsDead) continue;
-
-            Vector3 agentPos = agent.Position;
-            Vector2 pos = new Vector2(agentPos.x, agentPos.z);
-            int tri = mesh.FindTriangleAtPosition(pos);
-            if (tri < 0) { outsideMesh++; continue; }
-
-            bool isIdle = agent.CurrentState == UnitState.Idle || agent.CurrentState == UnitState.Fighting;
-            float penalty = isIdle ? idlePenalty : movingPenalty;
-
-            float prevCost = mesh.Triangles[tri].CostMultiplier;
-            float newCost = Mathf.Min(prevCost + penalty, maxPenalty);
-            mesh.Triangles[tri].CostMultiplier = newCost;
-
-            if (Mathf.Approximately(prevCost, 1f)) affected++;
-            if (newCost > maxCost) maxCost = newCost;
-        }
-
-        StatDensityAffectedTris = affected;
-        StatDensityMaxCost = maxCost;
-        StatDensityUnitsOutsideMesh = outsideMesh;
-    }
 }

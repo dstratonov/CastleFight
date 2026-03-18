@@ -27,15 +27,6 @@ public class UnitStateMachine : NetworkBehaviour
         unit = GetComponent<Unit>();
         movement = GetComponent<UnitMovement>();
         health = GetComponent<Health>();
-
-        DisableRootMotionEarly();
-    }
-
-    private void DisableRootMotionEarly()
-    {
-        var animator = GetComponentInChildren<Animator>();
-        if (animator != null)
-            animator.applyRootMotion = false;
     }
 
     public override void OnStartClient()
@@ -93,34 +84,21 @@ public class UnitStateMachine : NetworkBehaviour
 
     private void Update()
     {
-        if (!isServer) return;
+        if (!isServer || !NetworkServer.active) return;
         if (currentState == UnitState.Dying) return;
         UpdateState();
     }
 
-    [Server]
     private void UpdateState()
     {
-        if (unit.IsDead)
-        {
-            SetState(UnitState.Dying);
-            return;
-        }
-
-        if (currentState == UnitState.Fighting)
-            return;
-
-        if (movement != null && (movement.IsMoving || movement.IsWaitingForPath))
-        {
-            SetState(UnitState.Moving);
-        }
-        else
-        {
-            SetState(UnitState.Idle);
-        }
+        bool isMoving = movement != null && movement.IsMoving;
+        bool isWaiting = movement != null && movement.IsWaitingForPath;
+        var next = UnitStateLogic.ComputeNextState(currentState, unit.IsDead, isMoving, isWaiting);
+        if (UnitStateLogic.ShouldTransition(currentState, next))
+            SetState(next);
     }
 
-    [Server]
+    /// <summary>Transitions the state machine and applies the matching animation.</summary>
     public void SetState(UnitState newState)
     {
         if (currentState == newState) return;
@@ -142,20 +120,20 @@ public class UnitStateMachine : NetworkBehaviour
     {
         if (unitAnimator == null || !unitAnimator.HasAnimator) return;
 
-        switch (state)
+        if (UnitStateLogic.ShouldCancelOneShot(state))
+            unitAnimator.CancelOneShot();
+
+        var action = UnitStateLogic.GetAnimationForState(state);
+        switch (action)
         {
-            case UnitState.Idle:
-                unitAnimator.CancelOneShot();
+            case AnimAction.Idle:
+            case AnimAction.IdleReady:
                 unitAnimator.PlayIdle();
                 break;
-            case UnitState.Fighting:
-                unitAnimator.PlayIdle();
-                break;
-            case UnitState.Moving:
-                unitAnimator.CancelOneShot();
+            case AnimAction.Walk:
                 unitAnimator.PlayWalk();
                 break;
-            case UnitState.Dying:
+            case AnimAction.Death:
                 unitAnimator.PlayDeath();
                 break;
         }
@@ -174,14 +152,14 @@ public class UnitStateMachine : NetworkBehaviour
     }
 
     /// <summary>Triggers the attack one-shot animation on server and syncs to clients.</summary>
-    [Server]
     public void TriggerAttackAnimation(float attackCooldown)
     {
         if (unitAnimator == null || currentState == UnitState.Dying) return;
         if (GameDebug.Animation)
             Debug.Log($"[State:{gameObject.name}] TriggerAttack cooldown={attackCooldown:F2}s state={currentState} oneShot={unitAnimator.IsPlayingOneShot}");
         unitAnimator.PlayAttack(attackCooldown);
-        RpcPlayAttack(attackCooldown);
+        if (NetworkServer.active)
+            RpcPlayAttack(attackCooldown);
     }
 
     [ClientRpc]

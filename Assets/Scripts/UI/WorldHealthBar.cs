@@ -37,6 +37,15 @@ public class WorldHealthBar : MonoBehaviour
         CreateBar(isAlly);
     }
 
+    private void OnDisable()
+    {
+        if (barRoot != null)
+        {
+            Destroy(barRoot.gameObject);
+            barRoot = null;
+        }
+    }
+
     private void OnDestroy()
     {
         if (barRoot != null)
@@ -67,7 +76,6 @@ public class WorldHealthBar : MonoBehaviour
         EnsureSharedResources();
 
         barRoot = new GameObject("WorldHP").transform;
-        barRoot.localPosition = Vector3.zero;
 
         float innerW = barWidth - BORDER * 2f;
         float innerH = BAR_HEIGHT - BORDER * 2f;
@@ -167,10 +175,9 @@ public class WorldHealthBar : MonoBehaviour
     private void UpdateFillColor(float pct)
     {
         if (fillRenderer == null)
-        {
             fillRenderer = fillTransform.GetComponent<MeshRenderer>();
+        if (fillPropBlock == null)
             fillPropBlock = new MaterialPropertyBlock();
-        }
         if (fillRenderer == null) return;
 
         Color c = GetWorldHealthColor(pct);

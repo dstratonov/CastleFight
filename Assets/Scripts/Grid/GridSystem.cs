@@ -49,12 +49,16 @@ public class GridSystem : MonoBehaviour, IGrid
         Instance = null;
     }
 
+    private GridLogic logic;
+    public GridLogic Logic => logic;
+
     private void InitializeGrid()
     {
         cells = new CellState[gridWidth, gridHeight];
         for (int x = 0; x < gridWidth; x++)
             for (int y = 0; y < gridHeight; y++)
                 cells[x, y] = CellState.Empty;
+        logic = new GridLogic(gridWidth, gridHeight, cellSize, gridOrigin);
     }
 
     public void BuildClearanceMap()
@@ -130,19 +134,7 @@ public class GridSystem : MonoBehaviour, IGrid
 
     public List<Vector2Int> GetCellsOverlappingBounds(Bounds worldBounds)
     {
-        Vector2Int minCell = WorldToCell(worldBounds.min);
-        Vector2Int maxCell = WorldToCell(worldBounds.max);
-
-        int x0 = Mathf.Max(0, minCell.x);
-        int x1 = Mathf.Min(gridWidth - 1, maxCell.x);
-        int z0 = Mathf.Max(0, minCell.y);
-        int z1 = Mathf.Min(gridHeight - 1, maxCell.y);
-
-        var result = new List<Vector2Int>((x1 - x0 + 1) * (z1 - z0 + 1));
-        for (int x = x0; x <= x1; x++)
-            for (int z = z0; z <= z1; z++)
-                result.Add(new Vector2Int(x, z));
-        return result;
+        return logic.GetCellsOverlappingBounds(worldBounds);
     }
 
     public bool AreCellsEmpty(List<Vector2Int> cellList)

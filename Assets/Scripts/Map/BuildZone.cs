@@ -15,6 +15,16 @@ public class BuildZone : MonoBehaviour
         zone.isTrigger = true;
     }
 
+    private void OnEnable()
+    {
+        GameRegistry.RegisterBuildZone(this);
+    }
+
+    private void OnDisable()
+    {
+        GameRegistry.UnregisterBuildZone(this);
+    }
+
     public bool ContainsPoint(Vector3 worldPoint)
     {
         return zone.bounds.Contains(worldPoint);

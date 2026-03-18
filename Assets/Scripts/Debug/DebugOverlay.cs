@@ -400,24 +400,7 @@ public class DebugOverlay : MonoBehaviour
 
         float y = GridSystem.Instance != null ? GridSystem.Instance.GridOrigin.y + Y_OFFSET + 0.05f : Y_OFFSET;
 
-        // Compute visible bounds for culling
-        float viewMinX, viewMaxX, viewMinZ, viewMaxZ;
-        if (cam != null)
-        {
-            float camH = cam.transform.position.y;
-            float halfH = camH * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad);
-            float halfW = halfH * cam.aspect;
-            float pad = 15f;
-            viewMinX = cam.transform.position.x - halfW - pad;
-            viewMaxX = cam.transform.position.x + halfW + pad;
-            viewMinZ = cam.transform.position.z - halfH - pad;
-            viewMaxZ = cam.transform.position.z + halfH + pad;
-        }
-        else
-        {
-            viewMinX = viewMinZ = float.MinValue;
-            viewMaxX = viewMaxZ = float.MaxValue;
-        }
+        GetVisibleGroundBounds(out float viewMinX, out float viewMaxX, out float viewMinZ, out float viewMaxZ);
 
         GL.Begin(GL.LINES);
         for (int i = 0; i < mesh.TriangleCount; i++)
@@ -448,16 +431,10 @@ public class DebugOverlay : MonoBehaviour
             }
 
             bool isolated = tri.N0 < 0 && tri.N1 < 0 && tri.N2 < 0;
-            bool highCost = tri.CostMultiplier > 1.5f;
 
             Color edgeColor;
             if (isolated)
                 edgeColor = new Color(1f, 0f, 1f, 0.6f);
-            else if (highCost)
-            {
-                float costNorm = Mathf.Clamp01((tri.CostMultiplier - 1f) / 30f);
-                edgeColor = new Color(1f, 0.5f - costNorm * 0.3f, 0f, 0.2f + costNorm * 0.5f);
-            }
             else
                 edgeColor = new Color(0.3f, 0.7f, 1f, 0.15f);
 
@@ -677,27 +654,70 @@ public class DebugOverlay : MonoBehaviour
     // UTILITY
     // ================================================================
 
+    private void GetVisibleGroundBounds(out float worldMinX, out float worldMaxX, out float worldMinZ, out float worldMaxZ)
+    {
+        worldMinX = worldMinZ = float.MaxValue;
+        worldMaxX = worldMaxZ = float.MinValue;
+
+        if (cam == null)
+        {
+            worldMinX = worldMinZ = float.MinValue;
+            worldMaxX = worldMaxZ = float.MaxValue;
+            return;
+        }
+
+        float groundY = GridSystem.Instance != null ? GridSystem.Instance.GridOrigin.y : 0f;
+        float padding = 15f;
+
+        // Cast rays through the four viewport corners + center edges to find actual ground footprint
+        Vector3[] viewportPoints = {
+            new(0, 0, 0), new(1, 0, 0), new(0, 1, 0), new(1, 1, 0),
+            new(0.5f, 0, 0), new(0.5f, 1, 0), new(0, 0.5f, 0), new(1, 0.5f, 0)
+        };
+
+        int hits = 0;
+        for (int i = 0; i < viewportPoints.Length; i++)
+        {
+            Ray ray = cam.ViewportPointToRay(viewportPoints[i]);
+            if (Mathf.Abs(ray.direction.y) < 0.001f) continue;
+
+            float t = (groundY - ray.origin.y) / ray.direction.y;
+            if (t < 0) t = cam.farClipPlane; // ray points away from ground, use far plane fallback
+
+            Vector3 hit = ray.origin + ray.direction * Mathf.Min(t, cam.farClipPlane);
+            worldMinX = Mathf.Min(worldMinX, hit.x);
+            worldMaxX = Mathf.Max(worldMaxX, hit.x);
+            worldMinZ = Mathf.Min(worldMinZ, hit.z);
+            worldMaxZ = Mathf.Max(worldMaxZ, hit.z);
+            hits++;
+        }
+
+        if (hits == 0)
+        {
+            worldMinX = worldMinZ = float.MinValue;
+            worldMaxX = worldMaxZ = float.MaxValue;
+            return;
+        }
+
+        worldMinX -= padding;
+        worldMaxX += padding;
+        worldMinZ -= padding;
+        worldMaxZ += padding;
+    }
+
     private void GetVisibleCellRange(GridSystem grid, out int minX, out int maxX, out int minZ, out int maxZ)
     {
-        if (cam == null)
+        GetVisibleGroundBounds(out float wMinX, out float wMaxX, out float wMinZ, out float wMaxZ);
+
+        if (wMinX == float.MinValue)
         {
             minX = 0; maxX = grid.Width - 1;
             minZ = 0; maxZ = grid.Height - 1;
             return;
         }
 
-        float camHeight = cam.transform.position.y;
-        float halfFrustumH = camHeight * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad);
-        float halfFrustumW = halfFrustumH * cam.aspect;
-
-        Vector3 camPos = cam.transform.position;
-        float padding = 10f;
-
-        Vector3 worldMin = new(camPos.x - halfFrustumW - padding, 0, camPos.z - halfFrustumH - padding);
-        Vector3 worldMax = new(camPos.x + halfFrustumW + padding, 0, camPos.z + halfFrustumH + padding);
-
-        Vector2Int cellMin = grid.WorldToCell(worldMin);
-        Vector2Int cellMax = grid.WorldToCell(worldMax);
+        Vector2Int cellMin = grid.WorldToCell(new Vector3(wMinX, 0, wMinZ));
+        Vector2Int cellMax = grid.WorldToCell(new Vector3(wMaxX, 0, wMaxZ));
 
         minX = Mathf.Max(0, cellMin.x);
         maxX = Mathf.Min(grid.Width - 1, cellMax.x);

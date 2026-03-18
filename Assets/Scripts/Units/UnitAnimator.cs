@@ -1,5 +1,10 @@
 using UnityEngine;
 
+/// <summary>
+/// Controls unit animations through Animator states.
+/// Manages looping animations (Idle/Walk) and one-shot animations (Attack/Hit/Death).
+/// Attack speed is controlled via a per-state speed parameter, not global animator.speed.
+/// </summary>
 public class UnitAnimator : MonoBehaviour
 {
     private Animator animator;
@@ -9,6 +14,7 @@ public class UnitAnimator : MonoBehaviour
     private static readonly int HashAttack = Animator.StringToHash("Attack");
     private static readonly int HashDeath = Animator.StringToHash("Death");
     private static readonly int HashHit = Animator.StringToHash("Hit");
+    private static readonly int HashSpeedMultiplier = Animator.StringToHash("SpeedMultiplier");
 
     private int idleHash;
     private int walkHash;
@@ -21,17 +27,16 @@ public class UnitAnimator : MonoBehaviour
     private bool isDead;
 
     private bool hasIdle, hasWalk, hasAttack, hasDeath, hasHit;
+    private bool hasSpeedParam;
     private float attackClipLength = 1f;
     private float deathClipLength = 2f;
 
-    private const float BlendTime = 0.15f;
-    private const float MaxOneShotDuration = 5f;
+    private const float DefaultBlendTime = 0.15f;
+    private const float OneShotBlendTime = 0.075f;
 
-    private int animLogThrottle;
-    private const int AnimLogInterval = 30;
-
-    private float baseWalkSpeed = 3.5f;
+    private float baseWalkSpeed = AnimationLogic.DefaultBaseWalkSpeed;
     private float currentMoveSpeed;
+    private float currentSpeedMultiplier = 1f;
 
     public void Initialize(Animator anim)
     {
@@ -40,12 +45,9 @@ public class UnitAnimator : MonoBehaviour
 
         animator.applyRootMotion = false;
         animator.speed = 1f;
-        animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+        animator.cullingMode = AnimatorCullingMode.CullUpdateTransforms;
 
-        var blocker = animator.GetComponent<RootMotionBlocker>();
-        if (blocker == null)
-            blocker = animator.gameObject.AddComponent<RootMotionBlocker>();
-        blocker.Lock();
+        EnsureRootMotionBlocked();
 
         if (animator.runtimeAnimatorController == null)
         {
@@ -58,29 +60,25 @@ public class UnitAnimator : MonoBehaviour
         hasAttack = animator.HasState(0, HashAttack);
         hasDeath = animator.HasState(0, HashDeath);
         hasHit = animator.HasState(0, HashHit);
+        hasSpeedParam = HasParameter(HashSpeedMultiplier, AnimatorControllerParameterType.Float);
 
         idleHash = hasIdle ? HashIdle : 0;
         walkHash = hasWalk ? HashWalk : 0;
 
-        if (!hasWalk && hasIdle)
-        {
-            hasWalk = true;
-            walkHash = HashIdle;
-        }
-        if (!hasIdle && hasWalk)
-        {
-            hasIdle = true;
-            idleHash = HashWalk;
-        }
+        var resolved = AnimationLogic.ResolveLoopStates(hasIdle, hasWalk, idleHash, walkHash);
+        idleHash = resolved.idleHash;
+        walkHash = resolved.walkHash;
+        hasIdle = resolved.hasIdle;
+        hasWalk = resolved.hasWalk;
 
         desiredLoop = hasIdle ? idleHash : 0;
         currentLoopHash = 0;
         oneShotActive = false;
         isDead = false;
+        currentSpeedMultiplier = 1f;
 
         if (GameDebug.Animation)
-            Debug.Log($"[Anim:{gameObject.name}] Init idle={hasIdle} walk={hasWalk} atk={hasAttack} death={hasDeath} hit={hasHit}" +
-                $" idleHash={idleHash} walkHash={walkHash}");
+            Debug.Log($"[Anim:{gameObject.name}] Init idle={hasIdle} walk={hasWalk} atk={hasAttack} death={hasDeath} hit={hasHit} speedParam={hasSpeedParam}");
 
         CacheClipLengths();
 
@@ -92,22 +90,65 @@ public class UnitAnimator : MonoBehaviour
             Debug.LogWarning($"[Anim:{gameObject.name}] No Attack state");
     }
 
+    private void EnsureRootMotionBlocked()
+    {
+        var blocker = animator.GetComponent<RootMotionBlocker>();
+        if (blocker == null)
+            blocker = animator.gameObject.AddComponent<RootMotionBlocker>();
+        blocker.Lock();
+    }
+
+    private bool HasParameter(int nameHash, AnimatorControllerParameterType type)
+    {
+        foreach (var p in animator.parameters)
+            if (p.nameHash == nameHash && p.type == type)
+                return true;
+        return false;
+    }
+
     private void CacheClipLengths()
     {
         if (animator.runtimeAnimatorController == null) return;
+
+        var overrideCtrl = animator.runtimeAnimatorController as AnimatorOverrideController;
+        if (overrideCtrl != null)
+        {
+            CacheClipLengthsFromOverride(overrideCtrl);
+            return;
+        }
+
+        CacheClipLengthsByName();
+    }
+
+    /// <summary>
+    /// Uses AnimatorOverrideController API to get clips assigned to each state
+    /// by looking up the placeholder clip names. No fragile string matching needed.
+    /// </summary>
+    private void CacheClipLengthsFromOverride(AnimatorOverrideController overrideCtrl)
+    {
+        var overrides = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<AnimationClip, AnimationClip>>();
+        overrideCtrl.GetOverrides(overrides);
+
+        foreach (var pair in overrides)
+        {
+            if (pair.Value == null) continue;
+            string originalName = pair.Key.name.ToLowerInvariant();
+            if (originalName.Contains("attack"))
+                attackClipLength = pair.Value.length;
+            else if (originalName.Contains("death"))
+                deathClipLength = pair.Value.length;
+        }
+    }
+
+    private void CacheClipLengthsByName()
+    {
         foreach (var clip in animator.runtimeAnimatorController.animationClips)
         {
-            string name = clip.name.ToLowerInvariant();
-            if (name.Contains("attack") || name.Contains("bite") || name.Contains("claw") ||
-                name.Contains("slash") || name.Contains("spit") || name.Contains("sting") ||
-                name.Contains("stomp") || name.Contains("smash"))
-            {
+            var category = AnimationLogic.ClassifyClip(clip.name);
+            if (category == ClipCategory.Attack)
                 attackClipLength = clip.length;
-            }
-            else if (name.Contains("death") || name.Contains("die"))
-            {
+            else if (category == ClipCategory.Death)
                 deathClipLength = clip.length;
-            }
         }
     }
 
@@ -128,15 +169,11 @@ public class UnitAnimator : MonoBehaviour
     {
         if (!oneShotActive) return;
         if (GameDebug.Animation)
-            Debug.Log($"[Anim:{gameObject.name}] CancelOneShot (was hash={oneShotHash} speed={animator?.speed:F2})");
+            Debug.Log($"[Anim:{gameObject.name}] CancelOneShot (was hash={oneShotHash})");
         oneShotActive = false;
         oneShotHash = 0;
-        // Reset currentLoopHash so UpdateLoop re-applies the desired loop.
-        // Without this, the Animator stays on the Attack clip because
-        // UpdateLoop thinks the idle loop is already active.
         currentLoopHash = 0;
-        if (animator != null)
-            animator.speed = 1f;
+        SetSpeedMultiplier(1f);
     }
 
     public void PlayWalk()
@@ -155,28 +192,16 @@ public class UnitAnimator : MonoBehaviour
     {
         if (!hasAttack || isDead) return;
 
-        if (oneShotActive && oneShotHash == HashHit)
-        {
-            if (GameDebug.Animation)
-                Debug.Log($"[Anim:{gameObject.name}] PlayAttack overriding hit anim");
-        }
-
         if (GameDebug.Animation && !oneShotActive)
             Debug.Log($"[Anim:{gameObject.name}] PlayAttack cooldown={attackCooldown:F2}");
 
         oneShotHash = HashAttack;
         oneShotActive = true;
-        oneShotFallbackTimer = MaxOneShotDuration;
+        oneShotFallbackTimer = AnimationLogic.MaxOneShotDuration;
 
-        if (attackCooldown > 0.01f && attackClipLength > 0.01f)
-        {
-            float targetSpeed = Mathf.Clamp(attackClipLength / attackCooldown, 0.5f, 3f);
-            animator.speed = targetSpeed;
-        }
-        else
-        {
-            animator.speed = 1f;
-        }
+        float targetSpeed = AnimationLogic.ComputeAttackSpeed(attackClipLength, attackCooldown);
+
+        SetSpeedMultiplier(targetSpeed);
         animator.Play(HashAttack, 0, 0f);
     }
 
@@ -187,8 +212,9 @@ public class UnitAnimator : MonoBehaviour
             Debug.Log($"[Anim:{gameObject.name}] PlayHit");
         oneShotHash = HashHit;
         oneShotActive = true;
-        oneShotFallbackTimer = MaxOneShotDuration;
-        animator.CrossFadeInFixedTime(HashHit, BlendTime * 0.5f, 0, 0f);
+        oneShotFallbackTimer = AnimationLogic.MaxOneShotDuration;
+        SetSpeedMultiplier(1f);
+        animator.CrossFadeInFixedTime(HashHit, OneShotBlendTime, 0, 0f);
     }
 
     public void PlayDeath()
@@ -200,8 +226,26 @@ public class UnitAnimator : MonoBehaviour
         oneShotActive = false;
         desiredLoop = 0;
         currentLoopHash = 0;
-        animator.speed = 1f;
-        animator.CrossFadeInFixedTime(HashDeath, BlendTime, 0, 0f);
+        SetSpeedMultiplier(1f);
+        animator.CrossFadeInFixedTime(HashDeath, DefaultBlendTime, 0, 0f);
+    }
+
+    #endregion
+
+    #region Speed Control
+
+    /// <summary>
+    /// Sets animation speed using the per-state SpeedMultiplier parameter if available,
+    /// falling back to global animator.speed otherwise.
+    /// Per-state speed parameters only affect the current state, not all animations.
+    /// </summary>
+    private void SetSpeedMultiplier(float speed)
+    {
+        currentSpeedMultiplier = speed;
+        if (hasSpeedParam)
+            animator.SetFloat(HashSpeedMultiplier, speed);
+        else
+            animator.speed = speed;
     }
 
     #endregion
@@ -219,42 +263,36 @@ public class UnitAnimator : MonoBehaviour
     {
         oneShotFallbackTimer -= Time.deltaTime;
 
-        if (!animator.IsInTransition(0))
+        bool isInTransition = animator.IsInTransition(0);
+        var info = !isInTransition ? animator.GetCurrentAnimatorStateInfo(0) : default;
+        int currentHash = !isInTransition ? info.shortNameHash : 0;
+        float normalizedTime = !isInTransition ? info.normalizedTime : 0f;
+
+        var result = AnimationLogic.EvaluateOneShot(
+            oneShotFallbackTimer, isInTransition, currentHash, oneShotHash, normalizedTime);
+
+        if (result == AnimationLogic.OneShotResult.Continue) return;
+
+        if (GameDebug.Animation)
         {
-            var info = animator.GetCurrentAnimatorStateInfo(0);
-            if (info.shortNameHash == oneShotHash && info.normalizedTime >= 1f)
+            string reason = result switch
             {
-                if (GameDebug.Animation)
-                    Debug.Log($"[Anim:{gameObject.name}] OneShot completed normally t={info.normalizedTime:F2} speed={animator.speed:F2}");
-                FinishOneShot();
-                return;
-            }
-            if (info.shortNameHash != oneShotHash && oneShotFallbackTimer < MaxOneShotDuration - 0.1f)
-            {
-                if (GameDebug.Animation)
-                    Debug.Log($"[Anim:{gameObject.name}] OneShot state mismatch (expected={oneShotHash}, got={info.shortNameHash} t={info.normalizedTime:F2}) -> finishing");
-                FinishOneShot();
-                return;
-            }
-        }
-        else if (GameDebug.Animation && oneShotFallbackTimer < MaxOneShotDuration - 0.5f && Time.frameCount % 60 == 0)
-        {
-            Debug.Log($"[Anim:{gameObject.name}] OneShot in transition, timer={oneShotFallbackTimer:F1}s");
+                AnimationLogic.OneShotResult.Completed => $"completed normally t={normalizedTime:F2}",
+                AnimationLogic.OneShotResult.StateMismatch => "state mismatch",
+                AnimationLogic.OneShotResult.Timeout => $"TIMEOUT ({AnimationLogic.MaxOneShotDuration}s)",
+                _ => "unknown"
+            };
+            Debug.Log($"[Anim:{gameObject.name}] OneShot {reason} -> finishing");
         }
 
-        if (oneShotFallbackTimer <= 0f)
-        {
-            if (GameDebug.Animation)
-                Debug.LogWarning($"[Anim:{gameObject.name}] OneShot TIMEOUT ({MaxOneShotDuration}s) -> forcing finish");
-            FinishOneShot();
-        }
+        FinishOneShot();
     }
 
     private void FinishOneShot()
     {
         oneShotActive = false;
         oneShotHash = 0;
-        animator.speed = 1f;
+        SetSpeedMultiplier(1f);
         ApplyDesiredLoop();
     }
 
@@ -264,31 +302,26 @@ public class UnitAnimator : MonoBehaviour
 
         if (currentLoopHash != desiredLoop)
         {
-            if (GameDebug.Animation && animLogThrottle % AnimLogInterval == 0)
-                Debug.Log($"[Anim:{gameObject.name}] Loop switch {currentLoopHash} -> {desiredLoop}");
             ApplyDesiredLoop();
-            animLogThrottle = 0;
             return;
         }
 
-        if (currentLoopHash == walkHash && walkHash != idleHash && currentMoveSpeed > 0.01f)
+        if (AnimationLogic.ShouldApplyWalkSpeed(currentLoopHash, walkHash, idleHash, currentMoveSpeed))
         {
-            float speedRatio = currentMoveSpeed / baseWalkSpeed;
-            animator.speed = Mathf.Clamp(speedRatio, 0.5f, 2.5f);
+            float ratio = AnimationLogic.ComputeWalkSpeedRatio(currentMoveSpeed, baseWalkSpeed);
+            SetSpeedMultiplier(ratio);
         }
-        else if (!oneShotActive)
+        else if (!oneShotActive && currentSpeedMultiplier != 1f)
         {
-            animator.speed = 1f;
+            SetSpeedMultiplier(1f);
         }
-
-        animLogThrottle++;
     }
 
     private void ApplyDesiredLoop()
     {
         if (desiredLoop <= 0) return;
         currentLoopHash = desiredLoop;
-        animator.CrossFadeInFixedTime(desiredLoop, BlendTime, 0);
+        animator.CrossFadeInFixedTime(desiredLoop, DefaultBlendTime, 0);
     }
 
     #endregion
@@ -301,8 +334,9 @@ public class UnitAnimator : MonoBehaviour
         oneShotHash = 0;
         desiredLoop = hasIdle ? idleHash : 0;
         currentLoopHash = 0;
+        currentSpeedMultiplier = 1f;
         if (animator != null)
-            animator.speed = 1f;
+            SetSpeedMultiplier(1f);
     }
 
     #region Public State Queries
@@ -317,13 +351,18 @@ public class UnitAnimator : MonoBehaviour
     /// <summary>Returns the cached death animation clip length, or fallback if no death clip.</summary>
     public float GetDeathDuration(float fallback = 2f)
     {
-        if (!hasDeath) return fallback;
-        return Mathf.Clamp(deathClipLength, 0.5f, 5f);
+        return AnimationLogic.GetDeathDuration(hasDeath, deathClipLength, fallback);
     }
 
     #endregion
 }
 
+/// <summary>
+/// Prevents root motion from displacing the animated model.
+/// Placed on the same GameObject as the Animator. The empty OnAnimatorMove
+/// override prevents Unity from applying root motion, and LateUpdate
+/// locks the local position as a safety net.
+/// </summary>
 public class RootMotionBlocker : MonoBehaviour
 {
     private Vector3 lockedLocalPos;

@@ -114,9 +114,10 @@ public class HUDManager : MonoBehaviour
     {
         if (localPlayer == null) return;
 
-        var castles = FindObjectsByType<Castle>(FindObjectsSortMode.None);
+        var castles = GameRegistry.Castles;
         foreach (var c in castles)
         {
+            if (c == null) continue;
             if (c.TeamId == localPlayer.TeamId)
                 allyCastle = c;
             else

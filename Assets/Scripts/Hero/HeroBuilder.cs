@@ -53,11 +53,13 @@ public class HeroBuilder : NetworkBehaviour
     private void OnEnable()
     {
         EventBus.Subscribe<BuildingPlacedEvent>(OnBuildingPlaced);
+        EventBus.Subscribe<BuildingDestroyedEvent>(OnBuildingDestroyed);
     }
 
     private void OnDisable()
     {
         EventBus.Unsubscribe<BuildingPlacedEvent>(OnBuildingPlaced);
+        EventBus.Unsubscribe<BuildingDestroyedEvent>(OnBuildingDestroyed);
     }
 
     private void OnBuildingPlaced(BuildingPlacedEvent evt)
@@ -68,6 +70,17 @@ public class HeroBuilder : NetworkBehaviour
         var building = evt.Building?.GetComponent<Building>();
         if (building?.Data != null && !builtBuildingIds.Contains(building.Data.buildingId))
             builtBuildingIds.Add(building.Data.buildingId);
+    }
+
+    private void OnBuildingDestroyed(BuildingDestroyedEvent evt)
+    {
+        if (networkPlayer == null) return;
+
+        var building = evt.Building?.GetComponent<Building>();
+        if (building == null || building.Data == null) return;
+        if (building.OwnerId != networkPlayer.PlayerId) return;
+
+        builtBuildingIds.Remove(building.Data.buildingId);
     }
 
     private void OnDrawGizmosSelected()

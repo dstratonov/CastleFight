@@ -12,6 +12,7 @@ public class HeroController : NetworkBehaviour
 
     private Camera mainCamera;
     private Vector3? targetPosition;
+    private BuildingPlacer cachedPlacer;
 
     public bool IsMoving => targetPosition.HasValue;
 
@@ -34,11 +35,11 @@ public class HeroController : NetworkBehaviour
         var mouse = Mouse.current;
         if (mouse != null && mouse.rightButton.wasPressedThisFrame)
         {
-            var placer = GetComponent<BuildingPlacer>();
-            if (placer != null && placer.IsPlacing) return;
+            if (cachedPlacer == null) cachedPlacer = GetComponent<BuildingPlacer>();
+            if (cachedPlacer != null && cachedPlacer.IsPlacing) return;
 
-            if (placer != null && placer.HasPendingPlacement)
-                placer.CancelPlacement();
+            if (cachedPlacer != null && cachedPlacer.HasPendingPlacement)
+                cachedPlacer.CancelPlacement();
 
             HandleMoveInput();
         }

@@ -11,6 +11,13 @@ public class Projectile : MonoBehaviour
     private static Mesh sphereMesh;
     private static Material[] materials;
 
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        sphereMesh = null;
+        materials = null;
+    }
+
     public void Initialize(Transform tgt, float spd)
     {
         target = tgt;
@@ -26,8 +33,7 @@ public class Projectile : MonoBehaviour
         var go = new GameObject("Projectile");
         go.transform.position = start;
 
-        float scale = dealsDamage ? 0.15f : 0.15f;
-        go.transform.localScale = Vector3.one * scale;
+        go.transform.localScale = Vector3.one * 0.15f;
 
         var mf = go.AddComponent<MeshFilter>();
         mf.sharedMesh = sphereMesh;

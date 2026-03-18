@@ -30,4 +30,10 @@ public class BuildingData : ScriptableObject
 
     [Header("Abilities")]
     public AbilityData[] buildingAbilities;
+
+    [Header("Footprint")]
+    [Tooltip("XZ size of the building's physical ground footprint in world units. " +
+             "Used for grid occupancy, NavMesh carving, and attack range. " +
+             "Leave at zero to auto-detect from colliders/renderers.")]
+    public Vector2 footprintSize;
 }

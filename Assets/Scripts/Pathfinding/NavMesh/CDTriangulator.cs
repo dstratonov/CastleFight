@@ -13,6 +13,7 @@ public class CDTriangulator
     private readonly HashSet<long> constraintEdges = new();
     private readonly List<bool> triAlive = new();
     private readonly Dictionary<long, int> vertexDedup = new();
+    private readonly Dictionary<int, HashSet<int>> vertToTris = new();
 
     private int superV0, superV1, superV2;
     private int constraintsInserted;
@@ -20,6 +21,8 @@ public class CDTriangulator
     private int degenerateTrianglesSkipped;
 
     public int VertexCount => vertices.Count;
+
+    public int ConstraintsFailed => constraintsFailed;
 
     public int AddVertex(Vector2 v)
     {
@@ -33,15 +36,57 @@ public class CDTriangulator
         return id;
     }
 
+    private int AddTriangleIndexed(int v0, int v1, int v2)
+    {
+        int idx = triangles.Count;
+        triangles.Add(new[] { v0, v1, v2 });
+        triAlive.Add(true);
+        AddToAdjacency(idx, v0, v1, v2);
+        return idx;
+    }
+
+    private void KillTriangle(int ti)
+    {
+        if (!triAlive[ti]) return;
+        triAlive[ti] = false;
+        int[] tri = triangles[ti];
+        RemoveFromAdjacency(ti, tri[0], tri[1], tri[2]);
+    }
+
+    private void AddToAdjacency(int ti, int v0, int v1, int v2)
+    {
+        GetOrCreateSet(v0).Add(ti);
+        GetOrCreateSet(v1).Add(ti);
+        GetOrCreateSet(v2).Add(ti);
+    }
+
+    private void RemoveFromAdjacency(int ti, int v0, int v1, int v2)
+    {
+        if (vertToTris.TryGetValue(v0, out var s0)) s0.Remove(ti);
+        if (vertToTris.TryGetValue(v1, out var s1)) s1.Remove(ti);
+        if (vertToTris.TryGetValue(v2, out var s2)) s2.Remove(ti);
+    }
+
+    private HashSet<int> GetOrCreateSet(int v)
+    {
+        if (!vertToTris.TryGetValue(v, out var set))
+        {
+            set = new HashSet<int>(8);
+            vertToTris[v] = set;
+        }
+        return set;
+    }
+
     private static long HashVertex(Vector2 v)
     {
-        int hx = Mathf.RoundToInt(v.x * 1000f);
-        int hy = Mathf.RoundToInt(v.y * 1000f);
+        int hx = Mathf.RoundToInt(v.x * GeometryConstants.VertexDeduplicationScale);
+        int hy = Mathf.RoundToInt(v.y * GeometryConstants.VertexDeduplicationScale);
         return ((long)hx << 32) | (uint)hy;
     }
 
     /// <summary>
     /// Run Bowyer-Watson incremental Delaunay triangulation on all added vertices.
+    /// Uses a compact alive-set so circumcircle scans never touch dead triangles.
     /// </summary>
     public void Triangulate()
     {
@@ -67,29 +112,29 @@ public class CDTriangulator
         float midX = (min.x + max.x) * 0.5f;
         float midY = (min.y + max.y) * 0.5f;
 
-        superV0 = AddVertex(new Vector2(midX - 20f * dmax, midY - dmax));
-        superV1 = AddVertex(new Vector2(midX, midY + 20f * dmax));
-        superV2 = AddVertex(new Vector2(midX + 20f * dmax, midY - dmax));
+        superV0 = AddVertex(new Vector2(midX - GeometryConstants.SuperTriangleMultiplier * dmax, midY - dmax));
+        superV1 = AddVertex(new Vector2(midX, midY + GeometryConstants.SuperTriangleMultiplier * dmax));
+        superV2 = AddVertex(new Vector2(midX + GeometryConstants.SuperTriangleMultiplier * dmax, midY - dmax));
 
         triangles.Clear();
         triAlive.Clear();
         triangles.Add(new[] { superV0, superV1, superV2 });
         triAlive.Add(true);
 
+        var aliveSet = new HashSet<int> { 0 };
         var badTriangles = new List<int>();
-        var polygon = new List<int[]>(); // boundary edges
+        var polygon = new List<int[]>();
         var edgeCount = new Dictionary<long, int>();
 
-        int numPoints = vertices.Count - 3; // exclude super-triangle vertices
+        int numPoints = vertices.Count - 3;
 
         for (int pi = 0; pi < numPoints; pi++)
         {
             Vector2 p = vertices[pi];
             badTriangles.Clear();
 
-            for (int ti = 0; ti < triangles.Count; ti++)
+            foreach (int ti in aliveSet)
             {
-                if (!triAlive[ti]) continue;
                 if (InCircumcircle(p, triangles[ti]))
                     badTriangles.Add(ti);
             }
@@ -113,18 +158,31 @@ public class CDTriangulator
             }
 
             foreach (int ti in badTriangles)
+            {
                 triAlive[ti] = false;
+                aliveSet.Remove(ti);
+            }
 
             foreach (int[] edge in polygon)
             {
+                int newIdx = triangles.Count;
                 triangles.Add(new[] { edge[0], edge[1], pi });
                 triAlive.Add(true);
+                aliveSet.Add(newIdx);
             }
         }
 
+        // Build the vertex-to-triangle adjacency index for fast lookups
+        // during constraint insertion.
+        vertToTris.Clear();
         int alive = 0;
         for (int i = 0; i < triAlive.Count; i++)
-            if (triAlive[i]) alive++;
+        {
+            if (!triAlive[i]) continue;
+            alive++;
+            int[] tri = triangles[i];
+            AddToAdjacency(i, tri[0], tri[1], tri[2]);
+        }
 
         if (GameDebug.Pathfinding)
             Debug.Log($"[CDT] Triangulate done: {alive} alive triangles out of {triangles.Count} total, {vertices.Count} vertices (incl. super-tri)");
@@ -180,14 +238,42 @@ public class CDTriangulator
 
         if (!WalkConstraint(va, vb, crossedTris, upper, lower))
         {
+            if (crossedTris.Count == 0 && upper.Count <= 1 && lower.Count <= 1)
+            {
+                // Walk found no starting triangle. Check if vertices became
+                // orphaned (all their triangles killed by prior insertions).
+                // Re-insert orphaned vertices before retrying.
+                bool vaOrphaned = !HasAnyAliveTriangle(va);
+                bool vbOrphaned = !HasAnyAliveTriangle(vb);
+
+                if (vaOrphaned) ReinsertOrphanedVertex(va);
+                if (vbOrphaned) ReinsertOrphanedVertex(vb);
+
+                if (EdgeExists(va, vb))
+                {
+                    constraintsInserted++;
+                    return;
+                }
+
+                if (BruteForceInsertConstraint(va, vb))
+                    return;
+
+                return;
+            }
+
+            if (FlipInsertFallback(va, vb))
+                return;
+
+            if (BruteForceInsertConstraint(va, vb))
+                return;
+
             constraintsFailed++;
-            if (GameDebug.Pathfinding)
-                Debug.LogWarning($"[CDT] Constraint walk FAILED: v{va}({vertices[va]:F1}) -> v{vb}({vertices[vb]:F1})");
+            Debug.LogWarning($"[CDT] Constraint FAILED (walk partial, crossed={crossedTris.Count}): v{va}({vertices[va]:F1}) -> v{vb}({vertices[vb]:F1})");
             return;
         }
 
         foreach (int ti in crossedTris)
-            triAlive[ti] = false;
+            KillTriangle(ti);
 
         upper.Reverse();
         TriangulateCavity(upper);
@@ -197,10 +283,514 @@ public class CDTriangulator
             constraintsInserted++;
         else
         {
+            if (FlipInsertFallback(va, vb))
+                return;
+
+            if (BruteForceInsertConstraint(va, vb))
+                return;
+
             constraintsFailed++;
-            if (GameDebug.Pathfinding)
-                Debug.LogWarning($"[CDT] Constraint cavity FAILED: v{va}({vertices[va]:F1}) -> v{vb}({vertices[vb]:F1})");
+            Debug.LogWarning($"[CDT] Constraint cavity FAILED: v{va}({vertices[va]:F1}) -> v{vb}({vertices[vb]:F1})");
         }
+    }
+
+    /// <summary>
+    /// Fallback constraint insertion using edge flips (Sloan 1993).
+    /// TRANSACTIONAL: all changes are rolled back on failure to prevent
+    /// corrupting the triangulation for subsequent fallback methods.
+    /// </summary>
+    private bool FlipInsertFallback(int va, int vb)
+    {
+        Vector2 a = vertices[va];
+        Vector2 b = vertices[vb];
+
+        int snapshotTriCount = triangles.Count;
+        int snapshotAliveCount = triAlive.Count;
+        var killedOriginals = new List<int>();
+
+        int maxIter = snapshotTriCount * 4;
+        for (int iter = 0; iter < maxIter; iter++)
+        {
+            if (EdgeExists(va, vb))
+            {
+                constraintsInserted++;
+                return true;
+            }
+
+            bool flippedAny = false;
+            int triCount = triangles.Count;
+
+            for (int ti = 0; ti < triCount && !flippedAny; ti++)
+            {
+                if (!triAlive[ti]) continue;
+                int[] tri = triangles[ti];
+
+                for (int e = 0; e < 3; e++)
+                {
+                    int v0 = tri[e];
+                    int v1 = tri[(e + 1) % 3];
+
+                    if (v0 == va || v0 == vb || v1 == va || v1 == vb) continue;
+                    if (constraintEdges.Contains(EdgeKeyOrdered(v0, v1))) continue;
+                    if (!EdgesIntersect(a, b, vertices[v0], vertices[v1])) continue;
+
+                    int adjTri = FindAdjacentTriangle(ti, v0, v1);
+                    if (adjTri < 0) continue;
+
+                    int v2 = GetOppositeVertex(ti, v0, v1);
+                    int v3 = GetOppositeVertex(adjTri, v0, v1);
+                    if (v2 < 0 || v3 < 0) continue;
+
+                    if (!IsConvexQuad(v0, v1, v2, v3)) continue;
+
+                    if (ti < snapshotTriCount) killedOriginals.Add(ti);
+                    if (adjTri < snapshotTriCount) killedOriginals.Add(adjTri);
+                    KillTriangle(ti);
+                    KillTriangle(adjTri);
+                    AddTriangleIndexed(v2, v0, v3);
+                    AddTriangleIndexed(v2, v3, v1);
+
+                    flippedAny = true;
+                    break;
+                }
+            }
+
+            if (!flippedAny)
+                flippedAny = TryFlipToward(va, vb, snapshotTriCount, killedOriginals);
+
+            if (!flippedAny) break;
+        }
+
+        if (EdgeExists(va, vb))
+        {
+            constraintsInserted++;
+            return true;
+        }
+
+        // ROLLBACK: restore killed originals and their adjacency, remove added triangles.
+        for (int r = triangles.Count - 1; r >= snapshotTriCount; r--)
+            KillTriangle(r);
+        int removeFrom = snapshotTriCount;
+        if (triangles.Count > removeFrom)
+        {
+            triangles.RemoveRange(removeFrom, triangles.Count - removeFrom);
+            triAlive.RemoveRange(removeFrom, triAlive.Count - removeFrom);
+        }
+        foreach (int ti in killedOriginals)
+        {
+            triAlive[ti] = true;
+            int[] tri = triangles[ti];
+            AddToAdjacency(ti, tri[0], tri[1], tri[2]);
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Combined flip-toward: first tries adjacent diagonal flip (va and vb
+    /// share adjacent triangles), then progressive flip (extend va's reach
+    /// toward vb by flipping opposite edges).
+    /// </summary>
+    private bool TryFlipToward(int va, int vb, int snapshotTriCount, List<int> killedOriginals)
+    {
+        Vector2 a = vertices[va];
+        Vector2 b = vertices[vb];
+        Vector2 ab = b - a;
+        float abLenSq = ab.sqrMagnitude;
+
+        if (!vertToTris.TryGetValue(va, out var vaTrisSet)) return false;
+        var vaTris = new List<int>(vaTrisSet);
+        foreach (int ti in vaTris)
+        {
+            if (!triAlive[ti]) continue;
+            int[] tri = triangles[ti];
+
+            int vaIdx = -1;
+            for (int k = 0; k < 3; k++)
+                if (tri[k] == va) { vaIdx = k; break; }
+            if (vaIdx < 0) continue;
+
+            int p = tri[(vaIdx + 1) % 3];
+            int q = tri[(vaIdx + 2) % 3];
+
+            if (constraintEdges.Contains(EdgeKeyOrdered(p, q))) continue;
+
+            int adjTri = FindAdjacentTriangle(ti, p, q);
+            if (adjTri < 0) continue;
+
+            int[] adjVerts = triangles[adjTri];
+            bool adjHasVb = adjVerts[0] == vb || adjVerts[1] == vb || adjVerts[2] == vb;
+
+            if (adjHasVb)
+            {
+                if (!IsConvexQuad(p, q, va, vb)) continue;
+
+                if (ti < snapshotTriCount) killedOriginals.Add(ti);
+                if (adjTri < snapshotTriCount) killedOriginals.Add(adjTri);
+                KillTriangle(ti);
+                KillTriangle(adjTri);
+                AddTriangleIndexed(va, p, vb);
+                AddTriangleIndexed(va, vb, q);
+                return true;
+            }
+
+            if (abLenSq < 1e-8f) continue;
+
+            int opp = GetOppositeVertex(adjTri, p, q);
+            if (opp < 0 || opp == va || opp == vb) continue;
+
+            float cp = CrossConstraint(ab, vertices[p] - a);
+            float cq = CrossConstraint(ab, vertices[q] - a);
+            if (cp * cq > 0f) continue;
+
+            float tOpp = Vector2.Dot(vertices[opp] - a, ab) / abLenSq;
+            if (tOpp <= 0.01f || tOpp >= 0.99f) continue;
+
+            if (!IsConvexQuad(p, q, va, opp)) continue;
+
+            if (ti < snapshotTriCount) killedOriginals.Add(ti);
+            if (adjTri < snapshotTriCount) killedOriginals.Add(adjTri);
+            KillTriangle(ti);
+            KillTriangle(adjTri);
+            AddTriangleIndexed(va, p, opp);
+            AddTriangleIndexed(va, opp, q);
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Convexity test for the quadrilateral formed by two triangles sharing
+    /// edge (v0, v1) with opposite vertices v2 and v3.
+    /// Returns true only if v2, v3 are on opposite sides of edge (v0,v1)
+    /// AND v0, v1 are on opposite sides of edge (v2,v3).
+    /// </summary>
+    private bool IsConvexQuad(int v0, int v1, int v2, int v3)
+    {
+        float c1 = NavMeshData.Cross2D(vertices[v1] - vertices[v0], vertices[v2] - vertices[v0]);
+        float c2 = NavMeshData.Cross2D(vertices[v1] - vertices[v0], vertices[v3] - vertices[v0]);
+        if (c1 * c2 >= 0f) return false;
+
+        float c3 = NavMeshData.Cross2D(vertices[v3] - vertices[v2], vertices[v0] - vertices[v2]);
+        float c4 = NavMeshData.Cross2D(vertices[v3] - vertices[v2], vertices[v1] - vertices[v2]);
+        if (c3 * c4 >= 0f) return false;
+
+        return true;
+    }
+
+    private bool HasAnyAliveTriangle(int v)
+    {
+        return vertToTris.TryGetValue(v, out var set) && set.Count > 0;
+    }
+
+    /// <summary>
+    /// Re-inserts an orphaned vertex into the alive triangulation by finding
+    /// the alive triangle that contains the vertex's position and splitting it.
+    /// </summary>
+    private void ReinsertOrphanedVertex(int v)
+    {
+        Vector2 p = vertices[v];
+
+        // Find the alive triangle that geometrically contains this point.
+        int containingTri = -1;
+        for (int ti = 0; ti < triangles.Count; ti++)
+        {
+            if (!triAlive[ti]) continue;
+            int[] tri = triangles[ti];
+            if (NavMeshData.PointInTriangle(p, vertices[tri[0]], vertices[tri[1]], vertices[tri[2]]))
+            {
+                containingTri = ti;
+                break;
+            }
+        }
+
+        if (containingTri < 0)
+        {
+            // Point not inside any alive triangle — find the closest one.
+            float bestDist = float.MaxValue;
+            for (int ti = 0; ti < triangles.Count; ti++)
+            {
+                if (!triAlive[ti]) continue;
+                int[] tri = triangles[ti];
+                float d = NavMeshData.SqrDistanceToTriangle(p,
+                    vertices[tri[0]], vertices[tri[1]], vertices[tri[2]]);
+                if (d < bestDist)
+                {
+                    bestDist = d;
+                    containingTri = ti;
+                }
+            }
+        }
+
+        if (containingTri < 0) return;
+
+        // Split the triangle at vertex v, creating 3 new triangles.
+        int[] ct = triangles[containingTri];
+        int a = ct[0], b = ct[1], c = ct[2];
+
+        // Check if v coincides with any triangle vertex.
+        if (v == a || v == b || v == c) return;
+
+        KillTriangle(containingTri);
+        AddTriangleIndexed(v, a, b);
+        AddTriangleIndexed(v, b, c);
+        AddTriangleIndexed(v, c, a);
+    }
+
+    /// <summary>
+    /// Last-resort constraint insertion: collects a corridor of triangles between
+    /// va and vb (including triangles incident to va/vb that face toward the
+    /// constraint), kills them all, and retriangulates the upper/lower cavities.
+    /// </summary>
+    private bool BruteForceInsertConstraint(int va, int vb)
+    {
+        if (EdgeExists(va, vb))
+        {
+            constraintsInserted++;
+            return true;
+        }
+
+        Vector2 a = vertices[va];
+        Vector2 b = vertices[vb];
+        Vector2 ab = b - a;
+        float abLenSq = ab.sqrMagnitude;
+        if (abLenSq < 1e-8f) return false;
+
+        float abLen = Mathf.Sqrt(abLenSq);
+        float sosEps = GeometryConstants.SoSPerturbation(ab.x, ab.y);
+        Vector2 perpBF = new Vector2(-ab.y, ab.x) * (sosEps / abLen);
+        Vector2 apBF = a + perpBF;
+
+        var corridor = new HashSet<int>();
+
+        // Phase 1: collect triangles incident to va that face toward vb.
+        CollectFacingTriangles(va, vb, ab, corridor);
+
+        // Phase 2: collect triangles incident to vb that face toward va.
+        CollectFacingTriangles(vb, va, -ab, corridor);
+
+        // Phase 3: flood-fill from the initial corridor triangles to collect
+        // any triangles between them that the constraint passes through.
+        bool expanded = true;
+        while (expanded)
+        {
+            expanded = false;
+            var toAdd = new List<int>();
+            foreach (int ti in corridor)
+            {
+                int[] tri = triangles[ti];
+                for (int e = 0; e < 3; e++)
+                {
+                    int v0 = tri[e];
+                    int v1 = tri[(e + 1) % 3];
+                    int adj = FindAdjacentTriangle(ti, v0, v1);
+                    if (adj < 0 || !triAlive[adj] || corridor.Contains(adj)) continue;
+
+                    int[] adjTri = triangles[adj];
+                    bool adjHasVa = adjTri[0] == va || adjTri[1] == va || adjTri[2] == va;
+                    bool adjHasVb = adjTri[0] == vb || adjTri[1] == vb || adjTri[2] == vb;
+                    if (adjHasVa || adjHasVb)
+                    {
+                        toAdd.Add(adj);
+                        continue;
+                    }
+
+                    if (TriangleIntersectsSegment(adj, a, b))
+                        toAdd.Add(adj);
+                }
+            }
+            foreach (int ti in toAdd)
+            {
+                if (corridor.Add(ti))
+                    expanded = true;
+            }
+        }
+
+        if (corridor.Count == 0) return false;
+
+        // Build upper/lower boundary from corridor edges.
+        var edgeCount = new Dictionary<long, int>();
+        foreach (int ti in corridor)
+        {
+            int[] tri = triangles[ti];
+            CountEdge(edgeCount, tri[0], tri[1]);
+            CountEdge(edgeCount, tri[1], tri[2]);
+            CountEdge(edgeCount, tri[2], tri[0]);
+        }
+
+        var upperVerts = new HashSet<int>();
+        var lowerVerts = new HashSet<int>();
+        upperVerts.Add(va);
+        lowerVerts.Add(va);
+
+        foreach (var kvp in edgeCount)
+        {
+            if (kvp.Value != 1) continue;
+            int ea = (int)(kvp.Key >> 32);
+            int eb = (int)(kvp.Key & 0xFFFFFFFFL);
+
+            ClassifyBoundaryVertex(ea, apBF, ab, upperVerts, lowerVerts);
+            ClassifyBoundaryVertex(eb, apBF, ab, upperVerts, lowerVerts);
+        }
+
+        upperVerts.Add(vb);
+        lowerVerts.Add(vb);
+
+        var upper = new List<int>(upperVerts);
+        var lower = new List<int>(lowerVerts);
+
+        upper.Sort((x, y) =>
+        {
+            if (x == va) return -1;
+            if (y == va) return 1;
+            if (x == vb) return 1;
+            if (y == vb) return -1;
+            return Vector2.Dot(vertices[x] - a, ab).CompareTo(
+                Vector2.Dot(vertices[y] - a, ab));
+        });
+        lower.Sort((x, y) =>
+        {
+            if (x == va) return -1;
+            if (y == va) return 1;
+            if (x == vb) return 1;
+            if (y == vb) return -1;
+            return Vector2.Dot(vertices[x] - a, ab).CompareTo(
+                Vector2.Dot(vertices[y] - a, ab));
+        });
+
+        foreach (int ti in corridor)
+            KillTriangle(ti);
+
+        upper.Reverse();
+        TriangulateCavity(upper);
+        TriangulateCavity(lower);
+
+        if (EdgeExists(va, vb))
+        {
+            constraintsInserted++;
+            return true;
+        }
+        return false;
+    }
+
+    private void ClassifyBoundaryVertex(int v, Vector2 perturbedA, Vector2 ab,
+        HashSet<int> upper, HashSet<int> lower)
+    {
+        float c = CrossConstraint(ab, vertices[v] - perturbedA);
+        if (c > 0) upper.Add(v);
+        else if (c < 0) lower.Add(v);
+        else { upper.Add(v); lower.Add(v); }
+    }
+
+    /// <summary>
+    /// Collects alive triangles incident to vertex 'from' whose opposite edge
+    /// faces toward vertex 'toward' (the constraint direction exits through
+    /// that edge).
+    /// </summary>
+    private void CollectFacingTriangles(int from, int toward, Vector2 dir,
+        HashSet<int> corridor)
+    {
+        if (!vertToTris.TryGetValue(from, out var set)) return;
+        Vector2 fromPos = vertices[from];
+
+        foreach (int ti in set)
+        {
+            if (!triAlive[ti]) continue;
+            int[] tri = triangles[ti];
+
+            int fIdx = -1;
+            for (int k = 0; k < 3; k++)
+                if (tri[k] == from) { fIdx = k; break; }
+            if (fIdx < 0) continue;
+
+            int p = tri[(fIdx + 1) % 3];
+            int q = tri[(fIdx + 2) % 3];
+
+            float cp = CrossConstraint(dir, vertices[p] - fromPos);
+            float cq = CrossConstraint(dir, vertices[q] - fromPos);
+
+            if (cp * cq <= 0f)
+                corridor.Add(ti);
+        }
+    }
+
+    /// <summary>
+    /// Tests whether the given alive triangle intersects segment (a, b).
+    /// Includes proper crossings, touching cases, and interior containment.
+    /// </summary>
+    private bool TriangleIntersectsSegment(int ti, Vector2 a, Vector2 b)
+    {
+        int[] tri = triangles[ti];
+        Vector2 ta = vertices[tri[0]];
+        Vector2 tb = vertices[tri[1]];
+        Vector2 tc = vertices[tri[2]];
+
+        if (EdgesIntersect(a, b, ta, tb)) return true;
+        if (EdgesIntersect(a, b, tb, tc)) return true;
+        if (EdgesIntersect(a, b, tc, ta)) return true;
+
+        Vector2 mid = (a + b) * 0.5f;
+        if (NavMeshData.PointInTriangle(mid, ta, tb, tc)) return true;
+
+        // Check several sample points along the segment.
+        for (float t = 0.25f; t <= 0.75f; t += 0.25f)
+        {
+            Vector2 pt = a + (b - a) * t;
+            if (NavMeshData.PointInTriangle(pt, ta, tb, tc)) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Find the closest mesh-adjacent vertex of va that lies strictly on the
+    /// open segment (va, vb). Used as a fallback when WalkConstraint fails
+    /// because the constraint is collinear with existing triangulation edges
+    /// (common for horizontal/vertical building edges on a grid).
+    /// </summary>
+    private int FindAdjacentVertexOnSegment(int va, int vb)
+    {
+        Vector2 a = vertices[va];
+        Vector2 b = vertices[vb];
+        Vector2 ab = b - a;
+        float lenSq = ab.sqrMagnitude;
+        if (lenSq < 1e-8f) return -1;
+
+        float crossEps = GeometryConstants.CollinearEps(Mathf.Sqrt(lenSq));
+        float bestT = float.MaxValue;
+        int bestVert = -1;
+
+        if (vertToTris.TryGetValue(va, out var vaTriSet))
+        {
+            foreach (int ti in vaTriSet)
+            {
+                if (!triAlive[ti]) continue;
+                int[] tri = triangles[ti];
+
+                int vaIdx = -1;
+                for (int k = 0; k < 3; k++)
+                    if (tri[k] == va) { vaIdx = k; break; }
+                if (vaIdx < 0) continue;
+
+                for (int d = 1; d <= 2; d++)
+                {
+                    int v = tri[(vaIdx + d) % 3];
+                    if (v == vb || IsSuperVertex(v)) continue;
+
+                    Vector2 av = vertices[v] - a;
+                    float cross = ab.x * av.y - ab.y * av.x;
+                    if (Mathf.Abs(cross) > crossEps) continue;
+
+                    float t = Vector2.Dot(av, ab) / lenSq;
+                    if (t > 0.001f && t < 0.999f && t < bestT)
+                    {
+                        bestT = t;
+                        bestVert = v;
+                    }
+                }
+            }
+        }
+
+        return bestVert;
     }
 
     /// <summary>
@@ -217,14 +807,25 @@ public class CDTriangulator
         if (lenSq < 1e-8f) return result;
 
         float invLenSq = 1f / lenSq;
-        float crossEps = 0.01f * Mathf.Sqrt(lenSq);
+        float crossEps = GeometryConstants.CollinearEps(Mathf.Sqrt(lenSq));
+
+        // AABB filter: only check vertices within the segment's bounding box + epsilon
+        float bboxMinX = Mathf.Min(a.x, b.x) - crossEps;
+        float bboxMaxX = Mathf.Max(a.x, b.x) + crossEps;
+        float bboxMinY = Mathf.Min(a.y, b.y) - crossEps;
+        float bboxMaxY = Mathf.Max(a.y, b.y) + crossEps;
 
         for (int i = 0; i < vertices.Count; i++)
         {
             if (i == va || i == vb) continue;
             if (i == superV0 || i == superV1 || i == superV2) continue;
 
-            Vector2 ap = vertices[i] - a;
+            Vector2 vi = vertices[i];
+            // Early AABB rejection — skips the vast majority of vertices
+            if (vi.x < bboxMinX || vi.x > bboxMaxX || vi.y < bboxMinY || vi.y > bboxMaxY)
+                continue;
+
+            Vector2 ap = vi - a;
             float cross = ab.x * ap.y - ab.y * ap.x;
             if (Mathf.Abs(cross) > crossEps) continue;
 
@@ -246,8 +847,20 @@ public class CDTriangulator
     /// <summary>
     /// Walk from va toward vb through the triangulation, collecting all crossed
     /// triangles and building upper/lower cavity boundary vertex chains.
-    /// Upper = vertices to the LEFT of directed segment va→vb.
-    /// Lower = vertices to the RIGHT.
+    /// Upper = vertices to the LEFT of directed segment va→vb (positive cross product).
+    /// Lower = vertices to the RIGHT (negative cross product).
+    ///
+    /// Collinear intermediate vertices are pre-split by FindVerticesOnSegment
+    /// in InsertConstraint, so this method only handles the simple case where
+    /// the sub-segment has no interior collinear vertices.
+    ///
+    /// Super-triangle vertices are allowed during the walk (matching standard CDT
+    /// literature — Shewchuk, artem-ogre/CDT). They participate in cavity
+    /// retriangulation and are filtered out later in BuildNavMesh.
+    ///
+    /// Edge progression uses a perturbed segment (Simulation of Simplicity,
+    /// Edelsbrunner & Mücke 1990) to break exact collinearity with grid-aligned
+    /// edges, ensuring EdgesIntersect always returns a definitive result.
     /// </summary>
     private bool WalkConstraint(int va, int vb, List<int> crossedTris,
         List<int> upper, List<int> lower)
@@ -255,70 +868,107 @@ public class CDTriangulator
         Vector2 a = vertices[va];
         Vector2 b = vertices[vb];
         Vector2 ab = b - a;
+        float abLenSq = ab.sqrMagnitude;
+        float abLen = Mathf.Sqrt(abLenSq);
+        if (abLen < 1e-6f) return false;
 
         upper.Add(va);
         lower.Add(va);
 
+        // Perpendicular perturbation for the Simulation of Simplicity approach.
+        float sosEps = GeometryConstants.SoSPerturbation(ab.x, ab.y);
+        Vector2 perp = new Vector2(-ab.y, ab.x) * (sosEps / abLen);
+        Vector2 ap = a + perp;
+        Vector2 bp = b + perp;
+
+        // --- Find starting triangle: the triangle incident to va whose
+        //     opposite edge (p,q) is crossed by the constraint. ---
+        // Use the SoS-perturbed base point to break collinearity for
+        // axis-aligned constraints on grid-aligned vertices.
         int startTri = -1;
-        int exitA = -1, exitB = -1;
+        int upperVert = -1, lowerVert = -1;
 
-        for (int ti = 0; ti < triangles.Count; ti++)
+        if (vertToTris.TryGetValue(va, out var vaTrisWalk))
         {
-            if (!triAlive[ti]) continue;
-            int[] tri = triangles[ti];
-
-            int vaIdx = -1;
-            for (int k = 0; k < 3; k++)
-                if (tri[k] == va) { vaIdx = k; break; }
-            if (vaIdx < 0) continue;
-
-            int p = tri[(vaIdx + 1) % 3];
-            int q = tri[(vaIdx + 2) % 3];
-
-            Vector2 dp = vertices[p] - a;
-            Vector2 dq = vertices[q] - a;
-
-            float cp = dp.x * ab.y - dp.y * ab.x;
-            float cq = dq.x * ab.y - dq.y * ab.x;
-            float cpq = dp.x * dq.y - dp.y * dq.x;
-
-            bool exits;
-            if (cpq > 0f)
-                exits = cp >= -1e-6f && cq <= 1e-6f;
-            else if (cpq < 0f)
-                exits = cq >= -1e-6f && cp <= 1e-6f;
-            else
-                continue;
-
-            if (exits)
+            foreach (int ti in vaTrisWalk)
             {
-                startTri = ti;
-                exitA = p;
-                exitB = q;
-                break;
+                if (!triAlive[ti]) continue;
+                int[] tri = triangles[ti];
+
+                int vaIdx = -1;
+                for (int k = 0; k < 3; k++)
+                    if (tri[k] == va) { vaIdx = k; break; }
+                if (vaIdx < 0) continue;
+
+                int p = tri[(vaIdx + 1) % 3];
+                int q = tri[(vaIdx + 2) % 3];
+
+                float cp = CrossConstraint(ab, vertices[p] - ap);
+                float cq = CrossConstraint(ab, vertices[q] - ap);
+
+                if (cp > 1e-6f && cq < -1e-6f)
+                {
+                    startTri = ti; upperVert = p; lowerVert = q; break;
+                }
+                if (cp < -1e-6f && cq > 1e-6f)
+                {
+                    startTri = ti; upperVert = q; lowerVert = p; break;
+                }
+                if (Mathf.Abs(cp) <= 1e-6f && Mathf.Abs(cq) > 1e-6f)
+                {
+                    float tP = Vector2.Dot(vertices[p] - a, ab) / Mathf.Max(abLenSq, 1e-10f);
+                    if (tP > 0.001f)
+                    {
+                        if (cq > 0f) { startTri = ti; upperVert = q; lowerVert = p; }
+                        else { startTri = ti; upperVert = p; lowerVert = q; }
+                        break;
+                    }
+                }
+                if (Mathf.Abs(cq) <= 1e-6f && Mathf.Abs(cp) > 1e-6f)
+                {
+                    float tQ = Vector2.Dot(vertices[q] - a, ab) / Mathf.Max(abLenSq, 1e-10f);
+                    if (tQ > 0.001f)
+                    {
+                        if (cp > 0f) { startTri = ti; upperVert = p; lowerVert = q; }
+                        else { startTri = ti; upperVert = q; lowerVert = p; }
+                        break;
+                    }
+                }
             }
         }
 
-        if (startTri < 0) return false;
+        if (startTri < 0)
+        {
+            // Primary collinear path: constraint is collinear with existing mesh edges.
+            // Walk along adjacent vertices that lie on the segment va→vb.
+            int splitVert = FindAdjacentVertexOnSegment(va, vb);
+            if (splitVert >= 0)
+            {
+                constraintEdges.Add(EdgeKeyOrdered(va, splitVert));
+                constraintsInserted++;
+                // Recurse for the remaining sub-segment
+                crossedTris.Clear();
+                upper.Clear();
+                lower.Clear();
+                InsertConstraintSegment(splitVert, vb);
+                return false; // signal caller to skip cavity retriangulation
+            }
+            return false;
+        }
 
         crossedTris.Add(startTri);
+        upper.Add(upperVert);
+        lower.Add(lowerVert);
 
-        float sideA = ab.x * (vertices[exitA].y - a.y) - ab.y * (vertices[exitA].x - a.x);
-        float sideB = ab.x * (vertices[exitB].y - a.y) - ab.y * (vertices[exitB].x - a.x);
-
-        if (sideA > 0f) { upper.Add(exitA); lower.Add(exitB); }
-        else { upper.Add(exitB); lower.Add(exitA); }
-
-        int edgeA = exitA, edgeB = exitB;
         int maxIter = triangles.Count;
         var visited = new HashSet<int>(crossedTris);
 
         for (int iter = 0; iter < maxIter; iter++)
         {
-            int adjTri = FindAdjacentTriangleExcluding(visited, edgeA, edgeB);
+            int adjTri = FindAdjacentTriangleExcluding(visited, upperVert, lowerVert);
             if (adjTri < 0) return false;
 
-            int opp = GetOppositeVertex(adjTri, edgeA, edgeB);
+            int opp = GetOppositeVertex(adjTri, upperVert, lowerVert);
             if (opp < 0) return false;
 
             crossedTris.Add(adjTri);
@@ -331,17 +981,39 @@ public class CDTriangulator
                 return true;
             }
 
-            float side = ab.x * (vertices[opp].y - a.y) - ab.y * (vertices[opp].x - a.x);
-            if (side > 0f) upper.Add(opp);
-            else lower.Add(opp);
+            // Edge progression: determine which edge the perturbed constraint
+            // segment crosses next (upper or lower). The perturbation ensures
+            // EdgesIntersect returns a definitive result for collinear edges.
+            bool crossesUpper = EdgesIntersect(ap, bp, vertices[upperVert], vertices[opp]);
+            bool crossesLower = EdgesIntersect(ap, bp, vertices[lowerVert], vertices[opp]);
 
-            if (EdgesIntersect(a, b, vertices[edgeA], vertices[opp]))
-                edgeB = opp;
+            if (crossesLower && !crossesUpper)
+            {
+                upper.Add(opp);
+                upperVert = opp;
+            }
             else
-                edgeA = opp;
+            {
+                lower.Add(opp);
+                lowerVert = opp;
+            }
         }
 
         return false;
+    }
+
+    private bool IsSuperVertex(int v)
+    {
+        return v == superV0 || v == superV1 || v == superV2;
+    }
+
+    /// <summary>
+    /// Signed cross product ab × dp. Positive = dp is to the LEFT of ab (upper).
+    /// Negative = dp is to the RIGHT of ab (lower).
+    /// </summary>
+    private static float CrossConstraint(Vector2 ab, Vector2 dp)
+    {
+        return ab.x * dp.y - ab.y * dp.x;
     }
 
     /// <summary>
@@ -356,8 +1028,7 @@ public class CDTriangulator
 
         if (n == 3)
         {
-            triangles.Add(new[] { polygon[0], polygon[1], polygon[2] });
-            triAlive.Add(true);
+            AddTriangleIndexed(polygon[0], polygon[1], polygon[2]);
             return;
         }
 
@@ -371,8 +1042,7 @@ public class CDTriangulator
             }
         }
 
-        triangles.Add(new[] { polygon[0], polygon[bestIdx], polygon[n - 1] });
-        triAlive.Add(true);
+        AddTriangleIndexed(polygon[0], polygon[bestIdx], polygon[n - 1]);
 
         if (bestIdx > 1)
         {
@@ -462,7 +1132,7 @@ public class CDTriangulator
             }
 
             float area = Mathf.Abs(cross) * 0.5f;
-            if (area < 0.001f)
+            if (area < GeometryConstants.DegenerateAreaThreshold)
             {
                 degenerateTrianglesSkipped++;
                 continue;
@@ -476,6 +1146,7 @@ public class CDTriangulator
         }
 
         mesh.BuildAdjacency();
+        mesh.CullIsolatedTriangles();
         mesh.ComputeAllWidths();
 
         if (GameDebug.Pathfinding)
@@ -551,11 +1222,11 @@ public class CDTriangulator
 
     private bool EdgeExists(int va, int vb)
     {
-        for (int ti = 0; ti < triangles.Count; ti++)
+        if (!vertToTris.TryGetValue(va, out var set)) return false;
+        foreach (int ti in set)
         {
             if (!triAlive[ti]) continue;
-            int[] tri = triangles[ti];
-            if (HasEdge(tri, va, vb))
+            if (HasEdge(triangles[ti], va, vb))
                 return true;
         }
         return false;
@@ -579,7 +1250,8 @@ public class CDTriangulator
 
     private int FindAdjacentTriangle(int triIdx, int ea, int eb)
     {
-        for (int ti = 0; ti < triangles.Count; ti++)
+        if (!vertToTris.TryGetValue(ea, out var set)) return -1;
+        foreach (int ti in set)
         {
             if (!triAlive[ti] || ti == triIdx) continue;
             if (HasEdge(triangles[ti], ea, eb))
@@ -590,7 +1262,8 @@ public class CDTriangulator
 
     private int FindAdjacentTriangleExcluding(HashSet<int> excluded, int ea, int eb)
     {
-        for (int ti = 0; ti < triangles.Count; ti++)
+        if (!vertToTris.TryGetValue(ea, out var set)) return -1;
+        foreach (int ti in set)
         {
             if (!triAlive[ti] || excluded.Contains(ti)) continue;
             if (HasEdge(triangles[ti], ea, eb))
@@ -629,22 +1302,17 @@ public class CDTriangulator
     }
 
     /// <summary>
-    /// Rasterize a triangle onto the grid and check every overlapping grid cell
-    /// center. Returns false if ANY cell center inside the triangle is unwalkable.
-    /// Uses actual grid cell centers (aligned to gridOrigin) to guarantee no
-    /// cell is missed.
+    /// Check if a triangle is fully walkable by rasterizing it onto the grid
+    /// and checking every covered cell center.
     /// </summary>
     private static bool IsTriangleFullyWalkable(Vector2 a, Vector2 b, Vector2 c,
         System.Func<Vector2, bool> isWalkable, float cellSize, Vector2 gridOrigin)
     {
-        if (!isWalkable((a + b + c) / 3f)) return false;
-
         float minX = Mathf.Min(a.x, Mathf.Min(b.x, c.x));
         float maxX = Mathf.Max(a.x, Mathf.Max(b.x, c.x));
         float minY = Mathf.Min(a.y, Mathf.Min(b.y, c.y));
         float maxY = Mathf.Max(a.y, Mathf.Max(b.y, c.y));
 
-        // Compute grid cell index range covering the triangle's bounding box
         int cellMinX = Mathf.FloorToInt((minX - gridOrigin.x) / cellSize) - 1;
         int cellMaxX = Mathf.CeilToInt((maxX - gridOrigin.x) / cellSize) + 1;
         int cellMinY = Mathf.FloorToInt((minY - gridOrigin.y) / cellSize) - 1;
@@ -654,7 +1322,6 @@ public class CDTriangulator
         {
             for (int cy = cellMinY; cy <= cellMaxY; cy++)
             {
-                // Compute actual grid cell center in world space
                 float wx = gridOrigin.x + cx * cellSize;
                 float wy = gridOrigin.y + cy * cellSize;
                 Vector2 cellCenter = new Vector2(wx, wy);

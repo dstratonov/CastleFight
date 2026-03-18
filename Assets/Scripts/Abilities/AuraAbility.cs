@@ -8,11 +8,16 @@ public class AuraAbility : Ability
     private float tickTimer;
     private bool isActive;
     private GameObject casterRef;
+    private Health cachedCasterHealth;
 
     public override void Activate(GameObject caster, Vector3 targetPosition, GameObject targetObject = null)
     {
         casterRef = caster;
+        cachedCasterHealth = casterRef.GetComponent<Health>();
+        tickTimer = tickInterval;
         isActive = true;
+        if (GameDebug.Combat)
+            Debug.Log($"[Aura] {data.abilityId} activated on {caster.name} r={data.radius:F1} value={data.value:F1}");
     }
 
     public override void Deactivate()
@@ -34,21 +39,27 @@ public class AuraAbility : Ability
 
     private void ApplyAuraEffect()
     {
-        var colliders = Physics.OverlapSphere(casterRef.transform.position, data.radius);
-        var casterHealth = casterRef.GetComponent<Health>();
-        int myTeam = casterHealth != null ? casterHealth.TeamId : -1;
+        if (UnitManager.Instance == null) return;
+        int myTeam = cachedCasterHealth != null ? cachedCasterHealth.TeamId : -1;
 
-        foreach (var col in colliders)
+        var units = UnitManager.Instance.GetUnitsInRadius(casterRef.transform.position, data.radius);
+        int affected = 0;
+        foreach (var unit in units)
         {
-            var health = col.GetComponent<Health>();
-            if (health == null || health.IsDead) continue;
+            if (unit == null || unit.IsDead) continue;
 
-            bool isEnemy = health.TeamId != myTeam;
+            bool isEnemy = unit.TeamId != myTeam;
             if (isEnemy != affectsEnemies) continue;
 
-            var buffSystem = col.GetComponent<BuffSystem>();
+            var buffSystem = unit.GetComponent<BuffSystem>();
             if (buffSystem != null)
+            {
                 buffSystem.ApplyBuff(new Buff(data.abilityId, tickInterval * 1.5f, data.value, true));
+                affected++;
+            }
         }
+
+        if (GameDebug.Combat && affected > 0)
+            Debug.Log($"[Aura] {data.abilityId} tick: {affected} units {(affectsEnemies ? "enemies" : "allies")} affected");
     }
 }

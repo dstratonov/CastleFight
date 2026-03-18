@@ -11,7 +11,6 @@ public struct NavTriangle
     public int V0, V1, V2;
     public int N0, N1, N2; // neighbor triangle IDs per edge; -1 = boundary
     public float W0, W1, W2; // portal widths per edge (max unit diameter that fits)
-    public float CostMultiplier; // raised by cost stamps; default 1.0
     public bool IsWalkable;
 
     public int GetVertex(int i) => i switch { 0 => V0, 1 => V1, _ => V2 };
@@ -110,7 +109,6 @@ public class NavMeshData
             V0 = v0, V1 = v1, V2 = v2,
             N0 = -1, N1 = -1, N2 = -1,
             W0 = 0f, W1 = 0f, W2 = 0f,
-            CostMultiplier = 1f,
             IsWalkable = walkable
         };
         return id;
@@ -129,23 +127,16 @@ public class NavMeshData
     }
 
     /// <summary>
-    /// Deep copies this mesh (both vertex and triangle arrays).
-    /// Used for creating active_navmesh from base_navmesh.
+    /// Returns the area of the triangle using the cross-product formula.
     /// </summary>
-    public NavMeshData DeepCopy()
+    public float GetTriangleArea(int triId)
     {
-        var copy = new NavMeshData();
-        System.Array.Copy(Vertices, copy.Vertices, VertexCount);
-        System.Array.Copy(Triangles, copy.Triangles, TriangleCount);
-        copy.VertexCount = VertexCount;
-        copy.TriangleCount = TriangleCount;
-
-        if (spatialCellSize > 0f)
-            copy.BuildSpatialGrid(spatialCellSize);
-
-        return copy;
+        ref var t = ref Triangles[triId];
+        Vector2 vA = Vertices[t.V0], vB = Vertices[t.V1], vC = Vertices[t.V2];
+        return Mathf.Abs(Cross2D(vB - vA, vC - vA)) * 0.5f;
     }
 
+    /// <summary>
     // ================================================================
     //  SPATIAL GRID for triangle-at-position lookup
     // ================================================================
@@ -212,6 +203,10 @@ public class NavMeshData
 
         if (!spatialGrid.TryGetValue(key, out var candidates))
         {
+            // #16: Spiral neighbor-cell search before brute force
+            int spiralResult = SpiralSearch(cx, cz, pos);
+            if (spiralResult >= 0) return spiralResult;
+
             int brute = FindTriangleBrute(pos);
             if (brute >= 0 && GameDebug.Pathfinding)
             {
@@ -229,7 +224,38 @@ public class NavMeshData
                 return triId;
         }
 
+        // #16: Spiral neighbor-cell search before brute force
+        int spiralFallback = SpiralSearch(cx, cz, pos);
+        if (spiralFallback >= 0) return spiralFallback;
+
         return FindTriangleBrute(pos);
+    }
+
+    private int SpiralSearch(int cx, int cz, Vector2 pos)
+    {
+        for (int ring = 1; ring <= 3; ring++)
+        {
+            for (int dx = -ring; dx <= ring; dx++)
+            {
+                for (int dz = -ring; dz <= ring; dz++)
+                {
+                    if (Mathf.Abs(dx) != ring && Mathf.Abs(dz) != ring)
+                        continue;
+
+                    long nkey = ((long)(cx + dx) << 32) | (uint)(cz + dz);
+                    if (!spatialGrid.TryGetValue(nkey, out var nlist))
+                        continue;
+
+                    for (int i = 0; i < nlist.Count; i++)
+                    {
+                        int triId = nlist[i];
+                        if (Triangles[triId].IsWalkable && PointInTriangle(pos, triId))
+                            return triId;
+                    }
+                }
+            }
+        }
+        return -1;
     }
 
     private int FindTriangleBrute(Vector2 pos)
@@ -241,10 +267,36 @@ public class NavMeshData
             if (!Triangles[i].IsWalkable) continue;
             if (PointInTriangle(pos, i)) return i;
 
-            float d = (GetCentroid(i) - pos).sqrMagnitude;
+            ref var t = ref Triangles[i];
+            float d = SqrDistanceToTriangle(pos, Vertices[t.V0], Vertices[t.V1], Vertices[t.V2]);
             if (d < bestDist) { bestDist = d; bestTri = i; }
         }
         return bestTri;
+    }
+
+    /// <summary>
+    /// Squared distance from a point to the nearest point on a triangle (edges + interior).
+    /// </summary>
+    public static float SqrDistanceToTriangle(Vector2 p, Vector2 a, Vector2 b, Vector2 c)
+    {
+        float dAB = SqrDistanceToSegment(p, a, b);
+        float dBC = SqrDistanceToSegment(p, b, c);
+        float dCA = SqrDistanceToSegment(p, c, a);
+        return Mathf.Min(dAB, Mathf.Min(dBC, dCA));
+    }
+
+    /// <summary>
+    /// Squared distance from point p to the closest point on segment (a, b).
+    /// </summary>
+    public static float SqrDistanceToSegment(Vector2 p, Vector2 a, Vector2 b)
+    {
+        Vector2 ab = b - a;
+        float lenSq = ab.sqrMagnitude;
+        if (lenSq < 1e-10f) return (p - a).sqrMagnitude;
+
+        float t = Mathf.Clamp01(Vector2.Dot(p - a, ab) / lenSq);
+        Vector2 proj = a + ab * t;
+        return (p - proj).sqrMagnitude;
     }
 
     public bool PointInTriangle(Vector2 p, int triId)
@@ -323,6 +375,7 @@ public class NavMeshData
     /// <summary>
     /// Build adjacency: for each triangle, find its neighbors across each edge.
     /// Two triangles are neighbors if they share exactly 2 vertices.
+    /// Includes a repair pass that removes one-directional (broken) links.
     /// </summary>
     public void BuildAdjacency()
     {
@@ -350,6 +403,59 @@ public class NavMeshData
                 }
             }
         }
+
+        RepairBrokenAdjacency();
+    }
+
+    /// <summary>
+    /// Removes one-directional neighbor links where A→B but B does not link back to A.
+    /// This prevents A* from traversing into a triangle and not being able to traverse back.
+    /// </summary>
+    private void RepairBrokenAdjacency()
+    {
+        int repaired = 0;
+        for (int i = 0; i < TriangleCount; i++)
+        {
+            if (!Triangles[i].IsWalkable) continue;
+            for (int e = 0; e < 3; e++)
+            {
+                int n = Triangles[i].GetNeighbor(e);
+                if (n < 0 || n >= TriangleCount) continue;
+                if (Triangles[n].GetEdgeToNeighbor(i) < 0)
+                {
+                    Triangles[i].SetNeighbor(e, -1);
+                    repaired++;
+                }
+            }
+        }
+        if (repaired > 0 && GameDebug.Pathfinding)
+            Debug.Log($"[NavMesh] Repaired {repaired} one-directional adjacency links");
+    }
+
+    /// <summary>
+    /// Marks walkable triangles with zero neighbors as unwalkable.
+    /// These are unreachable boundary artifacts that A* can never path through.
+    /// Call after BuildAdjacency in production mesh generation.
+    /// </summary>
+    public void CullIsolatedTriangles()
+    {
+        int culled = 0;
+        for (int i = 0; i < TriangleCount; i++)
+        {
+            if (!Triangles[i].IsWalkable) continue;
+            bool hasNeighbor = false;
+            for (int e = 0; e < 3; e++)
+            {
+                if (Triangles[i].GetNeighbor(e) >= 0) { hasNeighbor = true; break; }
+            }
+            if (!hasNeighbor)
+            {
+                Triangles[i].IsWalkable = false;
+                culled++;
+            }
+        }
+        if (culled > 0 && GameDebug.Pathfinding)
+            Debug.Log($"[NavMesh] Culled {culled} isolated triangles (no neighbors, unreachable)");
     }
 
     private static long EdgeKey(int a, int b)
@@ -422,7 +528,7 @@ public class NavMeshData
             if (!hasNeighbor) isolated++;
         }
 
-        bool healthy = errors == 0 && isolated == 0;
+        bool healthy = errors == 0 && isolated == 0 && brokenAdjacency == 0;
 
         if (GameDebug.Pathfinding)
         {
@@ -436,6 +542,7 @@ public class NavMeshData
         if (!healthy)
         {
             if (isolated > 0) Debug.LogWarning($"[NavMesh] {isolated} walkable triangles have NO neighbors — units cannot path through them");
+            if (brokenAdjacency > 0) Debug.LogWarning($"[NavMesh] {brokenAdjacency} broken adjacency links — A* may not traverse mesh properly");
             if (errors > 0) Debug.LogError($"[NavMesh] {errors} structural errors found in mesh");
         }
 

@@ -6,6 +6,13 @@ public static class AttackPositionFinder
     private static readonly Dictionary<int, Dictionary<Vector2Int, int>> slotRegistry = new();
     private static float cleanupTimer;
 
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        slotRegistry.Clear();
+        cleanupTimer = 0f;
+    }
+
     private static readonly Vector2Int[] Dirs =
     {
         new(0, 1), new(0, -1), new(1, 0), new(-1, 0),
@@ -18,18 +25,89 @@ public static class AttackPositionFinder
         1.41421356f, 1.41421356f, 1.41421356f, 1.41421356f
     };
 
-    public static Vector2Int FindAttackPosition(Unit attacker, Health target, IGrid grid, ClearanceMap clearance)
+    /// <summary>
+    /// Returns (cell, found). Callers must check 'found' — cell is only valid when found is true.
+    /// </summary>
+    public static (Vector2Int cell, bool found) FindAttackPosition(Unit attacker, Health target, IGrid grid, ClearanceMap clearance)
     {
-        if (target == null || grid == null) return Vector2Int.zero;
+        Debug.Assert(target != null, "[AttackPositionFinder] FindAttackPosition: target is null");
+        Debug.Assert(grid != null, "[AttackPositionFinder] FindAttackPosition: grid is null");
+        Debug.Assert(attacker != null, "[AttackPositionFinder] FindAttackPosition: attacker is null");
+        if (target == null || grid == null) return (Vector2Int.zero, false);
 
         Vector3 targetCenter = BoundsHelper.GetCenter(target.gameObject);
+        Bounds targetBounds = BoundsHelper.GetPhysicalBounds(target.gameObject);
         float targetRadius = BoundsHelper.GetRadius(target.gameObject);
+        Vector3 targetExtents = new Vector3(targetBounds.extents.x, 0f, targetBounds.extents.z);
         float attackRange = GetAttackRange(attacker);
-        float unitRadius = attacker != null ? attacker.EffectiveRadius : 0.5f;
-        bool isRanged = attacker != null && attacker.Data != null && attacker.Data.isRanged;
+        Debug.Assert(attacker.Data != null, $"[AttackPositionFinder] {attacker.name} FindAttackPosition: attacker.Data is null");
+        float unitRadius = attacker.EffectiveRadius;
+        bool isRanged = attacker.Data.isRanged;
+        Vector3 attackerPos = attacker.transform.position;
+        int attackerId = attacker.GetInstanceID();
+        int targetId = target.GetInstanceID();
+
+        var result = FindAttackPositionCore(
+            grid, clearance,
+            targetCenter, targetRadius,
+            attackRange, unitRadius, isRanged,
+            attackerPos, attackerId, targetId,
+            targetExtents);
+
+        if (result.found && GameDebug.Combat)
+        {
+            Vector3 bestPos = grid.CellToWorld(result.cell);
+            float distToTarget2 = Vector3.Distance(bestPos, targetCenter);
+            float distToAttacker2 = Vector3.Distance(bestPos, attackerPos);
+            int claimedOnTarget = slotRegistry.TryGetValue(targetId, out var s) ? s.Count : 0;
+            Debug.Log($"[AttackPos] unit={attacker?.name} -> {target.name} " +
+                $"cell={result.cell} distToTarget={distToTarget2:F1} " +
+                $"distToAttacker={distToAttacker2:F1} slotsOnTarget={claimedOnTarget} ranged={isRanged}");
+        }
+        else if (!result.found && GameDebug.Combat)
+        {
+            Debug.LogWarning($"[AttackPos] NO POSITION for {attacker?.name} -> {target?.name} " +
+                $"range={attackRange:F1} unitR={unitRadius:F1}");
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// 2D distance from a point to the surface of an axis-aligned bounding box.
+    /// Returns 0 when the point is inside the box. This matches the distance
+    /// that Bounds.ClosestPoint produces, ensuring attack positions are placed
+    /// where UnitCombat.DistanceToTarget will confirm they are in range.
+    /// </summary>
+    public static float DistToSurface(Vector3 pos, Vector3 boundsCenter, Vector3 boundsExtents)
+    {
+        float dx = Mathf.Max(0f, Mathf.Abs(pos.x - boundsCenter.x) - boundsExtents.x);
+        float dz = Mathf.Max(0f, Mathf.Abs(pos.z - boundsCenter.z) - boundsExtents.z);
+        return Mathf.Sqrt(dx * dx + dz * dz);
+    }
+
+    /// <summary>
+    /// Pure-logic core of attack position finding. Decoupled from Unity objects
+    /// for unit testing. Runs Dijkstra from the target, then scores candidate cells.
+    /// targetExtents: XZ half-sizes of the target AABB. When zero, computed from
+    /// targetRadius as a square (backwards compatible with point/circle targets).
+    /// </summary>
+    public static (Vector2Int cell, bool found) FindAttackPositionCore(
+        IGrid grid, ClearanceMap clearance,
+        Vector3 targetCenter, float targetRadius,
+        float attackRange, float unitRadius, bool isRanged,
+        Vector3 attackerPos, int attackerId, int targetId,
+        Vector3 targetExtents = default)
+    {
+        Debug.Assert(grid != null, "[AttackPositionFinder] FindAttackPositionCore: grid is null");
+        if (grid == null) return (Vector2Int.zero, false);
+
+        if (targetExtents.x <= 0f && targetExtents.z <= 0f)
+            targetExtents = new Vector3(targetRadius, 0f, targetRadius);
 
         Vector2Int targetCell = grid.WorldToCell(targetCenter);
-        float maxDist = targetRadius + attackRange + unitRadius + grid.CellSize * 2;
+        float maxExtent = Mathf.Max(targetExtents.x, targetExtents.z);
+        float maxDist = maxExtent + attackRange + unitRadius + grid.CellSize * 2;
         int searchRadius = Mathf.CeilToInt(maxDist / grid.CellSize) + 1;
 
         int size = (searchRadius * 2 + 1);
@@ -50,9 +128,7 @@ public static class AttackPositionFinder
         }
         else
         {
-            // Target center is unwalkable (building/castle) — seed from walkable border cells.
-            // Scan around target to find walkable cells adjacent to unwalkable cells.
-            int borderSearchR = Mathf.CeilToInt(targetRadius / grid.CellSize) + 2;
+            int borderSearchR = Mathf.CeilToInt(maxExtent / grid.CellSize) + 2;
             borderSearchR = Mathf.Min(borderSearchR, searchRadius);
             for (int dz = -borderSearchR; dz <= borderSearchR; dz++)
             {
@@ -80,16 +156,9 @@ public static class AttackPositionFinder
                     }
                 }
             }
-
-            if (open.Count == 0 && GameDebug.Combat)
-                Debug.LogWarning($"[AttackPos] No walkable border cells found around {target.name} " +
-                    $"targetCell={targetCell} radius={targetRadius:F1} borderSearchR={borderSearchR}");
         }
 
-        Vector3 attackerPos = attacker != null ? attacker.transform.position : targetCenter;
-        int attackerId = attacker != null ? attacker.GetInstanceID() : 0;
-        int targetId = target.GetInstanceID();
-
+        // Dijkstra expansion
         while (open.Count > 0)
         {
             var (currentCost, currentIdx) = open.Min;
@@ -133,15 +202,21 @@ public static class AttackPositionFinder
             }
         }
 
+        // Score candidate cells using AABB surface distance.
+        // This matches UnitCombat.DistanceToTarget (which uses Bounds.ClosestPoint),
+        // guaranteeing that returned positions are within actual attack range.
         float bestScore = float.MaxValue;
         Vector2Int bestCell = targetCell;
         bool found = false;
 
-        float minDist = Mathf.Max(targetRadius - grid.CellSize, 0f);
-        float maxDistFromCenter = targetRadius + attackRange + unitRadius;
+        float maxSurfaceDist = attackRange + unitRadius;
+        float minSurfaceDist;
+        if (isRanged)
+            minSurfaceDist = attackRange * 0.4f;
+        else
+            minSurfaceDist = 0f;
 
-        var pfm = PathfindingManager.Instance;
-        Vector2 attacker2D = new Vector2(attackerPos.x, attackerPos.z);
+        float idealRangedSurfaceDist = attackRange * 0.85f;
 
         for (int dz = -searchRadius; dz <= searchRadius; dz++)
         {
@@ -152,9 +227,9 @@ public static class AttackPositionFinder
 
                 Vector2Int worldCell = new Vector2Int(targetCell.x + dx, targetCell.y + dz);
                 Vector3 worldPos = grid.CellToWorld(worldCell);
-                float distToTarget = Vector3.Distance(worldPos, targetCenter);
+                float surfaceDist = DistToSurface(worldPos, targetCenter, targetExtents);
 
-                if (distToTarget < minDist || distToTarget > maxDistFromCenter)
+                if (surfaceDist < minSurfaceDist || surfaceDist > maxSurfaceDist)
                     continue;
 
                 if (clearance != null && !clearance.CanPass(worldCell, unitRadius))
@@ -169,18 +244,17 @@ public static class AttackPositionFinder
                 float travelCost = cost[idx];
                 float distToAttacker = Vector3.Distance(worldPos, attackerPos);
 
-                // Penalize positions the attacker can't reach in a straight line.
-                // Positions behind buildings get a heavy penalty so we prefer positions
-                // on the same side of obstacles as the attacker.
-                float pathPenalty = 0f;
-                if (pfm != null && distToAttacker > grid.CellSize)
+                float score;
+                if (isRanged)
                 {
-                    Vector2 pos2D = new Vector2(worldPos.x, worldPos.z);
-                    if (!pfm.IsSegmentClear(attacker2D, pos2D))
-                        pathPenalty = maxDistFromCenter * 3f;
+                    float rangeDelta = Mathf.Abs(surfaceDist - idealRangedSurfaceDist);
+                    float rangePreference = rangeDelta / Mathf.Max(attackRange, 1f);
+                    score = travelCost * 0.25f + distToAttacker * 0.45f + rangePreference * 0.3f;
                 }
-
-                float score = travelCost * 0.3f + distToAttacker * 0.7f + pathPenalty;
+                else
+                {
+                    score = travelCost * 0.3f + distToAttacker * 0.7f;
+                }
 
                 if (score < bestScore)
                 {
@@ -191,10 +265,10 @@ public static class AttackPositionFinder
             }
         }
 
+        // Fallback: all optimal slots claimed — find closest walkable cell within
+        // range ignoring slot claims.
         if (!found)
         {
-            // Fallback: find the closest reachable walkable cell to the target.
-            // Prefer cells the attacker can reach without crossing buildings.
             float fallbackBest = float.MaxValue;
             for (int dz = -searchRadius; dz <= searchRadius; dz++)
             {
@@ -205,60 +279,51 @@ public static class AttackPositionFinder
 
                     Vector2Int worldCell = new Vector2Int(targetCell.x + dx, targetCell.y + dz);
                     Vector3 worldPos = grid.CellToWorld(worldCell);
+                    float surfaceDist = DistToSurface(worldPos, targetCenter, targetExtents);
+
+                    if (surfaceDist < minSurfaceDist || surfaceDist > maxSurfaceDist)
+                        continue;
+
+                    if (clearance != null && !clearance.CanPass(worldCell, unitRadius))
+                        continue;
+
+                    if (isRanged && !grid.HasLineOfSight(worldCell, targetCell))
+                        continue;
+
                     float distToAttacker = Vector3.Distance(worldPos, attackerPos);
-
-                    float penalty = 0f;
-                    if (pfm != null && distToAttacker > grid.CellSize)
+                    if (distToAttacker < fallbackBest)
                     {
-                        Vector2 pos2D = new Vector2(worldPos.x, worldPos.z);
-                        if (!pfm.IsSegmentClear(attacker2D, pos2D))
-                            penalty = 50f;
-                    }
-
-                    float score = distToAttacker + penalty;
-                    if (score < fallbackBest)
-                    {
-                        fallbackBest = score;
+                        fallbackBest = distToAttacker;
                         bestCell = worldCell;
                         found = true;
                     }
                 }
             }
-
-            if (GameDebug.Combat)
-            {
-                if (found)
-                    Debug.Log($"[AttackPos] FALLBACK for {attacker?.name} -> {target.name} cell={bestCell}");
-                else
-                    Debug.LogWarning($"[AttackPos] NO POSITION for {attacker?.name} -> {target.name} " +
-                        $"searchR={searchRadius} range={attackRange:F1} unitR={unitRadius:F1}");
-            }
         }
 
         if (found)
-        {
             ClaimSlot(targetId, bestCell, attackerId);
-            if (GameDebug.Combat)
-            {
-                Vector3 bestPos = grid.CellToWorld(bestCell);
-                float distToTarget2 = Vector3.Distance(bestPos, targetCenter);
-                float distToAttacker2 = Vector3.Distance(bestPos, attackerPos);
-                int claimedOnTarget = slotRegistry.TryGetValue(targetId, out var s) ? s.Count : 0;
-                Debug.Log($"[AttackPos] unit={attacker?.name} -> {target.name} " +
-                    $"cell={bestCell} score={bestScore:F1} " +
-                    $"distToTarget={distToTarget2:F1} distToAttacker={distToAttacker2:F1} " +
-                    $"slotsOnTarget={claimedOnTarget} ranged={isRanged}");
-            }
-        }
 
-        return bestCell;
+        return (bestCell, found);
     }
 
-    private static float GetAttackRange(Unit unit)
+    /// <summary>
+    /// Compute the effective attack range for a unit. Clamps melee to [0.3, 2]
+    /// and ranged to [1, 8].
+    /// </summary>
+    public static float GetAttackRange(Unit unit)
     {
-        if (unit == null || unit.Data == null) return 1f;
-        float dataRange = unit.Data.attackRange;
-        if (!unit.Data.isRanged)
+        Debug.Assert(unit != null, "[AttackPositionFinder] GetAttackRange: unit is null");
+        Debug.Assert(unit.Data != null, $"[AttackPositionFinder] {unit.name} GetAttackRange: unit.Data is null");
+        return GetAttackRangeFromData(unit.Data.attackRange, unit.Data.isRanged);
+    }
+
+    /// <summary>
+    /// Pure-logic version of GetAttackRange for unit testing.
+    /// </summary>
+    public static float GetAttackRangeFromData(float dataRange, bool isRanged)
+    {
+        if (!isRanged)
             return Mathf.Clamp(dataRange, 0.3f, 2f);
         return Mathf.Clamp(dataRange, 1f, 8f);
     }
@@ -313,6 +378,22 @@ public static class AttackPositionFinder
         slotRegistry.Remove(targetId);
     }
 
+    /// <summary>
+    /// Returns (targetCount, totalSlots, maxSlotsPerTarget) for diagnostics.
+    /// </summary>
+    public static (int targets, int totalSlots, int maxPerTarget) GetSlotStats()
+    {
+        int totalSlots = 0;
+        int maxPerTarget = 0;
+        foreach (var kvp in slotRegistry)
+        {
+            totalSlots += kvp.Value.Count;
+            if (kvp.Value.Count > maxPerTarget)
+                maxPerTarget = kvp.Value.Count;
+        }
+        return (slotRegistry.Count, totalSlots, maxPerTarget);
+    }
+
     private static bool IsSlotClaimed(int targetId, Vector2Int cell, int myAttackerId)
     {
         if (!slotRegistry.TryGetValue(targetId, out var slots)) return false;
@@ -332,7 +413,8 @@ public static class AttackPositionFinder
         var livingIds = new HashSet<int>();
         if (UnitManager.Instance != null)
         {
-            for (int team = 0; team <= 1; team++)
+            int teamCount = TeamManager.TeamCount;
+            for (int team = 0; team < teamCount; team++)
             {
                 var units = UnitManager.Instance.GetTeamUnits(team);
                 if (units == null) continue;
