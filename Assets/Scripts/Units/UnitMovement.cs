@@ -288,9 +288,9 @@ public class UnitMovement : NetworkBehaviour
 
         float unitRadius = unit != null ? unit.EffectiveRadius : 0.5f;
 
-        // Grid A* with debug cell path for visualization
+        // Grid A* with footprint checking and debug cell path
         debugCellPath.Clear();
-        var path = GridAStar.FindPath(grid, transform.position, worldTarget.Value, debugCellPath);
+        var path = GridAStar.FindPath(grid, transform.position, worldTarget.Value, debugCellPath, unitRadius);
 
         if (path != null && path.Count > 0)
         {

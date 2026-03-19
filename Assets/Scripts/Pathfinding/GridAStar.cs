@@ -55,27 +55,32 @@ public static class GridAStar
 
     /// <summary>
     /// Find a path from startWorld to goalWorld on the grid.
-    /// Returns a list of world-space waypoints, or null if no path exists.
-    /// The path is smoothed to remove unnecessary intermediate waypoints.
-    /// If debugCellPath is non-null, the raw A* cell path is stored in it for visualization.
+    /// unitRadius determines the unit's footprint size — A* ensures the full
+    /// NxN rectangle of cells at every position is walkable (no obstacle overlap).
+    /// If debugCellPath is non-null, the raw A* cell path is stored for visualization.
     /// </summary>
     public static List<Vector3> FindPath(IGrid grid, Vector3 startWorld, Vector3 goalWorld,
-        List<Vector2Int> debugCellPath = null)
+        List<Vector2Int> debugCellPath = null, float unitRadius = 0f)
     {
         StatPathsRequested++;
+
+        // Compute footprint half-extents from unit radius
+        float cs = grid.CellSize;
+        int cellSpan = Mathf.Max(1, Mathf.CeilToInt(unitRadius * 2f / cs));
+        int halfLow = (cellSpan - 1) / 2;
+        int halfHigh = cellSpan / 2;
 
         Vector2Int startCell = grid.WorldToCell(startWorld);
         Vector2Int goalCell = grid.WorldToCell(goalWorld);
 
-        // Clamp to grid bounds
         startCell = ClampToGrid(startCell, grid);
         goalCell = ClampToGrid(goalCell, grid);
 
-        // If start is not walkable, find nearest walkable
-        if (!grid.IsWalkable(startCell))
-            startCell = FindNearestWalkableCell(grid, startCell, 10);
-        if (!grid.IsWalkable(goalCell))
-            goalCell = FindNearestWalkableCell(grid, goalCell, 10);
+        // If start/goal footprint overlaps obstacle, find nearest valid cell
+        if (!IsFootprintWalkable(grid, startCell, halfLow, halfHigh))
+            startCell = FindNearestWalkableCellForFootprint(grid, startCell, 10, halfLow, halfHigh);
+        if (!IsFootprintWalkable(grid, goalCell, halfLow, halfHigh))
+            goalCell = FindNearestWalkableCellForFootprint(grid, goalCell, 10, halfLow, halfHigh);
 
         if (startCell == goalCell)
         {
@@ -83,11 +88,10 @@ public static class GridAStar
             return new List<Vector3> { startWorld, grid.CellToWorld(goalCell) };
         }
 
-        // A* on grid cells
+        // A* on grid cells with footprint checking
         int w = grid.Width, h = grid.Height;
         int totalCells = w * h;
 
-        // Ensure pools are large enough
         if (s_gScore.Length < totalCells)
         {
             s_gScore = new float[totalCells];
@@ -95,7 +99,6 @@ public static class GridAStar
             s_closed = new bool[totalCells];
         }
 
-        // Reset pools (only the area we'll use)
         Array.Fill(s_gScore, float.MaxValue, 0, totalCells);
         Array.Fill(s_parent, -1, 0, totalCells);
         Array.Fill(s_closed, false, 0, totalCells);
@@ -105,10 +108,9 @@ public static class GridAStar
         int goalIdx = goalCell.y * w + goalCell.x;
 
         s_gScore[startIdx] = 0f;
-        float hStart = Heuristic(startCell, goalCell);
-        s_open.Add((hStart, startIdx));
+        s_open.Add((Heuristic(startCell, goalCell), startIdx));
 
-        int maxIter = Mathf.Min(totalCells, 10000); // safety cap
+        int maxIter = Mathf.Min(totalCells, 10000);
         int iter = 0;
 
         while (s_open.Count > 0 && iter++ < maxIter)
@@ -126,8 +128,6 @@ public static class GridAStar
                     debugCellPath.Clear();
                     debugCellPath.AddRange(cellPath);
                 }
-                // Convert cell path directly to world waypoints — no smoothing.
-                // Units follow the exact grid cells the A* found.
                 var waypoints = new List<Vector3>(cellPath.Count + 1);
                 waypoints.Add(startWorld);
                 for (int i = 1; i < cellPath.Count; i++)
@@ -150,15 +150,17 @@ public static class GridAStar
                 if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
 
                 Vector2Int nCell = new Vector2Int(nx, ny);
-                if (!grid.IsWalkable(nCell)) continue;
 
-                // Diagonal: require both adjacent cardinal cells to be walkable (no corner-cutting)
+                // Check entire footprint at this cell is walkable (no obstacle overlap)
+                if (!IsFootprintWalkable(grid, nCell, halfLow, halfHigh)) continue;
+
+                // Diagonal: require both adjacent cardinal footprints to be walkable
                 if (d >= 4)
                 {
                     Vector2Int adj1 = new Vector2Int(cx + Dirs[d].x, cy);
                     Vector2Int adj2 = new Vector2Int(cx, cy + Dirs[d].y);
-                    if (!grid.IsInBounds(adj1) || !grid.IsWalkable(adj1)) continue;
-                    if (!grid.IsInBounds(adj2) || !grid.IsWalkable(adj2)) continue;
+                    if (!IsFootprintWalkable(grid, adj1, halfLow, halfHigh)) continue;
+                    if (!IsFootprintWalkable(grid, adj2, halfLow, halfHigh)) continue;
                 }
 
                 int nIdx = ny * w + nx;
@@ -169,13 +171,12 @@ public static class GridAStar
                 {
                     s_gScore[nIdx] = tentativeG;
                     s_parent[nIdx] = currentIdx;
-                    float f = tentativeG + Heuristic(nCell, goalCell);
-                    s_open.Add((f, nIdx));
+                    s_open.Add((tentativeG + Heuristic(nCell, goalCell), nIdx));
                 }
             }
         }
 
-        // A* failed — return straight line as fallback (wall-sliding handles obstacles)
+        // A* failed — return straight line as fallback
         StatPathsFailed++;
         StatTotalNodes += iter;
         return new List<Vector3> { startWorld, goalWorld };
@@ -278,5 +279,49 @@ public static class GridAStar
             }
         }
         return center; // fallback: return original
+    }
+
+    /// <summary>
+    /// Check if the entire NxN footprint centered at the given cell is walkable.
+    /// For 1x1 units (halfLow=0, halfHigh=0), this is just a single cell check.
+    /// For larger units, all cells in the rectangle must be walkable and in bounds.
+    /// </summary>
+    public static bool IsFootprintWalkable(IGrid grid, Vector2Int center, int halfLow, int halfHigh)
+    {
+        for (int dx = -halfLow; dx <= halfHigh; dx++)
+        {
+            for (int dy = -halfLow; dy <= halfHigh; dy++)
+            {
+                Vector2Int cell = new Vector2Int(center.x + dx, center.y + dy);
+                if (!grid.IsInBounds(cell) || !grid.IsWalkable(cell))
+                    return false;
+            }
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Find the nearest cell where the full footprint is walkable.
+    /// </summary>
+    public static Vector2Int FindNearestWalkableCellForFootprint(IGrid grid, Vector2Int center,
+        int maxRadius, int halfLow, int halfHigh)
+    {
+        if (IsFootprintWalkable(grid, center, halfLow, halfHigh))
+            return center;
+
+        for (int r = 1; r <= maxRadius; r++)
+        {
+            for (int dx = -r; dx <= r; dx++)
+            {
+                for (int dy = -r; dy <= r; dy++)
+                {
+                    if (Mathf.Abs(dx) != r && Mathf.Abs(dy) != r) continue;
+                    Vector2Int c = new Vector2Int(center.x + dx, center.y + dy);
+                    if (IsFootprintWalkable(grid, c, halfLow, halfHigh))
+                        return c;
+                }
+            }
+        }
+        return center;
     }
 }
