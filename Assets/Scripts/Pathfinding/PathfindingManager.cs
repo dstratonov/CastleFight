@@ -101,6 +101,8 @@ public class PathfindingManager : MonoBehaviour
 
         if (gameObject.GetComponent<PathfindingDiagnostic>() == null)
             gameObject.AddComponent<PathfindingDiagnostic>();
+        if (gameObject.GetComponent<UnitGridPresence>() == null)
+            gameObject.AddComponent<UnitGridPresence>();
     }
 
     private void Update()

@@ -28,8 +28,12 @@ public class PathfindingDebugToggle : MonoBehaviour
 
         if (WasKeyPressed(Key.F3))
         {
-            // Boids removed — no-op
-            Debug.Log("[DebugToggle] Boids system removed");
+            var overlay = DebugOverlay.Instance;
+            if (overlay != null)
+            {
+                overlay.showUnitCells = !overlay.showUnitCells;
+                Debug.Log($"[DebugToggle] Unit cells = {overlay.showUnitCells}");
+            }
         }
 
         if (WasKeyPressed(Key.F4))
@@ -77,9 +81,8 @@ public class PathfindingDebugToggle : MonoBehaviour
             {
                 overlay.showNavMesh = true;
                 overlay.showPaths = true;
-                // showNavMeshWidths removed
                 overlay.showVelocities = true;
-                // showBoidsForces removed
+                overlay.showUnitCells = true;
             }
             Debug.Log("[DebugToggle] ALL DEBUG ON");
         }
@@ -91,9 +94,8 @@ public class PathfindingDebugToggle : MonoBehaviour
             if (overlay != null)
             {
                 overlay.showNavMesh = false;
-                // showNavMeshWidths removed
                 overlay.showVelocities = false;
-                // showBoidsForces removed
+                overlay.showUnitCells = false;
             }
             Debug.Log("[DebugToggle] ALL DEBUG OFF");
         }

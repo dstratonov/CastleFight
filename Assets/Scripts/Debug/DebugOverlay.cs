@@ -13,6 +13,7 @@ public class DebugOverlay : MonoBehaviour
     public bool showSeparation;
     public bool showNavMesh;
     public bool showVelocities;
+    public bool showUnitCells = true;
 
     private Material lineMaterial;
     private Camera cam;
@@ -124,6 +125,7 @@ public class DebugOverlay : MonoBehaviour
         if (showSeparation) DrawSeparation();
         if (showNavMesh) DrawNavMesh();
         if (showVelocities) DrawVelocities();
+        if (showUnitCells) DrawUnitCells();
 
         GL.PopMatrix();
     }
@@ -346,6 +348,61 @@ public class DebugOverlay : MonoBehaviour
     // ================================================================
     // BOIDS FORCE VISUALIZATION
     // ================================================================
+
+    // ================================================================
+    // UNIT CELL PRESENCE VISUALIZATION
+    // ================================================================
+
+    private void DrawUnitCells()
+    {
+        var presence = UnitGridPresence.Instance;
+        var grid = GridSystem.Instance;
+        if (presence == null || grid == null) return;
+        if (UnitManager.Instance == null) return;
+
+        float y = grid.GridOrigin.y + Y_OFFSET + 0.02f;
+        float cs = grid.CellSize;
+        float half = cs * 0.48f;
+
+        GetVisibleGroundBounds(out float viewMinX, out float viewMaxX, out float viewMinZ, out float viewMaxZ);
+
+        GL.Begin(GL.LINES);
+
+        var allUnits = UnitManager.Instance.AllUnits;
+        for (int u = 0; u < allUnits.Count; u++)
+        {
+            var unit = allUnits[u];
+            if (unit == null || unit.IsDead) continue;
+
+            var cells = presence.GetUnitCells(unit.GetInstanceID());
+            if (cells == null) continue;
+
+            // Team color: blue for team 0, red for team 1
+            Color cellColor = unit.TeamId == 0
+                ? new Color(0.2f, 0.4f, 1f, 0.4f)
+                : new Color(1f, 0.3f, 0.2f, 0.4f);
+            GL.Color(cellColor);
+
+            for (int c = 0; c < cells.Count; c++)
+            {
+                Vector3 center = grid.CellToWorld(cells[c]);
+                if (center.x + half < viewMinX || center.x - half > viewMaxX ||
+                    center.z + half < viewMinZ || center.z - half > viewMaxZ)
+                    continue;
+
+                // Draw cell outline
+                GLLine(new Vector3(center.x - half, y, center.z - half),
+                       new Vector3(center.x + half, y, center.z - half));
+                GLLine(new Vector3(center.x + half, y, center.z - half),
+                       new Vector3(center.x + half, y, center.z + half));
+                GLLine(new Vector3(center.x + half, y, center.z + half),
+                       new Vector3(center.x - half, y, center.z + half));
+                GLLine(new Vector3(center.x - half, y, center.z + half),
+                       new Vector3(center.x - half, y, center.z - half));
+            }
+        }
+        GL.End();
+    }
 
     // ================================================================
     // GRID WALKABILITY VISUALIZATION

@@ -30,7 +30,7 @@ public class Unit : NetworkBehaviour, ISelectable
     Health ISelectable.Health => health;
 
     private const float MaxAutoRadius = 2f;
-    private const float MaxEffectiveRadius = 1.5f; // SC2-style: pathing radius is small even for visually large units
+    private const float MaxEffectiveRadius = 4f; // Large creatures (dragons, cyclops) need bigger footprints
 
     public float EffectiveRadius
     {
