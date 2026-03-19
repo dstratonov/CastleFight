@@ -286,18 +286,19 @@ public class UnitMovement : NetworkBehaviour
     {
         if (!worldTarget.HasValue || grid == null) return;
 
-        float unitRadius = unit != null ? unit.EffectiveRadius : 0.5f;
+        int footprint = unit != null ? unit.FootprintSize : 1;
 
         // Grid A* with footprint checking and debug cell path
         debugCellPath.Clear();
-        var path = GridAStar.FindPath(grid, transform.position, worldTarget.Value, debugCellPath, unitRadius);
+        var path = GridAStar.FindPath(grid, transform.position, worldTarget.Value, debugCellPath, footprint);
 
         if (path != null && path.Count > 0)
         {
             waypoints = path;
             waypointIndex = 0;
             IsDestinationUnreachable = false;
-            PathBounds = PathInvalidation.ComputePathBounds(waypoints, unitRadius);
+            float radius = unit != null ? unit.EffectiveRadius : 0.5f;
+            PathBounds = PathInvalidation.ComputePathBounds(waypoints, radius);
         }
         else
         {

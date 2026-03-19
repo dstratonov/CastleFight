@@ -64,11 +64,11 @@ public class UnitGridPresence : MonoBehaviour
             if (unit == null || unit.IsDead) continue;
 
             int unitId = unit.GetInstanceID();
-            float radius = unit.EffectiveRadius;
+            int footprint = unit.FootprintSize;
             Vector3 pos = unit.transform.position;
 
             // Compute which cells this unit covers
-            ComputeOccupiedCells(pos, radius, cellBuffer);
+            ComputeOccupiedCells(pos, footprint, cellBuffer);
 
             // Store unit -> cells mapping
             var cells = new List<Vector2Int>(cellBuffer.Count);
@@ -91,28 +91,15 @@ public class UnitGridPresence : MonoBehaviour
 
     /// <summary>
     /// Compute the fixed rectangular footprint of a unit on the grid.
-    /// The rectangle size is constant for a given radius — it never changes
-    /// shape as the unit moves, only shifts to the nearest cell center.
-    /// Uses the unit's diameter to determine how many cells it spans.
-    ///
-    /// Examples (cellSize=2):
-    ///   radius 0.5 → diameter 1.0 → 1x1 cell  (small unit: goblin, rat)
-    ///   radius 1.0 → diameter 2.0 → 1x1 cell  (medium unit: knight, wolf)
-    ///   radius 1.5 → diameter 3.0 → 2x2 cells (large unit: cyclops, griffin)
-    ///   radius 2.5 → diameter 5.0 → 3x3 cells (huge unit: dragon, hydra)
-    ///   radius 4.0 → diameter 8.0 → 4x4 cells (massive unit)
+    /// footprintSize is set directly in UnitData (1=small, 2=large, 3=huge).
+    /// The rectangle only shifts position as the unit moves, never changes shape.
     /// </summary>
-    private void ComputeOccupiedCells(Vector3 worldPos, float radius, List<Vector2Int> result)
+    private void ComputeOccupiedCells(Vector3 worldPos, int footprintSize, List<Vector2Int> result)
     {
         result.Clear();
         Vector2Int center = grid.WorldToCell(worldPos);
-        float cs = grid.CellSize;
 
-        // How many cells the unit's diameter spans (always at least 1)
-        int cellSpan = Mathf.Max(1, Mathf.CeilToInt(radius * 2f / cs));
-
-        // For odd spans (1, 3, 5): symmetric around center
-        // For even spans (2, 4): offset so center cell is bottom-left of the 2x2 block
+        int cellSpan = Mathf.Max(1, footprintSize);
         int halfLow = (cellSpan - 1) / 2;
         int halfHigh = cellSpan / 2;
 
@@ -125,16 +112,6 @@ public class UnitGridPresence : MonoBehaviour
                     result.Add(cell);
             }
         }
-    }
-
-    /// <summary>
-    /// Get the cell span (NxN size) for a unit with the given radius.
-    /// Useful for external systems that need to know footprint size.
-    /// </summary>
-    public int GetCellSpan(float radius)
-    {
-        if (grid == null) return 1;
-        return Mathf.Max(1, Mathf.CeilToInt(radius * 2f / grid.CellSize));
     }
 
     /// <summary>

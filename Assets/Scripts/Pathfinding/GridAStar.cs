@@ -55,18 +55,17 @@ public static class GridAStar
 
     /// <summary>
     /// Find a path from startWorld to goalWorld on the grid.
-    /// unitRadius determines the unit's footprint size — A* ensures the full
-    /// NxN rectangle of cells at every position is walkable (no obstacle overlap).
+    /// footprintSize is the NxN cell footprint of the unit (1=small, 2=large, 3=huge).
+    /// A* ensures the full footprint is walkable at every position (no obstacle overlap).
     /// If debugCellPath is non-null, the raw A* cell path is stored for visualization.
     /// </summary>
     public static List<Vector3> FindPath(IGrid grid, Vector3 startWorld, Vector3 goalWorld,
-        List<Vector2Int> debugCellPath = null, float unitRadius = 0f)
+        List<Vector2Int> debugCellPath = null, int footprintSize = 1)
     {
         StatPathsRequested++;
 
-        // Compute footprint half-extents from unit radius
-        float cs = grid.CellSize;
-        int cellSpan = Mathf.Max(1, Mathf.CeilToInt(unitRadius * 2f / cs));
+        // Footprint half-extents: 1→(0,0), 2→(0,1), 3→(1,1), 4→(1,2)
+        int cellSpan = Mathf.Max(1, footprintSize);
         int halfLow = (cellSpan - 1) / 2;
         int halfHigh = cellSpan / 2;
 

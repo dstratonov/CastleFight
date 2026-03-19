@@ -50,8 +50,37 @@ public class Unit : NetworkBehaviour, ISelectable
         }
     }
 
-    /// <summary>Size class for flow field pathfinding (Small/Medium/Large).</summary>
-    public UnitSizeClass SizeClass => SizeClassUtil.Classify(EffectiveRadius);
+    private int cachedFootprint = -1;
+
+    /// <summary>
+    /// Grid footprint size (NxN cells). Auto-calculated from the unit's actual
+    /// renderer bounds, same approach as buildings. Cached after first computation.
+    /// </summary>
+    public int FootprintSize
+    {
+        get
+        {
+            if (cachedFootprint > 0) return cachedFootprint;
+            cachedFootprint = ComputeFootprintFromBounds();
+            return cachedFootprint;
+        }
+    }
+
+    private int ComputeFootprintFromBounds()
+    {
+        float cellSize = GridSystem.Instance != null ? GridSystem.Instance.CellSize : 2f;
+
+        // Try to get XZ size from renderer bounds
+        if (BoundsHelper.TryGetCombinedBounds(gameObject, out var bounds))
+        {
+            float maxXZ = Mathf.Max(bounds.size.x, bounds.size.z);
+            return Mathf.Clamp(Mathf.CeilToInt(maxXZ / cellSize), 1, 4);
+        }
+
+        // Fallback: derive from unitRadius
+        float radius = data != null ? data.unitRadius : 0.5f;
+        return Mathf.Clamp(Mathf.CeilToInt(radius * 2f / cellSize), 1, 4);
+    }
 
     private float ComputeRadiusFromBounds()
     {
