@@ -284,81 +284,37 @@ public class PathfindingDiagnostic : MonoBehaviour
 
         float avgSpeedVal = speedSamples > 0 ? avgSpeed / speedSamples : 0;
 
-        int navTris = 0;
-        int walkableTris = 0;
         var pfm = PathfindingManager.Instance;
-        if (pfm != null && pfm.ActiveNavMesh != null)
-        {
-            navTris = pfm.ActiveNavMesh.TriangleCount;
-            for (int i = 0; i < navTris; i++)
-                if (pfm.ActiveNavMesh.Triangles[i].IsWalkable) walkableTris++;
-        }
 
         Debug.Log($"[PathDiag] units={totalUnits} move={movingUnits} fight={fightingUnits} idle={idleUnits}" +
                   $" | stuck={stuckUnits} unreach={unreachableUnits}" +
                   $" | overlaps={overlappingPairs} severe={severeOverlaps}" +
-                  $" | avgSpd={avgSpeedVal:F2}" +
-                  $" | navmesh: tris={navTris} walkable={walkableTris}");
+                  $" | avgSpd={avgSpeedVal:F2}");
 
-        // Deep A* / pathfinding stats
-        int req = NavMeshPathfinder.StatPathsRequested;
-        int ok = NavMeshPathfinder.StatPathsSucceeded;
-        int fail = NavMeshPathfinder.StatPathsFailed;
-        int failOutside = NavMeshPathfinder.StatFailedOutsideMesh;
-        int failAStar = NavMeshPathfinder.StatFailedAStarNoPath;
-        int failBldCross = NavMeshPathfinder.StatFailedBuildingCross;
-        int throttled = NavMeshPathfinder.StatThrottled;
-        int astarNodes = NavMeshPathfinder.StatTotalAStarNodes;
-        int widthReject = NavMeshPathfinder.StatTotalWidthRejections;
-        int chanLen = NavMeshPathfinder.StatTotalChannelLength;
-        int funnelWpts = NavMeshPathfinder.StatTotalFunnelWaypoints;
-        int maxChan = NavMeshPathfinder.StatMaxChannelLength;
-        float worstRatio = NavMeshPathfinder.StatWorstPathRatio;
+        // Grid A* pathfinding stats
+        int req = GridAStar.StatPathsRequested;
+        int ok = GridAStar.StatPathsSucceeded;
+        int fail = GridAStar.StatPathsFailed;
+        int throttled = GridAStar.StatThrottled;
+        int astarNodes = GridAStar.StatTotalNodes;
 
-        float avgChan = ok > 0 ? (float)chanLen / ok : 0;
-        float avgWpts = ok > 0 ? (float)funnelWpts / ok : 0;
         float avgNodes = ok > 0 ? (float)astarNodes / ok : 0;
 
-        Debug.Log($"[PathDiag:DEEP] paths req={req} ok={ok} fail={fail}(outside={failOutside} astar={failAStar} bldCross={failBldCross}) throttled={throttled}" +
-                  $" | A* avgNodes={avgNodes:F0} widthReject={widthReject}" +
-                  $" | channel avg={avgChan:F1} max={maxChan}" +
-                  $" | funnel avgWpts={avgWpts:F1} worstRatio={worstRatio:F2}");
+        Debug.Log($"[PathDiag:A*] paths req={req} ok={ok} fail={fail} throttled={throttled}" +
+                  $" | avgNodes={avgNodes:F0}" +
+                  $" | groupHits={pfm?.StatGroupPathHits ?? 0}");
 
         if (fail > 0 && req > 0)
         {
             float failPct = 100f * fail / req;
             if (failPct > 50f)
-                Debug.LogError($"[PathDiag] CRITICAL: {failPct:F0}% path failure rate ({fail}/{req})! outside={failOutside} astar={failAStar} bldCross={failBldCross}");
+                Debug.LogError($"[PathDiag] CRITICAL: {failPct:F0}% path failure rate ({fail}/{req})!");
             else if (failPct > 20f)
-                Debug.LogWarning($"[PathDiag] HIGH path failure rate: {failPct:F0}% ({fail}/{req}) outside={failOutside} astar={failAStar} bldCross={failBldCross}");
+                Debug.LogWarning($"[PathDiag] HIGH path failure rate: {failPct:F0}% ({fail}/{req})");
         }
 
-        NavMeshPathfinder.ResetStats();
+        GridAStar.ResetStats();
 
-        // Boids stats
-        if (pfm != null && pfm.Boids != null)
-        {
-            var boids = pfm.Boids;
-            int boidsCalls = boids.StatBoidsCallCount;
-            int overridden = boids.StatOverriddenByBoids;
-            int densStops = boids.StatDensityStopCount;
-            float maxSteer = boids.StatMaxSteeringMagnitude;
-            float overridePct = boidsCalls > 0 ? (100f * overridden / boidsCalls) : 0f;
-
-            Debug.Log($"[PathDiag:BOIDS] calls={boidsCalls} overridden={overridden}({overridePct:F1}%)" +
-                      $" densityStops={densStops} maxSteer={maxSteer:F2}");
-            boids.ResetStats();
-        }
-
-        // AttackPosition slot stats
-        ReportAttackPositionSlots();
-    }
-
-    private void ReportAttackPositionSlots()
-    {
-        var (targets, totalSlots, maxPerTarget) = AttackPositionFinder.GetSlotStats();
-        if (totalSlots > 0)
-            Debug.Log($"[PathDiag:SLOTS] targets={targets} totalSlots={totalSlots} maxPerTarget={maxPerTarget}");
     }
 
     private void DetailedUnitReport()
@@ -388,29 +344,20 @@ public class PathfindingDiagnostic : MonoBehaviour
 
                 var movement = unit.Movement;
                 var sm = unit.StateMachine;
-                var combat = unit.Combat;
 
                 string state = sm != null ? sm.CurrentState.ToString() : "?";
                 string target = movement?.WorldTarget.HasValue == true ? movement.WorldTarget.Value.ToString("F1") : "none";
                 bool hasPath = movement?.HasPath ?? false;
                 int wpCount = movement?.Waypoints?.Count ?? 0;
                 int wpIdx = movement?.WaypointIndex ?? 0;
-                string combatTarget = combat?.AttackTarget != null ? combat.AttackTarget.name : "none";
                 bool isMoving = movement?.IsMoving ?? false;
 
                 Vector3 pos = unit.transform.position;
                 var grid = GridSystem.Instance;
                 bool onWalkable = grid != null && grid.IsWalkable(grid.WorldToCell(pos));
 
-                // Check if position is inside NavMesh
-                bool inNavMesh = false;
-                var pfm = PathfindingManager.Instance;
-                if (pfm != null && pfm.ActiveNavMesh != null)
-                {
-                    Vector2 pos2D = new Vector2(pos.x, pos.z);
-                    int tri = pfm.ActiveNavMesh.FindTriangleAtPosition(pos2D);
-                    inNavMesh = tri >= 0 && pfm.ActiveNavMesh.Triangles[tri].IsWalkable;
-                }
+                // With grid-based A*, walkability is determined by the grid directly
+                bool inNavMesh = onWalkable;
 
                 int nearbyCount = 0;
                 int overlapping = 0;
@@ -442,7 +389,6 @@ public class PathfindingDiagnostic : MonoBehaviour
                     $"state={state} pos={pos:F2} walkable={onWalkable} inNavMesh={inNavMesh} " +
                     $"target={target} isMoving={isMoving} hasPath={hasPath} " +
                     $"wpts={wpCount} wpIdx={wpIdx}{wpInfo} " +
-                    $"combatTarget={combatTarget} " +
                     $"radius={unit.EffectiveRadius:F2} nearby={nearbyCount} overlapping={overlapping} " +
                     $"stuckFor={worstStuckTime:F0}s");
                 return;

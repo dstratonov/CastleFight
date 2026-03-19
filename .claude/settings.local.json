@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(update-config)",
+      "Bash(find D:CastleFight -maxdepth 3 -name *.sh -o -name Makefile -o -name *.yml -o -name *.yaml)",
+      "WebSearch",
+      "mcp__UnityMCP__set_active_instance",
+      "mcp__UnityMCP__read_console",
+      "mcp__UnityMCP__manage_editor",
+      "mcp__UnityMCP__refresh_unity",
+      "mcp__UnityMCP__run_tests",
+      "mcp__UnityMCP__get_test_job"
+    ]
+  }
+}

@@ -1,7 +1,7 @@
 using UnityEngine;
 using Mirror;
 
-public class Unit : NetworkBehaviour, ISelectable, IPathfindingAgent
+public class Unit : NetworkBehaviour, ISelectable
 {
     [SyncVar] private int teamId;
     [SyncVar(hook = nameof(OnUnitDataIdChanged))]
@@ -11,7 +11,6 @@ public class Unit : NetworkBehaviour, ISelectable, IPathfindingAgent
     private Health health;
     private UnitMovement movement;
     private UnitStateMachine stateMachine;
-    private UnitCombat combat;
 
     private float cachedRadius = -1f;
 
@@ -27,32 +26,11 @@ public class Unit : NetworkBehaviour, ISelectable, IPathfindingAgent
     }
     public UnitMovement Movement => movement;
     public UnitStateMachine StateMachine => stateMachine;
-    public UnitCombat Combat => combat;
     public string DisplayName => data != null ? data.displayName : "Unit";
     Health ISelectable.Health => health;
 
-    Vector3 IPathfindingAgent.Position => transform.position;
-    Vector3 IPathfindingAgent.PreviousPosition
-    {
-        get
-        {
-            Debug.Assert(movement != null, $"[Unit] {gameObject.name} PreviousPosition: movement is null", this);
-            return movement != null ? movement.PreviousPosition : transform.position;
-        }
-    }
-    UnitState IPathfindingAgent.CurrentState
-    {
-        get
-        {
-            Debug.Assert(stateMachine != null, $"[Unit] {gameObject.name} CurrentState: stateMachine is null", this);
-            return stateMachine != null ? stateMachine.CurrentState : UnitState.Idle;
-        }
-    }
-    int IPathfindingAgent.InstanceId => GetInstanceID();
-    string IPathfindingAgent.Name => gameObject.name;
-
     private const float MaxAutoRadius = 2f;
-    private const float MaxEffectiveRadius = 1.5f;
+    private const float MaxEffectiveRadius = 1.5f; // SC2-style: pathing radius is small even for visually large units
 
     public float EffectiveRadius
     {
@@ -72,6 +50,9 @@ public class Unit : NetworkBehaviour, ISelectable, IPathfindingAgent
         }
     }
 
+    /// <summary>Size class for flow field pathfinding (Small/Medium/Large).</summary>
+    public UnitSizeClass SizeClass => SizeClassUtil.Classify(EffectiveRadius);
+
     private float ComputeRadiusFromBounds()
     {
         float raw = BoundsHelper.GetRadius(gameObject);
@@ -88,12 +69,10 @@ public class Unit : NetworkBehaviour, ISelectable, IPathfindingAgent
         health = GetComponent<Health>();
         movement = GetComponent<UnitMovement>();
         stateMachine = GetComponent<UnitStateMachine>();
-        combat = GetComponent<UnitCombat>();
 
         Debug.Assert(health != null, $"[Unit] {gameObject.name} missing Health component", this);
         Debug.Assert(movement != null, $"[Unit] {gameObject.name} missing UnitMovement component", this);
         Debug.Assert(stateMachine != null, $"[Unit] {gameObject.name} missing UnitStateMachine component", this);
-        Debug.Assert(combat != null, $"[Unit] {gameObject.name} missing UnitCombat component", this);
     }
 
     [Server]
@@ -162,6 +141,7 @@ public class Unit : NetworkBehaviour, ISelectable, IPathfindingAgent
     {
         Debug.Assert(health != null, $"[Unit] {gameObject.name} OnDisable: health is null", this);
         health.OnDeath -= HandleDeath;
+
     }
 
     private void HandleDeath(GameObject killer)

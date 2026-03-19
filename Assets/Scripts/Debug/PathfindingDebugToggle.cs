@@ -28,8 +28,8 @@ public class PathfindingDebugToggle : MonoBehaviour
 
         if (WasKeyPressed(Key.F3))
         {
-            GameDebug.Boids = !GameDebug.Boids;
-            Debug.Log($"[DebugToggle] Boids = {GameDebug.Boids}");
+            // Boids removed — no-op
+            Debug.Log("[DebugToggle] Boids system removed");
         }
 
         if (WasKeyPressed(Key.F4))
@@ -42,15 +42,7 @@ public class PathfindingDebugToggle : MonoBehaviour
             }
         }
 
-        if (WasKeyPressed(Key.F5))
-        {
-            var overlay = DebugOverlay.Instance;
-            if (overlay != null)
-            {
-                overlay.showNavMeshWidths = !overlay.showNavMeshWidths;
-                Debug.Log($"[DebugToggle] NavMesh widths = {overlay.showNavMeshWidths}");
-            }
-        }
+        // F5: was NavMesh widths (removed with NavMesh)
 
         if (WasKeyPressed(Key.F6))
         {
@@ -67,8 +59,8 @@ public class PathfindingDebugToggle : MonoBehaviour
             var overlay = DebugOverlay.Instance;
             if (overlay != null)
             {
-                overlay.showBoidsForces = !overlay.showBoidsForces;
-                Debug.Log($"[DebugToggle] Boids forces = {overlay.showBoidsForces}");
+                // Boids forces removed
+                Debug.Log("[DebugToggle] Boids forces removed");
             }
         }
 
@@ -85,9 +77,9 @@ public class PathfindingDebugToggle : MonoBehaviour
             {
                 overlay.showNavMesh = true;
                 overlay.showPaths = true;
-                overlay.showNavMeshWidths = true;
+                // showNavMeshWidths removed
                 overlay.showVelocities = true;
-                overlay.showBoidsForces = true;
+                // showBoidsForces removed
             }
             Debug.Log("[DebugToggle] ALL DEBUG ON");
         }
@@ -99,9 +91,9 @@ public class PathfindingDebugToggle : MonoBehaviour
             if (overlay != null)
             {
                 overlay.showNavMesh = false;
-                overlay.showNavMeshWidths = false;
+                // showNavMeshWidths removed
                 overlay.showVelocities = false;
-                overlay.showBoidsForces = false;
+                // showBoidsForces removed
             }
             Debug.Log("[DebugToggle] ALL DEBUG OFF");
         }
@@ -139,9 +131,6 @@ public class PathfindingDebugToggle : MonoBehaviour
             return;
         }
 
-        bool wasEnabled = GameDebug.Pathfinding;
-        GameDebug.Pathfinding = true;
-        pfm.ActiveNavMesh?.ValidateMesh();
-        GameDebug.Pathfinding = wasEnabled;
+        Debug.Log("[DebugToggle] Grid-based A* — no NavMesh to validate");
     }
 }

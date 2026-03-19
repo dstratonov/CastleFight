@@ -7,6 +7,9 @@ public class ClearanceMap
     private int width;
     private int height;
 
+    /// <summary>Bitfield per cell: bit 0=Small passable, bit 1=Medium, bit 2=Large.</summary>
+    private byte[,] sizeClassPassable;
+
     public int Width => width;
     public int Height => height;
 
@@ -36,6 +39,7 @@ public class ClearanceMap
         }
 
         BrushFireBFS(queue, grid);
+        PrecomputeSizeClasses();
     }
 
     public void UpdateRegion(Vector2Int min, Vector2Int max, IGrid grid)
@@ -68,6 +72,7 @@ public class ClearanceMap
         }
 
         BrushFireBFS(queue, grid, x0, y0, x1, y1);
+        PrecomputeSizeClasses();
     }
 
     private static readonly Vector2Int[] Directions =
@@ -144,5 +149,38 @@ public class ClearanceMap
     public bool CanPass(Vector2Int cell, float unitRadius)
     {
         return GetClearance(cell) >= unitRadius;
+    }
+
+    /// <summary>
+    /// Fast size-class passability check using precomputed bitfield.
+    /// </summary>
+    public bool CanPass(Vector2Int cell, UnitSizeClass sizeClass)
+    {
+        if (cell.x < 0 || cell.x >= width || cell.y < 0 || cell.y >= height)
+            return false;
+        return (sizeClassPassable[cell.x, cell.y] & (1 << (int)sizeClass)) != 0;
+    }
+
+    /// <summary>
+    /// Precompute per-cell bitfield for fast size-class passability checks.
+    /// Called automatically after ComputeFull and UpdateRegion.
+    /// </summary>
+    private void PrecomputeSizeClasses()
+    {
+        if (sizeClassPassable == null || sizeClassPassable.GetLength(0) != width || sizeClassPassable.GetLength(1) != height)
+            sizeClassPassable = new byte[width, height];
+
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                byte bits = 0;
+                float c = clearance[x, y];
+                if (c >= SizeClassUtil.ClearanceRadius[0]) bits |= 1;
+                if (c >= SizeClassUtil.ClearanceRadius[1]) bits |= 2;
+                if (c >= SizeClassUtil.ClearanceRadius[2]) bits |= 4;
+                sizeClassPassable[x, y] = bits;
+            }
+        }
     }
 }

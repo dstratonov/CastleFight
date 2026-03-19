@@ -112,7 +112,7 @@ public class Building : NetworkBehaviour, ISelectable
         FitFootprintCollider(gameObject, explicitSize);
     }
 
-    private const float MaxFootprintScale = 0.85f;
+    private const float MaxFootprintScale = 1.0f; // Match visual model — units shouldn't path through visible geometry
 
     private static void ComputeAutoFootprint(GameObject go, Bounds fullBounds,
         out float fpX, out float fpZ, out Vector3 center)

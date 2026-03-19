@@ -12,9 +12,7 @@ public class DebugOverlay : MonoBehaviour
     public bool showBuildZones;
     public bool showSeparation;
     public bool showNavMesh;
-    public bool showNavMeshWidths;
     public bool showVelocities;
-    public bool showBoidsForces;
 
     private Material lineMaterial;
     private Camera cam;
@@ -126,7 +124,6 @@ public class DebugOverlay : MonoBehaviour
         if (showSeparation) DrawSeparation();
         if (showNavMesh) DrawNavMesh();
         if (showVelocities) DrawVelocities();
-        if (showBoidsForces) DrawBoidsForces();
 
         GL.PopMatrix();
     }
@@ -224,7 +221,8 @@ public class DebugOverlay : MonoBehaviour
         RefreshStuckCache();
 
         GL.Begin(GL.LINES);
-        float y = GridSystem.Instance != null ? GridSystem.Instance.GridOrigin.y + Y_OFFSET : Y_OFFSET;
+        var grid = GridSystem.Instance;
+        float y = grid != null ? grid.GridOrigin.y + Y_OFFSET : Y_OFFSET;
 
         for (int u = 0; u < unitBuffer.Count; u++)
         {
@@ -275,15 +273,31 @@ public class DebugOverlay : MonoBehaviour
                 DrawDiamond(dest, 0.5f);
             }
 
-            var combat = unit.Combat;
-            if (combat != null && combat.AttackTarget != null)
+            // Draw raw A* grid cells that the path goes through
+            var cellPath = movement.DebugCellPath;
+            if (cellPath != null && cellPath.Count > 0 && grid != null)
             {
-                GL.Color(new Color(1f, 0.2f, 0.2f, 0.5f));
-                Vector3 from = unit.transform.position;
-                from.y = y;
-                Vector3 to = combat.AttackTarget.position;
-                to.y = y;
-                GLLine(from, to);
+                Color cellColor = unit.TeamId == 0
+                    ? new Color(0.1f, 0.6f, 0.3f, 0.25f)
+                    : new Color(0.6f, 0.3f, 0.1f, 0.25f);
+                GL.Color(cellColor);
+                float cs = grid.CellSize;
+                float half = cs * 0.45f; // slightly smaller than cell to see grid lines
+
+                for (int c = 0; c < cellPath.Count; c++)
+                {
+                    Vector3 cellCenter = grid.CellToWorld(cellPath[c]);
+                    cellCenter.y = y;
+                    // Draw cell outline
+                    GLLine(new Vector3(cellCenter.x - half, y, cellCenter.z - half),
+                           new Vector3(cellCenter.x + half, y, cellCenter.z - half));
+                    GLLine(new Vector3(cellCenter.x + half, y, cellCenter.z - half),
+                           new Vector3(cellCenter.x + half, y, cellCenter.z + half));
+                    GLLine(new Vector3(cellCenter.x + half, y, cellCenter.z + half),
+                           new Vector3(cellCenter.x - half, y, cellCenter.z + half));
+                    GLLine(new Vector3(cellCenter.x - half, y, cellCenter.z + half),
+                           new Vector3(cellCenter.x - half, y, cellCenter.z - half));
+                }
             }
         }
         GL.End();
@@ -333,144 +347,41 @@ public class DebugOverlay : MonoBehaviour
     // BOIDS FORCE VISUALIZATION
     // ================================================================
 
-    private void DrawBoidsForces()
-    {
-        if (unitBuffer.Count == 0) return;
-        var pfm = PathfindingManager.Instance;
-        if (pfm == null || !pfm.IsInitialized) return;
-
-        float y = GridSystem.Instance != null ? GridSystem.Instance.GridOrigin.y + Y_OFFSET + 0.1f : Y_OFFSET;
-
-        GL.Begin(GL.LINES);
-        for (int i = 0; i < unitBuffer.Count; i++)
-        {
-            var unit = unitBuffer[i];
-            if (unit == null) continue;
-
-            Vector3 pos = unit.transform.position;
-            pos.y = y;
-            float r = unit.EffectiveRadius;
-
-            // Inner circle: physical radius
-            GL.Color(new Color(0.2f, 1f, 0.2f, 0.35f));
-            DrawCircle(pos, r, 12);
-
-            // Outer circle: separation radius (3x)
-            GL.Color(new Color(1f, 0.4f, 0.2f, 0.15f));
-            DrawCircle(pos, r * 3f, 12);
-
-            // Nearby unit proximity lines
-            if (UnitManager.Instance != null)
-            {
-                var nearby = UnitManager.Instance.GetUnitsInRadius(pos, r * 3f);
-                for (int j = 0; j < nearby.Count; j++)
-                {
-                    var other = nearby[j];
-                    if (other == null || other == unit || other.IsDead) continue;
-                    float dist = Vector3.Distance(pos, other.transform.position);
-                    float combined = r + other.EffectiveRadius;
-
-                    if (dist < combined)
-                        GL.Color(new Color(1f, 0f, 0f, 0.5f)); // Overlapping
-                    else if (dist < combined * 1.5f)
-                        GL.Color(new Color(1f, 0.6f, 0f, 0.3f)); // Separation zone
-                    else
-                        continue;
-
-                    Vector3 otherPos = other.transform.position;
-                    otherPos.y = y;
-                    GLLine(pos, otherPos);
-                }
-            }
-        }
-        GL.End();
-    }
-
     // ================================================================
-    // NAVMESH VISUALIZATION — frustum-culled, portal midpoint widths
+    // GRID WALKABILITY VISUALIZATION
     // ================================================================
 
     private void DrawNavMesh()
     {
-        var pfm = PathfindingManager.Instance;
-        if (pfm == null || !pfm.IsInitialized) return;
+        // Grid-based walkability overlay (replaces old NavMesh triangle view)
+        var grid = GridSystem.Instance;
+        if (grid == null) return;
 
-        var mesh = pfm.ActiveNavMesh;
-        if (mesh == null) return;
-
-        float y = GridSystem.Instance != null ? GridSystem.Instance.GridOrigin.y + Y_OFFSET + 0.05f : Y_OFFSET;
+        float y = grid.GridOrigin.y + Y_OFFSET + 0.05f;
+        float cs = grid.CellSize;
+        float half = cs * 0.5f;
 
         GetVisibleGroundBounds(out float viewMinX, out float viewMaxX, out float viewMinZ, out float viewMaxZ);
 
         GL.Begin(GL.LINES);
-        for (int i = 0; i < mesh.TriangleCount; i++)
+        GL.Color(new Color(1f, 0.2f, 0.2f, 0.3f));
+
+        for (int gx = 0; gx < grid.Width; gx++)
         {
-            ref var tri = ref mesh.Triangles[i];
-
-            Vector2 v0 = mesh.Vertices[tri.V0];
-            Vector2 v1 = mesh.Vertices[tri.V1];
-            Vector2 v2 = mesh.Vertices[tri.V2];
-
-            // Frustum cull: skip if triangle AABB is entirely off-screen
-            float triMinX = Mathf.Min(v0.x, Mathf.Min(v1.x, v2.x));
-            float triMaxX = Mathf.Max(v0.x, Mathf.Max(v1.x, v2.x));
-            float triMinZ = Mathf.Min(v0.y, Mathf.Min(v1.y, v2.y));
-            float triMaxZ = Mathf.Max(v0.y, Mathf.Max(v1.y, v2.y));
-
-            if (triMaxX < viewMinX || triMinX > viewMaxX ||
-                triMaxZ < viewMinZ || triMinZ > viewMaxZ)
-                continue;
-
-            if (!tri.IsWalkable)
+            for (int gy = 0; gy < grid.Height; gy++)
             {
-                GL.Color(new Color(1f, 0.1f, 0.1f, 0.1f));
-                GLLine(new Vector3(v0.x, y, v0.y), new Vector3(v1.x, y, v1.y));
-                GLLine(new Vector3(v1.x, y, v1.y), new Vector3(v2.x, y, v2.y));
-                GLLine(new Vector3(v2.x, y, v2.y), new Vector3(v0.x, y, v0.y));
-                continue;
-            }
+                if (grid.IsWalkable(new Vector2Int(gx, gy))) continue;
 
-            bool isolated = tri.N0 < 0 && tri.N1 < 0 && tri.N2 < 0;
+                Vector3 center = grid.CellToWorld(new Vector2Int(gx, gy));
+                if (center.x + half < viewMinX || center.x - half > viewMaxX ||
+                    center.z + half < viewMinZ || center.z - half > viewMaxZ)
+                    continue;
 
-            Color edgeColor;
-            if (isolated)
-                edgeColor = new Color(1f, 0f, 1f, 0.6f);
-            else
-                edgeColor = new Color(0.3f, 0.7f, 1f, 0.15f);
-
-            GL.Color(edgeColor);
-            GLLine(new Vector3(v0.x, y, v0.y), new Vector3(v1.x, y, v1.y));
-            GLLine(new Vector3(v1.x, y, v1.y), new Vector3(v2.x, y, v2.y));
-            GLLine(new Vector3(v2.x, y, v2.y), new Vector3(v0.x, y, v0.y));
-
-            if (showNavMeshWidths)
-            {
-                for (int e = 0; e < 3; e++)
-                {
-                    int n = tri.GetNeighbor(e);
-                    if (n < 0 || n <= i) continue;
-
-                    var (va, vb) = tri.GetEdgeVertices(e);
-                    Vector2 edgeMid = (mesh.Vertices[va] + mesh.Vertices[vb]) * 0.5f;
-                    float portalLen = Vector2.Distance(mesh.Vertices[va], mesh.Vertices[vb]);
-
-                    float w = tri.GetWidth(e);
-                    float wNorm = Mathf.Clamp01(w / 3f);
-
-                    // Draw portal edge highlighted by width
-                    GL.Color(new Color(1f - wNorm, wNorm, 0f, 0.5f));
-                    GLLine(
-                        new Vector3(mesh.Vertices[va].x, y + 0.08f, mesh.Vertices[va].y),
-                        new Vector3(mesh.Vertices[vb].x, y + 0.08f, mesh.Vertices[vb].y));
-
-                    // Draw width indicator: short perpendicular line at midpoint
-                    Vector2 edgeDir = (mesh.Vertices[vb] - mesh.Vertices[va]).normalized;
-                    Vector2 perp = new Vector2(-edgeDir.y, edgeDir.x);
-                    float indLen = Mathf.Min(w * 0.3f, 0.5f);
-                    Vector3 midA = new Vector3(edgeMid.x + perp.x * indLen, y + 0.12f, edgeMid.y + perp.y * indLen);
-                    Vector3 midB = new Vector3(edgeMid.x - perp.x * indLen, y + 0.12f, edgeMid.y - perp.y * indLen);
-                    GLLine(midA, midB);
-                }
+                // Draw X across blocked cell
+                GLLine(new Vector3(center.x - half, y, center.z - half),
+                       new Vector3(center.x + half, y, center.z + half));
+                GLLine(new Vector3(center.x + half, y, center.z - half),
+                       new Vector3(center.x - half, y, center.z + half));
             }
         }
         GL.End();

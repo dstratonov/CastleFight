@@ -32,4 +32,16 @@ public class UnitData : ScriptableObject
 
     [Header("Abilities")]
     public AbilityData[] abilities;
+
+#if UNITY_EDITOR
+    private void OnValidate()
+    {
+        // Clamp attack range to valid bounds at author-time so runtime never needs to.
+        // Melee: [0.3, 2], Ranged: [1, 8].
+        if (!isRanged)
+            attackRange = Mathf.Clamp(attackRange, 0.3f, 2f);
+        else
+            attackRange = Mathf.Clamp(attackRange, 1f, 8f);
+    }
+#endif
 }

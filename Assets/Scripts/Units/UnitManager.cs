@@ -28,7 +28,7 @@ public class UnitManager : NetworkBehaviour
             return;
         }
         Instance = this;
-        spatialHash = new SpatialHashGrid(4f);
+        spatialHash = new SpatialHashGrid(6f);
     }
 
     private void OnDestroy()
