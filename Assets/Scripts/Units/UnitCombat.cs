@@ -127,6 +127,9 @@ public class UnitCombat : NetworkBehaviour
 
         if (found == null) return;
 
+        // Don't re-acquire the same target
+        if (targeting.HasTarget && found.gameObject == targeting.Current.gameObject) return;
+
         bool accepted = targeting.TrySetTarget(found);
         if (accepted)
         {
