@@ -167,9 +167,29 @@ public class UnitCombat : NetworkBehaviour
         {
             lastTargetCell = targetCell;
 
+            // Unmark target's cells so FindAttackCell can find positions adjacent to it
+            int targetUnitId = -1;
+            var presence = UnitGridPresence.Instance;
+            if (target.Priority == TargetPriority.Unit)
+            {
+                var targetUnit = target.gameObject.GetComponent<Unit>();
+                if (targetUnit != null)
+                {
+                    targetUnitId = targetUnit.GetInstanceID();
+                    presence?.UnmarkUnit(targetUnitId);
+                }
+            }
+
+            // Set team context for walkability checks
+            grid.WalkableTeamContext = -2; // hard lock: avoid all
             var cell = AttackRangeHelper.FindAttackCell(
                 grid, transform.position, unit.FootprintSize,
                 unit.Data.attackRangeCells, target);
+            grid.WalkableTeamContext = -1;
+
+            // Remark target
+            if (targetUnitId >= 0)
+                presence?.RemarkUnit(targetUnitId);
 
             attackPosition = cell.HasValue ? grid.CellToWorld(cell.Value) : target.gameObject.transform.position;
         }
