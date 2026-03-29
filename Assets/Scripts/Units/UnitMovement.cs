@@ -197,11 +197,12 @@ public class UnitMovement : NetworkBehaviour
             return;
         }
 
-        // Check if the actual move position is blocked — stop until next frame
+        // Check if the actual move position is blocked — recompute path
         Vector2Int newCell = grid.WorldToCell(newPos);
         Vector2Int oldCell = grid.WorldToCell(oldPos);
         if (newCell != oldCell && !FootprintHelper.IsWalkable(grid, newCell, fp))
         {
+            ComputePathInternal();
             RemarkSelf();
             return;
         }
