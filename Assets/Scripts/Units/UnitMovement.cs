@@ -188,19 +188,10 @@ public class UnitMovement : NetworkBehaviour
 
         int fp = unit != null ? unit.FootprintSize : 1;
 
-        // Check if the next waypoint is blocked — recompute path
+        // Check if the next waypoint cell is blocked — recompute path
+        // Only check waypoint cells (validated by A*), not intermediate world positions
         Vector2Int wpCell = grid.WorldToCell(nextWp);
         if (!FootprintHelper.IsWalkable(grid, wpCell, fp))
-        {
-            ComputePathInternal();
-            RemarkSelf();
-            return;
-        }
-
-        // Check if the actual move position is blocked — recompute path
-        Vector2Int newCell = grid.WorldToCell(newPos);
-        Vector2Int oldCell = grid.WorldToCell(oldPos);
-        if (newCell != oldCell && !FootprintHelper.IsWalkable(grid, newCell, fp))
         {
             ComputePathInternal();
             RemarkSelf();
