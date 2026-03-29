@@ -179,11 +179,18 @@ public class UnitMovement : NetworkBehaviour
 
         Vector3 velocity = dir.normalized * speed;
 
+        // Temporarily unmark self so our own cells don't block movement
+        var presence = UnitGridPresence.Instance;
+        int unitId = unit != null ? unit.GetInstanceID() : 0;
+        presence?.UnmarkUnit(unitId);
+
         Vector3 oldPos = transform.position;
         Vector3 newPos = oldPos + velocity * Time.deltaTime;
         newPos.y = grid.GridOrigin.y;
         newPos = ValidatePosition(oldPos, newPos);
         transform.position = newPos;
+
+        presence?.RemarkUnit(unitId);
 
         // Rotate toward movement direction. Use actual movement delta if meaningful,
         // otherwise face toward the next waypoint so the unit looks where it's going.
