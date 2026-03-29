@@ -264,6 +264,9 @@ public class UnitCombat : NetworkBehaviour
         grid.MarkUnitObstacle(blockedCells);
         isBlocking = true;
 
+        // Invalidate paths passing through blocked cells
+        InvalidateNearbyPaths();
+
         if (GameDebug.Combat)
             Debug.Log($"[Combat] {gameObject.name} blocked {blockedCells.Count} cells");
     }
@@ -276,8 +279,20 @@ public class UnitCombat : NetworkBehaviour
         if (grid != null && blockedCells != null)
             grid.UnmarkUnitObstacle(blockedCells);
 
+        // Invalidate so nearby units replan through now-open cells
+        InvalidateNearbyPaths();
+
         blockedCells = null;
         isBlocking = false;
+    }
+
+    private void InvalidateNearbyPaths()
+    {
+        var pfm = PathfindingManager.Instance;
+        if (pfm == null || !pfm.IsInitialized) return;
+
+        Bounds bounds = BoundsHelper.GetPhysicalBounds(gameObject);
+        pfm.InvalidatePathsInRegion(bounds);
     }
 
     private void OnDestroy()

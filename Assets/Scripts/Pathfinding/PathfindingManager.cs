@@ -216,7 +216,11 @@ public class PathfindingManager : MonoBehaviour
         FlagUnitsForReplan(buildingBounds);
     }
 
-    private void InvalidatePathsInRegion(Bounds changedRegion)
+    /// <summary>
+    /// Invalidate all paths passing through the given region and flag for replan.
+    /// Called when obstacles change (buildings placed, units blocking cells).
+    /// </summary>
+    public void InvalidatePathsInRegion(Bounds changedRegion)
     {
         if (UnitManager.Instance == null) return;
         foreach (var unit in UnitManager.Instance.AllUnits)
