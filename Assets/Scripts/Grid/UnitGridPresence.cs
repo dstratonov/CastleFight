@@ -57,9 +57,8 @@ public class UnitGridPresence : MonoBehaviour
     {
         var allUnits = UnitManager.Instance.AllUnits;
 
-        // Detect cell changes, update grid obstacles, and invalidate paths
+        // Detect cell changes and update grid obstacles
         var newCellOccupants = new Dictionary<long, List<int>>();
-        var changedCells = new List<Vector2Int>();
 
         for (int i = 0; i < allUnits.Count; i++)
         {
@@ -93,15 +92,11 @@ public class UnitGridPresence : MonoBehaviour
             {
                 // Unmark old cells
                 if (oldCells != null)
-                {
                     grid.UnmarkUnitObstacle(oldCells);
-                    changedCells.AddRange(oldCells);
-                }
 
                 // Mark new cells
                 var newCells = new List<Vector2Int>(cellBuffer);
                 grid.MarkUnitObstacle(newCells);
-                changedCells.AddRange(newCells);
 
                 unitCells[unitId] = newCells;
             }
@@ -134,7 +129,6 @@ public class UnitGridPresence : MonoBehaviour
             if (!alive)
             {
                 grid.UnmarkUnitObstacle(kvp.Value);
-                changedCells.AddRange(kvp.Value);
                 deadUnits.Add(kvp.Key);
             }
         }
@@ -145,30 +139,6 @@ public class UnitGridPresence : MonoBehaviour
         }
 
         cellOccupants = newCellOccupants;
-
-        // Invalidate paths through changed cells
-        if (changedCells.Count > 0)
-            InvalidatePathsThroughCells(changedCells);
-    }
-
-    private void InvalidatePathsThroughCells(List<Vector2Int> cells)
-    {
-        var pfm = PathfindingManager.Instance;
-        if (pfm == null || !pfm.IsInitialized) return;
-
-        // Build a bounds that covers all changed cells
-        Vector2Int min = cells[0], max = cells[0];
-        for (int i = 1; i < cells.Count; i++)
-        {
-            min = Vector2Int.Min(min, cells[i]);
-            max = Vector2Int.Max(max, cells[i]);
-        }
-
-        Vector3 worldMin = grid.CellToWorld(min) - new Vector3(grid.CellSize, 0, grid.CellSize);
-        Vector3 worldMax = grid.CellToWorld(max) + new Vector3(grid.CellSize, 2f, grid.CellSize);
-        Bounds changedRegion = new Bounds((worldMin + worldMax) * 0.5f, worldMax - worldMin);
-
-        pfm.InvalidatePathsInRegion(changedRegion);
     }
 
     /// <summary>

@@ -188,9 +188,17 @@ public class UnitMovement : NetworkBehaviour
         Vector3 newPos = oldPos + velocity * Time.deltaTime;
         newPos.y = grid.GridOrigin.y;
         newPos = ValidatePosition(oldPos, newPos);
-        transform.position = newPos;
 
         presence?.RemarkUnit(unitId);
+
+        // Completely stuck — recompute path around the obstacle
+        if (newPos == oldPos)
+        {
+            ComputePath();
+            return;
+        }
+
+        transform.position = newPos;
 
         // Rotate toward movement direction. Use actual movement delta if meaningful,
         // otherwise face toward the next waypoint so the unit looks where it's going.
