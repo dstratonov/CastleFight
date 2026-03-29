@@ -458,53 +458,58 @@ public class UnitMovement : NetworkBehaviour
         cachedHalfHigh = fp / 2;
     }
 
-    private bool IsPositionValid(Vector3 pos)
+    private bool IsWalkable(Vector3 pos)
     {
         EnsureFootprintCache();
         Vector2Int cell = grid.WorldToCell(pos);
-        if (!GridAStar.IsFootprintWalkable(grid, cell, cachedHalfLow, cachedHalfHigh))
-            return false;
+        return GridAStar.IsFootprintWalkable(grid, cell, cachedHalfLow, cachedHalfHigh);
+    }
 
-        // Check friendly unit footprint overlap (enemies handled by combat, not collision)
+    private bool IsUnitBlocked(Vector3 pos)
+    {
+        EnsureFootprintCache();
         var presence = UnitGridPresence.Instance;
-        if (presence != null && unit != null)
+        if (presence == null || unit == null) return false;
+
+        int myId = unit.GetInstanceID();
+        Vector2Int cell = grid.WorldToCell(pos);
+        for (int dx = -cachedHalfLow; dx <= cachedHalfHigh; dx++)
         {
-            int myId = unit.GetInstanceID();
-            int myTeam = unit.TeamId;
-            for (int dx = -cachedHalfLow; dx <= cachedHalfHigh; dx++)
+            for (int dy = -cachedHalfLow; dy <= cachedHalfHigh; dy++)
             {
-                for (int dy = -cachedHalfLow; dy <= cachedHalfHigh; dy++)
-                {
-                    if (presence.IsOccupiedByFriendly(new Vector2Int(cell.x + dx, cell.y + dy), myId, myTeam))
-                        return false;
-                }
+                if (presence.IsOccupiedByOther(new Vector2Int(cell.x + dx, cell.y + dy), myId))
+                    return true;
             }
         }
-
-        return true;
+        return false;
     }
 
     private Vector3 ValidatePosition(Vector3 oldPos, Vector3 newPos)
     {
-        if (IsPositionValid(newPos))
-            return newPos;
+        // Unit blocked — stop in place, no sliding
+        if (IsUnitBlocked(newPos))
+            return oldPos;
 
-        // Try sliding along each axis
-        Vector3 slideX = new Vector3(newPos.x, newPos.y, oldPos.z);
-        bool xOk = IsPositionValid(slideX);
-
-        Vector3 slideZ = new Vector3(oldPos.x, newPos.y, newPos.z);
-        bool zOk = IsPositionValid(slideZ);
-
-        if (xOk && zOk)
+        // Obstacle blocked — try wall-sliding
+        if (!IsWalkable(newPos))
         {
-            Vector3 delta = newPos - oldPos;
-            return Mathf.Abs(delta.x) >= Mathf.Abs(delta.z) ? slideX : slideZ;
-        }
-        if (xOk) return slideX;
-        if (zOk) return slideZ;
+            Vector3 slideX = new Vector3(newPos.x, newPos.y, oldPos.z);
+            Vector3 slideZ = new Vector3(oldPos.x, newPos.y, newPos.z);
+            bool xOk = IsWalkable(slideX) && !IsUnitBlocked(slideX);
+            bool zOk = IsWalkable(slideZ) && !IsUnitBlocked(slideZ);
 
-        return oldPos;
+            if (xOk && zOk)
+            {
+                Vector3 delta = newPos - oldPos;
+                return Mathf.Abs(delta.x) >= Mathf.Abs(delta.z) ? slideX : slideZ;
+            }
+            if (xOk) return slideX;
+            if (zOk) return slideZ;
+
+            return oldPos;
+        }
+
+        return newPos;
     }
 
     // ================================================================
