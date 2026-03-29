@@ -64,9 +64,8 @@ public class DebugPanel : MonoBehaviour
 
         CreateToggle(panelRoot.transform, "Grid", overlay.showGrid, v => overlay.showGrid = v);
         CreateToggle(panelRoot.transform, "Unit Paths", overlay.showPaths, v => overlay.showPaths = v);
-        CreateToggle(panelRoot.transform, "Attack Ranges", overlay.showRanges, v => overlay.showRanges = v);
+        CreateToggle(panelRoot.transform, "Attack Range", overlay.showAttackRange, v => overlay.showAttackRange = v);
         CreateToggle(panelRoot.transform, "Build Zones", overlay.showBuildZones, v => overlay.showBuildZones = v);
-        CreateToggle(panelRoot.transform, "Separation", overlay.showSeparation, v => overlay.showSeparation = v);
     }
 
     private void CreateHeader(Transform parent)
