@@ -1,6 +1,5 @@
 using UnityEngine;
 using Mirror;
-using System.Collections.Generic;
 
 /// <summary>
 /// Server-side combat component. Delegates target selection to TargetingState
@@ -25,10 +24,6 @@ public class UnitCombat : NetworkBehaviour
     // Cached attack position — recomputed when target changes cell
     private Vector3? attackPosition;
     private Vector2Int lastTargetCell;
-
-    // Unit obstacle: cells blocked while fighting in place
-    private List<Vector2Int> blockedCells;
-    private bool isBlocking;
 
     /// <summary>
     /// True when engaged with a hard-locked target (unit or building).
@@ -59,7 +54,6 @@ public class UnitCombat : NetworkBehaviour
             {
                 attackPosition = null;
                 targeting.Clear();
-                UnmarkAsObstacle();
             }
         }
 
@@ -102,9 +96,6 @@ public class UnitCombat : NetworkBehaviour
 
         if (inRange)
         {
-            if (!isBlocking)
-                MarkAsObstacle();
-
             FaceTarget(target.gameObject.transform.position);
 
             if (stateMachine.CurrentState != UnitState.Fighting)
@@ -215,56 +206,4 @@ public class UnitCombat : NetworkBehaviour
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), 10f * Time.deltaTime);
     }
 
-    // ================================================================
-    //  UNIT OBSTACLE
-    // ================================================================
-
-    private void MarkAsObstacle()
-    {
-        var grid = GridSystem.Instance;
-        if (grid == null || isBlocking) return;
-
-        var presence = UnitGridPresence.Instance;
-        if (presence == null) return;
-
-        var cells = presence.GetUnitCells(unit.GetInstanceID());
-        if (cells == null || cells.Count == 0) return;
-
-        blockedCells = new List<Vector2Int>(cells);
-        grid.MarkUnitObstacle(blockedCells);
-        isBlocking = true;
-
-        InvalidateNearbyPaths();
-
-        if (GameDebug.Combat)
-            Debug.Log($"[Combat] {gameObject.name} blocked {blockedCells.Count} cells");
-    }
-
-    private void UnmarkAsObstacle()
-    {
-        if (!isBlocking) return;
-
-        var grid = GridSystem.Instance;
-        if (grid != null && blockedCells != null)
-            grid.UnmarkUnitObstacle(blockedCells);
-
-        InvalidateNearbyPaths();
-
-        blockedCells = null;
-        isBlocking = false;
-    }
-
-    private void InvalidateNearbyPaths()
-    {
-        var pfm = PathfindingManager.Instance;
-        if (pfm == null || !pfm.IsInitialized) return;
-
-        Bounds bounds = BoundsHelper.GetPhysicalBounds(gameObject);
-        pfm.InvalidatePathsInRegion(bounds);
-    }
-
-    private void OnDestroy()
-    {
-        UnmarkAsObstacle();
-    }
 }

@@ -2,9 +2,9 @@ using UnityEngine;
 using System.Collections.Generic;
 
 /// <summary>
-/// Tracks which grid cells each unit occupies based on its radius.
-/// This is a separate layer from walkability — unit cells are NOT obstacles,
-/// they just mark "a unit is here." Updated every frame as units move.
+/// Tracks which grid cells each unit occupies. ALL units are grid obstacles —
+/// their cells are marked in GridSystem.unitObstacles so A* routes around them.
+/// When a unit's cells change (it moves), affected paths are invalidated.
 /// </summary>
 public class UnitGridPresence : MonoBehaviour
 {
@@ -13,13 +13,12 @@ public class UnitGridPresence : MonoBehaviour
     private GridSystem grid;
 
     // Cell -> list of unit instance IDs occupying it
-    // Using int[] per cell for minimal allocation (most cells have 0-2 units)
     private Dictionary<long, List<int>> cellOccupants = new();
 
-    // Unit -> cells it currently occupies (for efficient removal on move)
+    // Unit -> cells it currently occupies
     private Dictionary<int, List<Vector2Int>> unitCells = new();
 
-    // Unit -> team (for friendly-only collision checks)
+    // Unit -> team (for team-aware queries)
     private Dictionary<int, int> unitTeams = new();
 
     // Reusable buffer for cell computation
@@ -56,12 +55,12 @@ public class UnitGridPresence : MonoBehaviour
 
     private void UpdateAllUnits()
     {
-        // Clear all occupancy
-        cellOccupants.Clear();
-        unitCells.Clear();
-        unitTeams.Clear();
-
         var allUnits = UnitManager.Instance.AllUnits;
+
+        // Detect cell changes, update grid obstacles, and invalidate paths
+        var newCellOccupants = new Dictionary<long, List<int>>();
+        var changedCells = new List<Vector2Int>();
+
         for (int i = 0; i < allUnits.Count; i++)
         {
             var unit = allUnits[i];
@@ -69,35 +68,130 @@ public class UnitGridPresence : MonoBehaviour
 
             int unitId = unit.GetInstanceID();
             int footprint = unit.FootprintSize;
-            Vector3 pos = unit.transform.position;
 
-            // Compute which cells this unit covers
-            ComputeOccupiedCells(pos, footprint, cellBuffer);
+            ComputeOccupiedCells(unit.transform.position, footprint, cellBuffer);
 
-            // Store unit -> cells and team mappings
-            var cells = new List<Vector2Int>(cellBuffer.Count);
-            cells.AddRange(cellBuffer);
-            unitCells[unitId] = cells;
+            // Check if cells changed from last frame
+            bool changed = false;
+            if (!unitCells.TryGetValue(unitId, out var oldCells))
+            {
+                changed = true;
+            }
+            else if (oldCells.Count != cellBuffer.Count)
+            {
+                changed = true;
+            }
+            else
+            {
+                for (int c = 0; c < cellBuffer.Count; c++)
+                {
+                    if (oldCells[c] != cellBuffer[c]) { changed = true; break; }
+                }
+            }
+
+            if (changed)
+            {
+                // Unmark old cells
+                if (oldCells != null)
+                {
+                    grid.UnmarkUnitObstacle(oldCells);
+                    changedCells.AddRange(oldCells);
+                }
+
+                // Mark new cells
+                var newCells = new List<Vector2Int>(cellBuffer);
+                grid.MarkUnitObstacle(newCells);
+                changedCells.AddRange(newCells);
+
+                unitCells[unitId] = newCells;
+            }
+
             unitTeams[unitId] = unit.TeamId;
 
-            // Store cell -> unit mapping
+            // Update cell -> unit mapping
             for (int c = 0; c < cellBuffer.Count; c++)
             {
                 long key = CellKey(cellBuffer[c]);
-                if (!cellOccupants.TryGetValue(key, out var list))
+                if (!newCellOccupants.TryGetValue(key, out var list))
                 {
                     list = new List<int>(4);
-                    cellOccupants[key] = list;
+                    newCellOccupants[key] = list;
                 }
                 list.Add(unitId);
             }
         }
+
+        // Clean up units that no longer exist
+        var deadUnits = new List<int>();
+        foreach (var kvp in unitCells)
+        {
+            bool alive = false;
+            for (int i = 0; i < allUnits.Count; i++)
+            {
+                if (allUnits[i] != null && allUnits[i].GetInstanceID() == kvp.Key)
+                { alive = true; break; }
+            }
+            if (!alive)
+            {
+                grid.UnmarkUnitObstacle(kvp.Value);
+                changedCells.AddRange(kvp.Value);
+                deadUnits.Add(kvp.Key);
+            }
+        }
+        foreach (var id in deadUnits)
+        {
+            unitCells.Remove(id);
+            unitTeams.Remove(id);
+        }
+
+        cellOccupants = newCellOccupants;
+
+        // Invalidate paths through changed cells
+        if (changedCells.Count > 0)
+            InvalidatePathsThroughCells(changedCells);
+    }
+
+    private void InvalidatePathsThroughCells(List<Vector2Int> cells)
+    {
+        var pfm = PathfindingManager.Instance;
+        if (pfm == null || !pfm.IsInitialized) return;
+
+        // Build a bounds that covers all changed cells
+        Vector2Int min = cells[0], max = cells[0];
+        for (int i = 1; i < cells.Count; i++)
+        {
+            min = Vector2Int.Min(min, cells[i]);
+            max = Vector2Int.Max(max, cells[i]);
+        }
+
+        Vector3 worldMin = grid.CellToWorld(min) - new Vector3(grid.CellSize, 0, grid.CellSize);
+        Vector3 worldMax = grid.CellToWorld(max) + new Vector3(grid.CellSize, 2f, grid.CellSize);
+        Bounds changedRegion = new Bounds((worldMin + worldMax) * 0.5f, worldMax - worldMin);
+
+        pfm.InvalidatePathsInRegion(changedRegion);
+    }
+
+    /// <summary>
+    /// Temporarily unmark a unit's cells so its own A* doesn't self-block.
+    /// Call RemarkUnit after path computation.
+    /// </summary>
+    public void UnmarkUnit(int unitId)
+    {
+        if (!unitCells.TryGetValue(unitId, out var cells)) return;
+        grid?.UnmarkUnitObstacle(cells);
+    }
+
+    /// <summary>
+    /// Re-mark a unit's cells after path computation.
+    /// </summary>
+    public void RemarkUnit(int unitId)
+    {
+        if (!unitCells.TryGetValue(unitId, out var cells)) return;
+        grid?.MarkUnitObstacle(cells);
     }
 
     /// <summary>
     /// Compute the fixed rectangular footprint of a unit on the grid.
-    /// footprintSize is set directly in UnitData (1=small, 2=large, 3=huge).
-    /// The rectangle only shifts position as the unit moves, never changes shape.
     /// </summary>
     private void ComputeOccupiedCells(Vector3 worldPos, int footprintSize, List<Vector2Int> result)
     {
