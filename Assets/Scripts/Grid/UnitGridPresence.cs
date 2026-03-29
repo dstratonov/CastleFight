@@ -160,26 +160,15 @@ public class UnitGridPresence : MonoBehaviour
         grid?.MarkUnitObstacle(cells);
     }
 
-    /// <summary>
-    /// Compute the fixed rectangular footprint of a unit on the grid.
-    /// </summary>
     private void ComputeOccupiedCells(Vector3 worldPos, int footprintSize, List<Vector2Int> result)
     {
-        result.Clear();
         Vector2Int center = grid.WorldToCell(worldPos);
-
-        int cellSpan = Mathf.Max(1, footprintSize);
-        int halfLow = (cellSpan - 1) / 2;
-        int halfHigh = cellSpan / 2;
-
-        for (int dx = -halfLow; dx <= halfHigh; dx++)
+        FootprintHelper.GetCells(center, footprintSize, result);
+        // Remove out-of-bounds cells
+        for (int i = result.Count - 1; i >= 0; i--)
         {
-            for (int dy = -halfLow; dy <= halfHigh; dy++)
-            {
-                Vector2Int cell = new Vector2Int(center.x + dx, center.y + dy);
-                if (grid.IsInBounds(cell))
-                    result.Add(cell);
-            }
+            if (!grid.IsInBounds(result[i]))
+                result.RemoveAt(i);
         }
     }
 

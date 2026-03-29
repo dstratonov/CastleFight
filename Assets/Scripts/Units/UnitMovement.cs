@@ -218,14 +218,10 @@ public class UnitMovement : NetworkBehaviour
 
         // Validate destination using unit's full footprint, not just center cell
         int footprint = unit != null ? unit.FootprintSize : 1;
-        int halfLow = (footprint - 1) / 2;
-        int halfHigh = footprint / 2;
-
         Vector2Int cell = grid.WorldToCell(target);
-        if (!GridAStar.IsFootprintWalkable(grid, cell, halfLow, halfHigh))
+        if (!FootprintHelper.IsWalkable(grid, cell, footprint))
         {
-            Vector2Int nearest = GridAStar.FindNearestWalkableCellForFootprint(
-                grid, cell, 15, halfLow, halfHigh);
+            Vector2Int nearest = FootprintHelper.FindNearestWalkable(grid, cell, footprint);
             target = grid.CellToWorld(nearest);
         }
 
@@ -466,22 +462,11 @@ public class UnitMovement : NetworkBehaviour
     //  OBSTACLE CHECK
     // ================================================================
 
-    private int cachedHalfLow = -1;
-    private int cachedHalfHigh;
-
-    private void EnsureFootprintCache()
-    {
-        if (cachedHalfLow >= 0) return;
-        int fp = unit != null ? unit.FootprintSize : 1;
-        cachedHalfLow = (fp - 1) / 2;
-        cachedHalfHigh = fp / 2;
-    }
-
     private bool IsPositionValid(Vector3 pos)
     {
-        EnsureFootprintCache();
+        int fp = unit != null ? unit.FootprintSize : 1;
         Vector2Int cell = grid.WorldToCell(pos);
-        return GridAStar.IsFootprintWalkable(grid, cell, cachedHalfLow, cachedHalfHigh);
+        return FootprintHelper.IsWalkable(grid, cell, fp);
     }
 
     // ================================================================

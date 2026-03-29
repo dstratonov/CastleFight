@@ -15,16 +15,9 @@ public static class AttackRangeHelper
     public static (Vector2Int min, Vector2Int max) GetAttackRect(
         Vector2Int unitCell, int footprintSize, int attackRangeCells)
     {
-        int halfLow = (footprintSize - 1) / 2;
-        int halfHigh = footprintSize / 2;
-
-        Vector2Int min = new Vector2Int(
-            unitCell.x - halfLow - attackRangeCells,
-            unitCell.y - halfLow - attackRangeCells);
-        Vector2Int max = new Vector2Int(
-            unitCell.x + halfHigh + attackRangeCells,
-            unitCell.y + halfHigh + attackRangeCells);
-
+        var (fpMin, fpMax) = FootprintHelper.GetRect(unitCell, footprintSize);
+        Vector2Int min = new Vector2Int(fpMin.x - attackRangeCells, fpMin.y - attackRangeCells);
+        Vector2Int max = new Vector2Int(fpMax.x + attackRangeCells, fpMax.y + attackRangeCells);
         return (min, max);
     }
 
@@ -35,13 +28,7 @@ public static class AttackRangeHelper
     public static (Vector2Int min, Vector2Int max) GetFootprintRect(
         Vector2Int cell, int footprintSize)
     {
-        int halfLow = (footprintSize - 1) / 2;
-        int halfHigh = footprintSize / 2;
-
-        Vector2Int min = new Vector2Int(cell.x - halfLow, cell.y - halfLow);
-        Vector2Int max = new Vector2Int(cell.x + halfHigh, cell.y + halfHigh);
-
-        return (min, max);
+        return FootprintHelper.GetRect(cell, footprintSize);
     }
 
     /// <summary>
@@ -102,9 +89,7 @@ public static class AttackRangeHelper
         }
 
         // The attacker needs to stand at a cell where its attack rect overlaps the target rect.
-        // Expand search area: any cell within (attackRangeCells + footprint) of the target rect.
-        int halfLow = (attackerFootprint - 1) / 2;
-        int halfHigh = attackerFootprint / 2;
+        FootprintHelper.GetHalfExtents(attackerFootprint, out int halfLow, out int halfHigh);
         int expand = attackRangeCells + Mathf.Max(halfLow, halfHigh) + 1;
 
         Vector2Int searchMin = new Vector2Int(tMin.x - expand, tMin.y - expand);
@@ -120,7 +105,7 @@ public static class AttackRangeHelper
                 Vector2Int candidate = new Vector2Int(x, y);
 
                 // Check full footprint fits
-                if (!GridAStar.IsFootprintWalkable(grid, candidate, halfLow, halfHigh))
+                if (!FootprintHelper.IsWalkable(grid, candidate, attackerFootprint))
                     continue;
 
                 // Check attack rect overlaps target rect
