@@ -4,11 +4,10 @@ using UnityEngine.InputSystem;
 #endif
 
 /// <summary>
-/// Runtime keyboard toggle for pathfinding debug flags.
-/// Auto-attached to PathfindingManager on initialization.
-/// F1 = Pathfinding logs, F2 = Movement logs, F3 = Boids logs,
-/// F4 = NavMesh overlay, F5 = NavMesh widths, F6 = Velocity arrows,
-/// F7 = Boids forces, F9 = All ON, F10 = All OFF, F8 = Validate mesh.
+/// Runtime keyboard toggle for debug overlays.
+/// F1 = Pathfinding logs, F2 = Movement logs, F3 = Unit cells,
+/// F4 = Grid walkability, F5 = Attack range, F6 = Velocity arrows,
+/// F7 = Combat logs, F9 = All ON, F10 = All OFF.
 /// </summary>
 public class PathfindingDebugToggle : MonoBehaviour
 {
@@ -42,11 +41,19 @@ public class PathfindingDebugToggle : MonoBehaviour
             if (overlay != null)
             {
                 overlay.showNavMesh = !overlay.showNavMesh;
-                Debug.Log($"[DebugToggle] NavMesh overlay = {overlay.showNavMesh}");
+                Debug.Log($"[DebugToggle] Walkability = {overlay.showNavMesh}");
             }
         }
 
-        // F5: was NavMesh widths (removed with NavMesh)
+        if (WasKeyPressed(Key.F5))
+        {
+            var overlay = DebugOverlay.Instance;
+            if (overlay != null)
+            {
+                overlay.showAttackRange = !overlay.showAttackRange;
+                Debug.Log($"[DebugToggle] Attack range = {overlay.showAttackRange}");
+            }
+        }
 
         if (WasKeyPressed(Key.F6))
         {
@@ -60,17 +67,8 @@ public class PathfindingDebugToggle : MonoBehaviour
 
         if (WasKeyPressed(Key.F7))
         {
-            var overlay = DebugOverlay.Instance;
-            if (overlay != null)
-            {
-                // Boids forces removed
-                Debug.Log("[DebugToggle] Boids forces removed");
-            }
-        }
-
-        if (WasKeyPressed(Key.F8))
-        {
-            ValidateNavMeshNow();
+            GameDebug.Combat = !GameDebug.Combat;
+            Debug.Log($"[DebugToggle] Combat = {GameDebug.Combat}");
         }
 
         if (WasKeyPressed(Key.F9))
@@ -83,6 +81,7 @@ public class PathfindingDebugToggle : MonoBehaviour
                 overlay.showPaths = true;
                 overlay.showVelocities = true;
                 overlay.showUnitCells = true;
+                overlay.showAttackRange = true;
             }
             Debug.Log("[DebugToggle] ALL DEBUG ON");
         }
@@ -94,8 +93,10 @@ public class PathfindingDebugToggle : MonoBehaviour
             if (overlay != null)
             {
                 overlay.showNavMesh = false;
+                overlay.showPaths = false;
                 overlay.showVelocities = false;
                 overlay.showUnitCells = false;
+                overlay.showAttackRange = false;
             }
             Debug.Log("[DebugToggle] ALL DEBUG OFF");
         }
@@ -123,16 +124,4 @@ public class PathfindingDebugToggle : MonoBehaviour
         };
     }
 #endif
-
-    private void ValidateNavMeshNow()
-    {
-        var pfm = PathfindingManager.Instance;
-        if (pfm == null || !pfm.IsInitialized)
-        {
-            Debug.LogWarning("[DebugToggle] PathfindingManager not initialized");
-            return;
-        }
-
-        Debug.Log("[DebugToggle] Grid-based A* — no NavMesh to validate");
-    }
 }

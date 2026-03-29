@@ -8,22 +8,19 @@ public class DebugOverlay : MonoBehaviour
 
     public bool showGrid = true;
     public bool showPaths = true;
-    public bool showRanges;
     public bool showBuildZones;
-    public bool showSeparation;
     public bool showNavMesh;
     public bool showVelocities;
     public bool showUnitCells = true;
+    public bool showAttackRange;
 
     private Material lineMaterial;
     private Camera cam;
 
     private const float Y_OFFSET = 0.25f;
 
-    // Reusable unit list to avoid per-frame allocation
     private readonly List<Unit> unitBuffer = new(128);
 
-    // Cached component lookups
     private HeroController[] cachedHeroes;
     private float heroCacheTime;
     private readonly Dictionary<int, (HeroAutoAttack atk, HeroBuilder bld)> heroComponentCache = new();
@@ -32,7 +29,6 @@ public class DebugOverlay : MonoBehaviour
     private float buildZoneCacheTime;
     private readonly Dictionary<int, BoxCollider> buildZoneColliderCache = new();
 
-    // Stuck duration snapshot from PathfindingDiagnostic
     private readonly HashSet<int> stuckUnitIds = new();
     private float stuckCacheTime;
 
@@ -113,25 +109,22 @@ public class DebugOverlay : MonoBehaviour
 
         RefreshUnitBuffer();
 
-        // Depth-tested pass: paths and grid respect building geometry
         lineMaterial.SetPass(0);
         if (showGrid) DrawGrid();
         if (showPaths) DrawUnitPaths();
 
-        // Always-on-top pass: debug overlays visible through everything
         overlayMaterial.SetPass(0);
-        if (showRanges) DrawRanges();
         if (showBuildZones) DrawBuildZones();
-        if (showSeparation) DrawSeparation();
         if (showNavMesh) DrawNavMesh();
         if (showVelocities) DrawVelocities();
         if (showUnitCells) DrawUnitCells();
+        if (showAttackRange) DrawAttackRange();
 
         GL.PopMatrix();
     }
 
     // ================================================================
-    // UNIT BUFFER (single allocation, reused every frame)
+    // UNIT BUFFER
     // ================================================================
 
     private void RefreshUnitBuffer()
@@ -213,7 +206,7 @@ public class DebugOverlay : MonoBehaviour
     }
 
     // ================================================================
-    // UNIT PATHS — color-coded by state
+    // UNIT PATHS
     // ================================================================
 
     private void DrawUnitPaths()
@@ -244,13 +237,13 @@ public class DebugOverlay : MonoBehaviour
 
                 Color pathColor;
                 if (unreachable)
-                    pathColor = new Color(1f, 0.15f, 0.15f, 0.7f); // Red: unreachable
+                    pathColor = new Color(1f, 0.15f, 0.15f, 0.7f);
                 else if (stuck)
-                    pathColor = new Color(1f, 0.8f, 0f, 0.7f); // Yellow: stuck
+                    pathColor = new Color(1f, 0.8f, 0f, 0.7f);
                 else
                     pathColor = unit.TeamId == 0
-                        ? new Color(0.2f, 0.9f, 0.5f, 0.6f) // Green-cyan: team 0
-                        : new Color(0.9f, 0.5f, 0.2f, 0.6f); // Orange: team 1
+                        ? new Color(0.2f, 0.9f, 0.5f, 0.6f)
+                        : new Color(0.9f, 0.5f, 0.2f, 0.6f);
 
                 GL.Color(pathColor);
                 Vector3 prev = unit.transform.position;
@@ -273,33 +266,6 @@ public class DebugOverlay : MonoBehaviour
                 Vector3 dest = movement.WorldTarget.Value;
                 dest.y = y;
                 DrawDiamond(dest, 0.5f);
-            }
-
-            // Draw raw A* grid cells that the path goes through
-            var cellPath = movement.DebugCellPath;
-            if (cellPath != null && cellPath.Count > 0 && grid != null)
-            {
-                Color cellColor = unit.TeamId == 0
-                    ? new Color(0.1f, 0.6f, 0.3f, 0.25f)
-                    : new Color(0.6f, 0.3f, 0.1f, 0.25f);
-                GL.Color(cellColor);
-                float cs = grid.CellSize;
-                float half = cs * 0.45f; // slightly smaller than cell to see grid lines
-
-                for (int c = 0; c < cellPath.Count; c++)
-                {
-                    Vector3 cellCenter = grid.CellToWorld(cellPath[c]);
-                    cellCenter.y = y;
-                    // Draw cell outline
-                    GLLine(new Vector3(cellCenter.x - half, y, cellCenter.z - half),
-                           new Vector3(cellCenter.x + half, y, cellCenter.z - half));
-                    GLLine(new Vector3(cellCenter.x + half, y, cellCenter.z - half),
-                           new Vector3(cellCenter.x + half, y, cellCenter.z + half));
-                    GLLine(new Vector3(cellCenter.x + half, y, cellCenter.z + half),
-                           new Vector3(cellCenter.x - half, y, cellCenter.z + half));
-                    GLLine(new Vector3(cellCenter.x - half, y, cellCenter.z + half),
-                           new Vector3(cellCenter.x - half, y, cellCenter.z - half));
-                }
             }
         }
         GL.End();
@@ -346,19 +312,14 @@ public class DebugOverlay : MonoBehaviour
     }
 
     // ================================================================
-    // BOIDS FORCE VISUALIZATION
-    // ================================================================
-
-    // ================================================================
-    // UNIT CELL PRESENCE VISUALIZATION
+    // UNIT CELL PRESENCE
     // ================================================================
 
     private void DrawUnitCells()
     {
         var presence = UnitGridPresence.Instance;
         var grid = GridSystem.Instance;
-        if (presence == null || grid == null) return;
-        if (UnitManager.Instance == null) return;
+        if (presence == null || grid == null || UnitManager.Instance == null) return;
 
         float y = grid.GridOrigin.y + Y_OFFSET + 0.02f;
         float cs = grid.CellSize;
@@ -377,7 +338,6 @@ public class DebugOverlay : MonoBehaviour
             var cells = presence.GetUnitCells(unit.GetInstanceID());
             if (cells == null) continue;
 
-            // Team color: blue for team 0, red for team 1
             Color cellColor = unit.TeamId == 0
                 ? new Color(0.2f, 0.4f, 1f, 0.4f)
                 : new Color(1f, 0.3f, 0.2f, 0.4f);
@@ -390,27 +350,71 @@ public class DebugOverlay : MonoBehaviour
                     center.z + half < viewMinZ || center.z - half > viewMaxZ)
                     continue;
 
-                // Draw cell outline
-                GLLine(new Vector3(center.x - half, y, center.z - half),
-                       new Vector3(center.x + half, y, center.z - half));
-                GLLine(new Vector3(center.x + half, y, center.z - half),
-                       new Vector3(center.x + half, y, center.z + half));
-                GLLine(new Vector3(center.x + half, y, center.z + half),
-                       new Vector3(center.x - half, y, center.z + half));
-                GLLine(new Vector3(center.x - half, y, center.z + half),
-                       new Vector3(center.x - half, y, center.z - half));
+                DrawCellOutline(center, half, y);
             }
         }
         GL.End();
     }
 
     // ================================================================
-    // GRID WALKABILITY VISUALIZATION
+    // ATTACK RANGE — grid-based expanded footprint
+    // ================================================================
+
+    private void DrawAttackRange()
+    {
+        var grid = GridSystem.Instance;
+        if (grid == null || unitBuffer.Count == 0) return;
+
+        float y = grid.GridOrigin.y + Y_OFFSET + 0.04f;
+        float cs = grid.CellSize;
+        float half = cs * 0.46f;
+
+        GetVisibleGroundBounds(out float viewMinX, out float viewMaxX, out float viewMinZ, out float viewMaxZ);
+
+        GL.Begin(GL.LINES);
+
+        for (int u = 0; u < unitBuffer.Count; u++)
+        {
+            var unit = unitBuffer[u];
+            if (unit == null || unit.IsDead || unit.Data == null) continue;
+
+            Vector2Int unitCell = grid.WorldToCell(unit.transform.position);
+            var (atkMin, atkMax) = AttackRangeHelper.GetAttackRect(
+                unitCell, unit.FootprintSize, unit.Data.attackRangeCells);
+
+            // Yellow for attack range
+            Color rangeColor = unit.TeamId == 0
+                ? new Color(0.3f, 0.8f, 1f, 0.25f)
+                : new Color(1f, 0.8f, 0.2f, 0.25f);
+            GL.Color(rangeColor);
+
+            for (int x = atkMin.x; x <= atkMax.x; x++)
+            {
+                for (int z = atkMin.y; z <= atkMax.y; z++)
+                {
+                    // Skip cells that are part of the unit's own footprint
+                    var (fpMin, fpMax) = FootprintHelper.GetRect(unitCell, unit.FootprintSize);
+                    if (x >= fpMin.x && x <= fpMax.x && z >= fpMin.y && z <= fpMax.y)
+                        continue;
+
+                    Vector3 center = grid.CellToWorld(new Vector2Int(x, z));
+                    if (center.x + half < viewMinX || center.x - half > viewMaxX ||
+                        center.z + half < viewMinZ || center.z - half > viewMaxZ)
+                        continue;
+
+                    DrawCellOutline(center, half, y);
+                }
+            }
+        }
+        GL.End();
+    }
+
+    // ================================================================
+    // GRID WALKABILITY
     // ================================================================
 
     private void DrawNavMesh()
     {
-        // Grid-based walkability overlay (replaces old NavMesh triangle view)
         var grid = GridSystem.Instance;
         if (grid == null) return;
 
@@ -434,7 +438,6 @@ public class DebugOverlay : MonoBehaviour
                     center.z + half < viewMinZ || center.z - half > viewMaxZ)
                     continue;
 
-                // Draw X across blocked cell
                 GLLine(new Vector3(center.x - half, y, center.z - half),
                        new Vector3(center.x + half, y, center.z + half));
                 GLLine(new Vector3(center.x + half, y, center.z - half),
@@ -445,63 +448,7 @@ public class DebugOverlay : MonoBehaviour
     }
 
     // ================================================================
-    // RANGES — cached component lookups
-    // ================================================================
-
-    private void DrawRanges()
-    {
-        float y = GridSystem.Instance != null ? GridSystem.Instance.GridOrigin.y + Y_OFFSET : Y_OFFSET;
-
-        if (cachedHeroes == null || Time.time - heroCacheTime > 2f)
-        {
-            cachedHeroes = Object.FindObjectsByType<HeroController>(FindObjectsSortMode.None);
-            heroCacheTime = Time.time;
-            heroComponentCache.Clear();
-        }
-
-        GL.Begin(GL.LINES);
-        foreach (var hero in cachedHeroes)
-        {
-            if (hero == null) continue;
-
-            int hid = hero.GetInstanceID();
-            if (!heroComponentCache.TryGetValue(hid, out var cached))
-            {
-                cached = (hero.GetComponent<HeroAutoAttack>(), hero.GetComponent<HeroBuilder>());
-                heroComponentCache[hid] = cached;
-            }
-
-            Vector3 heroPos = hero.transform.position;
-            heroPos.y = y;
-
-            if (cached.atk != null)
-            {
-                GL.Color(new Color(1f, 0.9f, 0.2f, 0.5f));
-                DrawCircle(heroPos, cached.atk.AttackRange, 32);
-            }
-            if (cached.bld != null)
-            {
-                GL.Color(new Color(0.2f, 1f, 0.4f, 0.35f));
-                DrawCircle(heroPos, cached.bld.BuildRange, 48);
-            }
-        }
-
-        for (int i = 0; i < unitBuffer.Count; i++)
-        {
-            var unit = unitBuffer[i];
-            if (unit == null || unit.Data == null) continue;
-            Vector3 pos = unit.transform.position;
-            pos.y = y;
-
-            GL.Color(new Color(1f, 0.8f, 0.2f, 0.25f));
-            float rangeWorld = unit.Data.attackRangeCells * (GridSystem.Instance != null ? GridSystem.Instance.CellSize : 2f);
-            DrawCircle(pos, rangeWorld, 16);
-        }
-        GL.End();
-    }
-
-    // ================================================================
-    // BUILD ZONES — cached collider lookups
+    // BUILD ZONES
     // ================================================================
 
     private void DrawBuildZones()
@@ -549,29 +496,6 @@ public class DebugOverlay : MonoBehaviour
     }
 
     // ================================================================
-    // SEPARATION
-    // ================================================================
-
-    private void DrawSeparation()
-    {
-        if (unitBuffer.Count == 0) return;
-
-        float y = GridSystem.Instance != null ? GridSystem.Instance.GridOrigin.y + Y_OFFSET : Y_OFFSET;
-
-        GL.Begin(GL.LINES);
-        GL.Color(new Color(0.8f, 0.4f, 1f, 0.2f));
-        for (int i = 0; i < unitBuffer.Count; i++)
-        {
-            var unit = unitBuffer[i];
-            if (unit == null) continue;
-            Vector3 pos = unit.transform.position;
-            pos.y = y;
-            DrawCircle(pos, unit.EffectiveRadius * 3f, 12);
-        }
-        GL.End();
-    }
-
-    // ================================================================
     // GL HELPERS
     // ================================================================
 
@@ -579,19 +503,6 @@ public class DebugOverlay : MonoBehaviour
     {
         GL.Vertex3(a.x, a.y, a.z);
         GL.Vertex3(b.x, b.y, b.z);
-    }
-
-    private static void DrawCircle(Vector3 center, float radius, int segments)
-    {
-        float step = 2f * Mathf.PI / segments;
-        Vector3 prev = center + new Vector3(radius, 0, 0);
-        for (int i = 1; i <= segments; i++)
-        {
-            float angle = i * step;
-            Vector3 next = center + new Vector3(Mathf.Cos(angle) * radius, 0, Mathf.Sin(angle) * radius);
-            GLLine(prev, next);
-            prev = next;
-        }
     }
 
     private static void DrawSmallCross(Vector3 center, float size)
@@ -619,6 +530,18 @@ public class DebugOverlay : MonoBehaviour
         GLLine(a, c); GLLine(b, d);
     }
 
+    private static void DrawCellOutline(Vector3 center, float half, float y)
+    {
+        GLLine(new Vector3(center.x - half, y, center.z - half),
+               new Vector3(center.x + half, y, center.z - half));
+        GLLine(new Vector3(center.x + half, y, center.z - half),
+               new Vector3(center.x + half, y, center.z + half));
+        GLLine(new Vector3(center.x + half, y, center.z + half),
+               new Vector3(center.x - half, y, center.z + half));
+        GLLine(new Vector3(center.x - half, y, center.z + half),
+               new Vector3(center.x - half, y, center.z - half));
+    }
+
     // ================================================================
     // UTILITY
     // ================================================================
@@ -638,7 +561,6 @@ public class DebugOverlay : MonoBehaviour
         float groundY = GridSystem.Instance != null ? GridSystem.Instance.GridOrigin.y : 0f;
         float padding = 15f;
 
-        // Cast rays through the four viewport corners + center edges to find actual ground footprint
         Vector3[] viewportPoints = {
             new(0, 0, 0), new(1, 0, 0), new(0, 1, 0), new(1, 1, 0),
             new(0.5f, 0, 0), new(0.5f, 1, 0), new(0, 0.5f, 0), new(1, 0.5f, 0)
@@ -651,7 +573,7 @@ public class DebugOverlay : MonoBehaviour
             if (Mathf.Abs(ray.direction.y) < 0.001f) continue;
 
             float t = (groundY - ray.origin.y) / ray.direction.y;
-            if (t < 0) t = cam.farClipPlane; // ray points away from ground, use far plane fallback
+            if (t < 0) t = cam.farClipPlane;
 
             Vector3 hit = ray.origin + ray.direction * Mathf.Min(t, cam.farClipPlane);
             worldMinX = Mathf.Min(worldMinX, hit.x);
