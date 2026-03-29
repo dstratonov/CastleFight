@@ -183,10 +183,8 @@ public class UnitMovement : NetworkBehaviour
         Vector3 newPos = oldPos + velocity * Time.deltaTime;
         newPos.y = grid.GridOrigin.y;
 
-        // Hard lock (chasing specific enemy) → avoid ALL units
-        // Soft lock (marching) → avoid same-team only, walk through enemies
-        bool hardLock = unit != null && unit.Combat != null && unit.Combat.HasTarget;
-        grid.WalkableTeamContext = hardLock ? -2 : (unit != null ? unit.TeamId : 0);
+        // All units are obstacles — pathfinding routes around everyone
+        grid.WalkableTeamContext = -2;
 
         // Temporarily unmark self so our own cells don't block checks
         UnmarkSelf();
@@ -201,42 +199,6 @@ public class UnitMovement : NetworkBehaviour
             RemarkSelf();
             grid.WalkableTeamContext = -1;
             return;
-        }
-
-        // Check if moving to a new cell that's occupied by another unit
-        // But always allow movement if we're ALREADY overlapping (let units separate)
-        int myId = unit != null ? unit.GetInstanceID() : 0;
-        var presence = UnitGridPresence.Instance;
-        Vector2Int newCell = grid.WorldToCell(newPos);
-        Vector2Int oldCell = grid.WorldToCell(oldPos);
-        if (newCell != oldCell && presence != null)
-        {
-            FootprintHelper.GetHalfExtents(fp, out int hl, out int hh);
-
-            // Check if we're currently overlapping at old position
-            bool alreadyOverlapping = false;
-            for (int dx = -hl; dx <= hh && !alreadyOverlapping; dx++)
-                for (int dy = -hl; dy <= hh && !alreadyOverlapping; dy++)
-                    if (presence.IsOccupiedByOther(new Vector2Int(oldCell.x + dx, oldCell.y + dy), myId))
-                        alreadyOverlapping = true;
-
-            // Only block if we'd create a NEW overlap (not already overlapping)
-            if (!alreadyOverlapping)
-            {
-                for (int dx = -hl; dx <= hh; dx++)
-                {
-                    for (int dy = -hl; dy <= hh; dy++)
-                    {
-                        if (presence.IsOccupiedByOther(new Vector2Int(newCell.x + dx, newCell.y + dy), myId))
-                        {
-                            ComputePathInternal();
-                            RemarkSelf();
-                            grid.WalkableTeamContext = -1;
-                            return;
-                        }
-                    }
-                }
-            }
         }
 
         RemarkSelf();
@@ -342,8 +304,7 @@ public class UnitMovement : NetworkBehaviour
 
     private void ComputePath()
     {
-        bool hardLock = unit != null && unit.Combat != null && unit.Combat.HasTarget;
-        grid.WalkableTeamContext = hardLock ? -2 : (unit != null ? unit.TeamId : 0);
+        grid.WalkableTeamContext = -2;
         UnmarkSelf();
         ComputePathInternal();
         RemarkSelf();
