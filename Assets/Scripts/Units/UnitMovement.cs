@@ -465,16 +465,17 @@ public class UnitMovement : NetworkBehaviour
         if (!GridAStar.IsFootprintWalkable(grid, cell, cachedHalfLow, cachedHalfHigh))
             return false;
 
-        // Check unit footprint overlap
+        // Check friendly unit footprint overlap (enemies handled by combat, not collision)
         var presence = UnitGridPresence.Instance;
-        if (presence != null)
+        if (presence != null && unit != null)
         {
-            int myId = unit != null ? unit.GetInstanceID() : 0;
+            int myId = unit.GetInstanceID();
+            int myTeam = unit.TeamId;
             for (int dx = -cachedHalfLow; dx <= cachedHalfHigh; dx++)
             {
                 for (int dy = -cachedHalfLow; dy <= cachedHalfHigh; dy++)
                 {
-                    if (presence.IsOccupiedByOther(new Vector2Int(cell.x + dx, cell.y + dy), myId))
+                    if (presence.IsOccupiedByFriendly(new Vector2Int(cell.x + dx, cell.y + dy), myId, myTeam))
                         return false;
                 }
             }

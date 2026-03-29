@@ -19,6 +19,9 @@ public class UnitGridPresence : MonoBehaviour
     // Unit -> cells it currently occupies (for efficient removal on move)
     private Dictionary<int, List<Vector2Int>> unitCells = new();
 
+    // Unit -> team (for friendly-only collision checks)
+    private Dictionary<int, int> unitTeams = new();
+
     // Reusable buffer for cell computation
     private static readonly List<Vector2Int> cellBuffer = new(16);
 
@@ -56,6 +59,7 @@ public class UnitGridPresence : MonoBehaviour
         // Clear all occupancy
         cellOccupants.Clear();
         unitCells.Clear();
+        unitTeams.Clear();
 
         var allUnits = UnitManager.Instance.AllUnits;
         for (int i = 0; i < allUnits.Count; i++)
@@ -70,10 +74,11 @@ public class UnitGridPresence : MonoBehaviour
             // Compute which cells this unit covers
             ComputeOccupiedCells(pos, footprint, cellBuffer);
 
-            // Store unit -> cells mapping
+            // Store unit -> cells and team mappings
             var cells = new List<Vector2Int>(cellBuffer.Count);
             cells.AddRange(cellBuffer);
             unitCells[unitId] = cells;
+            unitTeams[unitId] = unit.TeamId;
 
             // Store cell -> unit mapping
             for (int c = 0; c < cellBuffer.Count; c++)
@@ -143,6 +148,23 @@ public class UnitGridPresence : MonoBehaviour
         for (int i = 0; i < list.Count; i++)
         {
             if (list[i] != excludeUnitId) return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Check if a cell is occupied by a friendly unit (same team, not self).
+    /// </summary>
+    public bool IsOccupiedByFriendly(Vector2Int cell, int excludeUnitId, int teamId)
+    {
+        long key = CellKey(cell);
+        if (!cellOccupants.TryGetValue(key, out var list)) return false;
+        for (int i = 0; i < list.Count; i++)
+        {
+            int occupantId = list[i];
+            if (occupantId == excludeUnitId) continue;
+            if (unitTeams.TryGetValue(occupantId, out int otherTeam) && otherTeam == teamId)
+                return true;
         }
         return false;
     }
