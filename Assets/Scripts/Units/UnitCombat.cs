@@ -1,0 +1,232 @@
+using UnityEngine;
+using Mirror;
+
+/// <summary>
+/// Server-side combat component. Delegates target selection to TargetingState
+/// and TargetingService. Handles chase, attack, and target lifecycle.
+///
+/// Units always have a target. TargetingService scans in priority order
+/// and falls back to the enemy castle as default. The unit marches toward
+/// whatever target it has and attacks when in range.
+/// </summary>
+public class UnitCombat : NetworkBehaviour
+{
+    private Unit unit;
+    private UnitMovement movement;
+    private UnitStateMachine stateMachine;
+
+    private readonly TargetingState targeting = new();
+    private float attackCooldown;
+    private float scanTimer;
+    private const float ScanInterval = 0.25f;
+    private const float LeashMultiplier = 1.5f;
+
+    // Cached attack position
+    private Vector3? attackPosition;
+    private Vector3 lastTargetPos;
+    private const float TargetMoveThreshold = 1.5f;
+
+    /// <summary>
+    /// True when engaged with a hard-locked target (unit or building).
+    /// Soft-locked castle does not count — state machine shows Moving while marching.
+    /// </summary>
+    public bool HasTarget => targeting.HasTarget && targeting.Lock == TargetLock.Hard;
+
+    public IAttackable CurrentTarget => targeting.Current;
+
+    private void Awake()
+    {
+        unit = GetComponent<Unit>();
+        movement = GetComponent<UnitMovement>();
+        stateMachine = GetComponent<UnitStateMachine>();
+    }
+
+    private void Update()
+    {
+        if (!isServer || unit == null || unit.IsDead || unit.Data == null) return;
+
+        attackCooldown -= Time.deltaTime;
+
+        // Validate current target
+        if (targeting.HasTarget)
+        {
+            float leashRange = unit.Data.aggroRadius * LeashMultiplier;
+            if (!targeting.Validate(transform.position, leashRange))
+            {
+                attackPosition = null;
+                targeting.Clear();
+            }
+        }
+
+        // Periodic scan
+        scanTimer -= Time.deltaTime;
+        if (scanTimer <= 0f)
+        {
+            scanTimer = ScanInterval;
+            if (targeting.ShouldScan)
+                Scan();
+        }
+
+        if (!targeting.HasTarget) return;
+
+        var target = targeting.Current;
+        float dist = Vector3.Distance(transform.position, target.gameObject.transform.position);
+        float atkRange = unit.Data.attackRange + unit.EffectiveRadius + target.TargetRadius;
+
+        if (dist <= atkRange)
+        {
+            // In range — stop and attack
+            if (movement.IsMoving)
+                movement.Stop();
+
+            FaceTarget(target.gameObject.transform.position);
+
+            if (stateMachine.CurrentState != UnitState.Fighting)
+                stateMachine.SetState(UnitState.Fighting);
+
+            if (attackCooldown <= 0f)
+            {
+                Attack(target);
+                attackCooldown = 1f / unit.Data.attackSpeed;
+            }
+        }
+        else
+        {
+            // Out of range — march toward target
+            if (stateMachine.CurrentState == UnitState.Fighting)
+                stateMachine.SetState(UnitState.Moving);
+
+            MoveToAttackPosition(target);
+        }
+    }
+
+    // ================================================================
+    //  SCAN
+    // ================================================================
+
+    private void Scan()
+    {
+        var found = TargetingService.FindTarget(
+            transform.position, unit.TeamId,
+            unit.Data.aggroRadius, unit.Data.attackRange, unit.EffectiveRadius
+        );
+
+        if (found == null) return;
+
+        bool accepted = targeting.TrySetTarget(found);
+        if (accepted)
+        {
+            attackPosition = null;
+            lastTargetPos = found.gameObject.transform.position;
+
+            if (GameDebug.Combat)
+                Debug.Log($"[Combat] {gameObject.name} aggro -> {found.gameObject.name} " +
+                    $"priority={found.Priority} lock={targeting.Lock}");
+        }
+    }
+
+    // ================================================================
+    //  ATTACK POSITION
+    // ================================================================
+
+    private void MoveToAttackPosition(IAttackable target)
+    {
+        var grid = GridSystem.Instance;
+        Vector3 targetPos = target.gameObject.transform.position;
+
+        if (grid == null)
+        {
+            movement.SetDestinationWorld(targetPos);
+            return;
+        }
+
+        float targetMoved = Vector3.Distance(targetPos, lastTargetPos);
+        if (!attackPosition.HasValue || targetMoved > TargetMoveThreshold)
+        {
+            lastTargetPos = targetPos;
+            attackPosition = FindAttackCell(grid, targetPos, target.TargetRadius);
+        }
+
+        if (attackPosition.HasValue)
+            movement.SetDestinationWorld(attackPosition.Value);
+    }
+
+    private Vector3? FindAttackCell(GridSystem grid, Vector3 targetPos, float targetRadius)
+    {
+        float atkRange = unit.Data.attackRange + unit.EffectiveRadius + targetRadius;
+        float atkRangeSq = atkRange * atkRange;
+        Vector2Int targetCell = grid.WorldToCell(targetPos);
+
+        int footprint = unit.FootprintSize;
+        int halfLow = (footprint - 1) / 2;
+        int halfHigh = footprint / 2;
+
+        int searchRadius = Mathf.CeilToInt(atkRange / grid.CellSize) + 2;
+
+        float bestDistSq = float.MaxValue;
+        Vector2Int bestCell = targetCell;
+        bool found = false;
+
+        for (int r = 0; r <= searchRadius; r++)
+        {
+            for (int dx = -r; dx <= r; dx++)
+            {
+                for (int dy = -r; dy <= r; dy++)
+                {
+                    if (Mathf.Abs(dx) != r && Mathf.Abs(dy) != r) continue;
+
+                    Vector2Int cell = new Vector2Int(targetCell.x + dx, targetCell.y + dy);
+                    if (!GridAStar.IsFootprintWalkable(grid, cell, halfLow, halfHigh)) continue;
+
+                    Vector3 cellWorld = grid.CellToWorld(cell);
+                    float distToTargetSq = (cellWorld - targetPos).sqrMagnitude;
+                    if (distToTargetSq > atkRangeSq) continue;
+
+                    float distToUnitSq = (cellWorld - transform.position).sqrMagnitude;
+                    if (distToUnitSq < bestDistSq)
+                    {
+                        bestDistSq = distToUnitSq;
+                        bestCell = cell;
+                        found = true;
+                    }
+                }
+            }
+
+            if (found) break;
+        }
+
+        if (found)
+            return grid.CellToWorld(bestCell);
+
+        return targetPos;
+    }
+
+    // ================================================================
+    //  ATTACK
+    // ================================================================
+
+    private void Attack(IAttackable target)
+    {
+        if (target.Health == null || target.Health.IsDead) return;
+
+        float damage = DamageSystem.CalculateDamage(
+            unit.Data.attackDamage,
+            unit.Data.attackType,
+            target.ArmorType
+        );
+
+        target.Health.TakeDamage(damage, gameObject);
+        stateMachine.TriggerAttackAnimation(1f / unit.Data.attackSpeed);
+
+        if (GameDebug.Combat)
+            Debug.Log($"[Combat] {gameObject.name} hit {target.gameObject.name} for {damage:F1} dmg");
+    }
+
+    private void FaceTarget(Vector3 targetPos)
+    {
+        Vector3 dir = targetPos - transform.position;
+        dir.y = 0f;
+        if (dir.sqrMagnitude > 0.001f)
+            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), 10f * Time.deltaTime);
+    }
+}

@@ -109,6 +109,7 @@ public static class RaceSetupEditor
         root.AddComponent<Unit>();
         root.AddComponent<Health>();
         root.AddComponent<UnitMovement>();
+        root.AddComponent<UnitCombat>();
         root.AddComponent<UnitStateMachine>();
 
         var col = root.AddComponent<CapsuleCollider>();
@@ -134,6 +135,7 @@ public static class RaceSetupEditor
         if (instance.GetComponent<Unit>() == null) { instance.AddComponent<Unit>(); dirty = true; }
         if (instance.GetComponent<Health>() == null) { instance.AddComponent<Health>(); dirty = true; }
         if (instance.GetComponent<UnitMovement>() == null) { instance.AddComponent<UnitMovement>(); dirty = true; }
+        if (instance.GetComponent<UnitCombat>() == null) { instance.AddComponent<UnitCombat>(); dirty = true; }
         if (instance.GetComponent<UnitStateMachine>() == null) { instance.AddComponent<UnitStateMachine>(); dirty = true; }
 
         if (dirty)

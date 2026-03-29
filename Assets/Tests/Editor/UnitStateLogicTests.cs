@@ -29,10 +29,24 @@ public class UnitStateLogicTests
     }
 
     [Test]
-    public void ComputeNextState_CurrentFighting_StaysFighting()
+    public void ComputeNextState_HasTarget_ReturnsFighting()
     {
-        var result = UnitStateLogic.ComputeNextState(UnitState.Fighting, isDead: false, isMoving: true, isWaitingForPath: false);
+        var result = UnitStateLogic.ComputeNextState(UnitState.Moving, isDead: false, isMoving: true, isWaitingForPath: false, hasTarget: true);
         Assert.AreEqual(UnitState.Fighting, result);
+    }
+
+    [Test]
+    public void ComputeNextState_FightingNoTarget_ReturnsIdle()
+    {
+        var result = UnitStateLogic.ComputeNextState(UnitState.Fighting, isDead: false, isMoving: false, isWaitingForPath: false, hasTarget: false);
+        Assert.AreEqual(UnitState.Idle, result);
+    }
+
+    [Test]
+    public void ComputeNextState_FightingNoTarget_ReturnsMoving()
+    {
+        var result = UnitStateLogic.ComputeNextState(UnitState.Fighting, isDead: false, isMoving: true, isWaitingForPath: false, hasTarget: false);
+        Assert.AreEqual(UnitState.Moving, result);
     }
 
     [Test]
@@ -91,16 +105,9 @@ public class UnitStateLogicTests
     }
 
     [Test]
-    public void ComputeNextState_FightingIgnoresWaitingForPath()
+    public void ComputeNextState_HasTarget_OverridesMovementFlags()
     {
-        var result = UnitStateLogic.ComputeNextState(UnitState.Fighting, isDead: false, isMoving: false, isWaitingForPath: true);
-        Assert.AreEqual(UnitState.Fighting, result);
-    }
-
-    [Test]
-    public void ComputeNextState_FightingIgnoresBothMovementFlags()
-    {
-        var result = UnitStateLogic.ComputeNextState(UnitState.Fighting, isDead: false, isMoving: true, isWaitingForPath: true);
+        var result = UnitStateLogic.ComputeNextState(UnitState.Idle, isDead: false, isMoving: true, isWaitingForPath: true, hasTarget: true);
         Assert.AreEqual(UnitState.Fighting, result);
     }
 
@@ -117,16 +124,21 @@ public class UnitStateLogicTests
         state = UnitStateLogic.ComputeNextState(state, isDead: false, isMoving: true, isWaitingForPath: false);
         Assert.AreEqual(UnitState.Moving, state, "Idle -> Moving");
 
-        // Enter combat (state externally set to Fighting by UnitStateMachine)
-        state = UnitState.Fighting;
+        // Aggro on enemy
+        state = UnitStateLogic.ComputeNextState(state, isDead: false, isMoving: true, isWaitingForPath: false, hasTarget: true);
+        Assert.AreEqual(UnitState.Fighting, state, "Moving -> Fighting on aggro");
 
-        // Fighting is sticky
-        state = UnitStateLogic.ComputeNextState(state, isDead: false, isMoving: false, isWaitingForPath: false);
-        Assert.AreEqual(UnitState.Fighting, state, "Fighting stays Fighting");
+        // Fighting persists while target exists
+        state = UnitStateLogic.ComputeNextState(state, isDead: false, isMoving: false, isWaitingForPath: false, hasTarget: true);
+        Assert.AreEqual(UnitState.Fighting, state, "Fighting stays Fighting with target");
+
+        // Target dies -> resume moving
+        state = UnitStateLogic.ComputeNextState(state, isDead: false, isMoving: true, isWaitingForPath: false, hasTarget: false);
+        Assert.AreEqual(UnitState.Moving, state, "Fighting -> Moving when target lost");
 
         // Die during combat
-        state = UnitStateLogic.ComputeNextState(state, isDead: true, isMoving: false, isWaitingForPath: false);
-        Assert.AreEqual(UnitState.Dying, state, "Fighting -> Dying on death");
+        state = UnitStateLogic.ComputeNextState(state, isDead: true, isMoving: false, isWaitingForPath: false, hasTarget: true);
+        Assert.AreEqual(UnitState.Dying, state, "Moving -> Dying on death");
 
         // Dying is absorbing
         state = UnitStateLogic.ComputeNextState(state, isDead: false, isMoving: true, isWaitingForPath: true);
@@ -247,21 +259,22 @@ public class UnitStateLogicTests
             foreach (var isDead in bools)
                 foreach (var isMoving in bools)
                     foreach (var isWaiting in bools)
-                    {
-                        var result = UnitStateLogic.ComputeNextState(currentState, isDead, isMoving, isWaiting);
-                        // isDead always produces Dying
-                        if (isDead)
-                            Assert.AreEqual(UnitState.Dying, result,
-                                $"isDead=true should always produce Dying (was {currentState})");
-                        // Dying is absorbing
-                        else if (currentState == UnitState.Dying)
-                            Assert.AreEqual(UnitState.Dying, result,
-                                "Dying state is absorbing");
-                        // Fighting is sticky
-                        else if (currentState == UnitState.Fighting)
-                            Assert.AreEqual(UnitState.Fighting, result,
-                                "Fighting state is sticky");
-                    }
+                        foreach (var hasTarget in bools)
+                        {
+                            var result = UnitStateLogic.ComputeNextState(currentState, isDead, isMoving, isWaiting, hasTarget);
+                            // isDead always produces Dying
+                            if (isDead)
+                                Assert.AreEqual(UnitState.Dying, result,
+                                    $"isDead=true should always produce Dying (was {currentState})");
+                            // Dying is absorbing
+                            else if (currentState == UnitState.Dying)
+                                Assert.AreEqual(UnitState.Dying, result,
+                                    "Dying state is absorbing");
+                            // hasTarget produces Fighting
+                            else if (hasTarget)
+                                Assert.AreEqual(UnitState.Fighting, result,
+                                    $"hasTarget=true should produce Fighting (was {currentState})");
+                        }
     }
 
     [Test]

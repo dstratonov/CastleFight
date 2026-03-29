@@ -156,6 +156,15 @@ public class BuildingPlacer : NetworkBehaviour
             Bounds bounds = BuildingManager.ComputeBuildingBounds(ghostObject);
             var cells = grid.GetCellsOverlappingBounds(bounds);
             if (!grid.AreCellsEmpty(cells)) return false;
+
+            var unitPresence = UnitGridPresence.Instance;
+            if (unitPresence != null)
+            {
+                foreach (var cell in cells)
+                {
+                    if (unitPresence.IsOccupied(cell)) return false;
+                }
+            }
         }
 
         return true;

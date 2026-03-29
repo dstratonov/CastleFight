@@ -16,6 +16,7 @@ public class UnitStateMachine : NetworkBehaviour
 
     private Unit unit;
     private UnitMovement movement;
+    private UnitCombat combat;
     private Health health;
     private UnitAnimator unitAnimator;
 
@@ -26,6 +27,7 @@ public class UnitStateMachine : NetworkBehaviour
     {
         unit = GetComponent<Unit>();
         movement = GetComponent<UnitMovement>();
+        combat = GetComponent<UnitCombat>();
         health = GetComponent<Health>();
     }
 
@@ -93,7 +95,8 @@ public class UnitStateMachine : NetworkBehaviour
     {
         bool isMoving = movement != null && movement.IsMoving;
         bool isWaiting = movement != null && movement.IsWaitingForPath;
-        var next = UnitStateLogic.ComputeNextState(currentState, unit.IsDead, isMoving, isWaiting);
+        bool hasTarget = combat != null && combat.HasTarget;
+        var next = UnitStateLogic.ComputeNextState(currentState, unit.IsDead, isMoving, isWaiting, hasTarget);
         if (UnitStateLogic.ShouldTransition(currentState, next))
             SetState(next);
     }

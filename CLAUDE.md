@@ -13,19 +13,22 @@ This is a Unity project — there is no CLI build. Open in Unity Editor and use:
 - **Build:** File → Build Settings → Build (Windows Standalone)
 - **Run tests:** Window → General → Test Runner → EditMode → Run All
 - **Run single test:** Right-click a test in Test Runner, or use the filter bar to search by name
-- **Test location:** `Assets/Tests/Editor/` — all 56 test files are NUnit `[TestFixture]` classes (629+ tests)
+- **Test location:** `Assets/Tests/Editor/` — 11 NUnit `[TestFixture]` classes (254 tests)
 - **No linter configured.** No .editorconfig, StyleCop, or Roslyn analyzers.
 - **C# 9.0**, .NET 4.7.1 target
 
 ## Architecture
 
-### Two-Layer Pathfinding (SC2-style)
+### Grid A* Pathfinding
 
-The pathfinding system has two completely independent layers with no shared state:
+`GridAStar` performs 8-directional A* directly on the `GridSystem` walkability grid. No NavMesh, no boids, no steering — just grid cells and waypoints.
 
-**Layer 1 — Strategic (NavMesh):** `CDTriangulator` builds a Constrained Delaunay Triangulation from the grid. `NavMeshPathfinder` runs A* on triangles, then the Funnel algorithm produces waypoints. Vertex expansion offsets corners by unit radius. The base NavMesh is cached and rebuilt only when buildings are placed/destroyed (deferred to next frame).
-
-**Layer 2 — Tactical (Boids):** `BoidsManager` handles unit-to-unit avoidance via separation, alignment, cohesion, and side-steering. Uses `SpatialHashGrid` for O(1) neighbor queries. Density stop at 60% area occupancy is **bypassed during combat approach**.
+- Diagonal movement requires both adjacent cardinal cells walkable (no corner-cutting)
+- Path smoothing via line-of-sight removes unnecessary waypoints
+- `UnitGridPresence` marks cells occupied by units (auto-added by `PathfindingManager`)
+- `ClearanceMap` precomputes passability for different unit sizes
+- Buildings/terrain are obstacles; units are NOT obstacles for pathfinding
+- `PathfindingManager` manages throttling, group path caching (units sharing destinations), and replan scheduling
 
 ### Core Systems
 
@@ -36,11 +39,11 @@ The pathfinding system has two completely independent layers with no shared stat
 
 ### Unit Lifecycle
 
-`Unit.cs` is the entity root. Key cached components: `Unit.Movement` (UnitMovement), `Unit.Combat` (UnitCombat), `Unit.StateMachine` (UnitStateMachine).
+`Unit.cs` is the entity root. Key cached components: `Unit.Movement` (UnitMovement), `Unit.StateMachine` (UnitStateMachine).
 
 **States:** Idle → Moving → Fighting → Dying
 
-**Combat flow:** `UnitCombat` scans for targets → `AttackPositionFinder` finds a slot (Dijkstra-based, max 4 engagers per target) → `UnitMovement` follows path → attack when in range. SC2-style fallback: when all slots are claimed, find closest walkable cell within attack range.
+Combat system (UnitCombat, AttackPositionFinder, CombatTargeting) was removed during the pathfinding rewrite and is not yet reimplemented.
 
 ### Pure Logic Classes (Testable without Unity)
 
@@ -48,16 +51,14 @@ Several MonoBehaviour systems have extracted pure-logic counterparts with no Uni
 
 | MonoBehaviour | Pure Logic | Purpose |
 |---|---|---|
-| UnitMovement | MovementLogic | Stuck detection, density checks |
 | UnitAnimator | AnimationLogic | Animation state transitions |
 | UnitStateMachine | UnitStateLogic | State machine decisions |
 | GridSystem | GridLogic | Grid cell operations |
-| — | CombatTargeting | Target selection, approach progress |
 | — | PathInvalidation | Path validity checks |
 
 ### Networking
 
-Mirror-based. `NetworkPlayer` syncs player state (gold, income, team, race). `Unit` and `Building` are `NetworkBehaviour`. Combat is server-authoritative with no client prediction. Boids run client-side only.
+Mirror-based. `NetworkPlayer` syncs player state (gold, income, team, race). `Unit` and `Building` are `NetworkBehaviour`. Server-authoritative with no client prediction.
 
 ### Data Configuration
 
@@ -89,15 +90,15 @@ Tests must call `ResetStatics()` in `[SetUp]`/`[TearDown]` for isolation.
 
 Use `GameRegistry`, `UnitManager.AllUnits`, `BuildingManager.GetBuildings()`, or cached component references. Cache expensive lookups in static dictionaries with `ResetStatics` cleanup.
 
-### NavMesh Rebuild Flow
+### Path Invalidation Flow
 
-Buildings modify the grid → `PathfindingManager` receives `BuildingPlacedEvent`/`BuildingDestroyedEvent` → rebuild is deferred to next frame via `pendingRebuild` flag → full CDT rebuild from grid state. The NavMesh is never incrementally patched.
+Buildings modify the grid → `PathfindingManager` receives `BuildingPlacedEvent`/`BuildingDestroyedEvent` → all active unit paths are invalidated → replans are spread across frames.
 
 ### Performance Constraints
 
-- A* capped at 20 path requests/frame (`MaxPathRequestsPerFrame`)
-- Replan staggered across 15 frames (`replanFrameSlot = instanceID % 15`)
-- Boids use `SpatialHashGrid` — never iterate all units for neighbor queries
+- A* capped at 30 path requests/frame (`MaxPathRequestsPerFrame`)
+- Replans spread at max 15/frame via pending queue
+- Group path cache: units heading to same destination share one A* result
 - `GameDebug` logging uses `[Conditional]` attributes — stripped in release builds
 
 ## Debug Tools
@@ -106,13 +107,11 @@ Runtime F-key toggles (via `PathfindingDebugToggle`):
 
 | Key | Visualization |
 |---|---|
-| F1 | Pathfinding paths |
-| F2 | Movement diagnostics |
-| F3 | Boids forces |
+| F1 | Pathfinding logs |
+| F2 | Movement logs |
+| F3 | Unit grid cells |
 | F4 | NavMesh overlay |
-| F5 | Portal widths |
 | F6 | Velocity arrows |
-| F7 | Boids separation/cohesion |
 | F8 | Validate mesh |
 | F9 | All ON |
 | F10 | All OFF |

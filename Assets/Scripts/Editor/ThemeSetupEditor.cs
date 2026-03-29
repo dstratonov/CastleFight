@@ -1,8 +1,6 @@
 #if UNITY_EDITOR
 using UnityEngine;
 using UnityEditor;
-using System.Collections.Generic;
-
 public static class ThemeSetupEditor
 {
     private const string SyntyHUD = "Assets/Synty/InterfaceDarkFantasyHUD/Sprites/HUD/";
@@ -74,66 +72,5 @@ public static class ThemeSetupEditor
         return sprite;
     }
 
-    // ====================================================================
-    // COMBAT VFX CONFIG
-    // ====================================================================
-
-    private const string VFX_SET1 = "Assets/SpecialSkillsEffectsPack/AllEffects/EffectsSet_1(NotScriptBased)/Effects/";
-
-    [MenuItem("CastleFight/Setup Combat VFX Config")]
-    public static void SetupCombatVFX()
-    {
-        const string configPath = "Assets/Resources/CombatVFXConfig.asset";
-
-        var config = AssetDatabase.LoadAssetAtPath<CombatVFXConfig>(configPath);
-        if (config == null)
-        {
-            config = ScriptableObject.CreateInstance<CombatVFXConfig>();
-            if (!AssetDatabase.IsValidFolder("Assets/Resources"))
-                AssetDatabase.CreateFolder("Assets", "Resources");
-            AssetDatabase.CreateAsset(config, configPath);
-        }
-
-        Undo.RecordObject(config, "Setup Combat VFX Config");
-
-        config.meleeHitEffects = LoadPrefabs(
-            VFX_SET1 + "Effect_07_OneHandSmash/Effect_07_OneHandSmash.prefab",
-            VFX_SET1 + "Effect_08_GroundSlash/Effect_08_GroundSlash.prefab",
-            VFX_SET1 + "Effect_29_LumenCrash/Effect_29_LumenCrash.prefab"
-        );
-
-        config.unitDeathEffects = LoadPrefabs(
-            VFX_SET1 + "Effect_14_MadnessBloodBoom/Effect_14_MadnessBloodBoom.prefab",
-            VFX_SET1 + "Effect_50_DeathWave/Effect_50_DeathWave.prefab"
-        );
-
-        config.buildingDestroyEffects = LoadPrefabs(
-            VFX_SET1 + "Effect_45_BlastFlame/Effect_45_BlastFlame(Base).prefab",
-            VFX_SET1 + "Effect_05_Nuke/Effect_05_Nuke.prefab"
-        );
-
-        config.effectLifetime = 3f;
-        config.hitEffectScale = 0.4f;
-        config.deathEffectScale = 0.5f;
-        config.buildingDestroyScale = 0.8f;
-
-        EditorUtility.SetDirty(config);
-        AssetDatabase.SaveAssets();
-        Debug.Log("[CombatVFX] Combat VFX config created and populated!");
-    }
-
-    private static GameObject[] LoadPrefabs(params string[] paths)
-    {
-        var result = new List<GameObject>();
-        foreach (var path in paths)
-        {
-            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-            if (prefab != null)
-                result.Add(prefab);
-            else
-                Debug.LogWarning($"[CombatVFX] Prefab not found: {path}");
-        }
-        return result.ToArray();
-    }
 }
 #endif

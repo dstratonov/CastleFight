@@ -1,7 +1,7 @@
 using UnityEngine;
 using Mirror;
 
-public class Unit : NetworkBehaviour, ISelectable
+public class Unit : NetworkBehaviour, ISelectable, IAttackable
 {
     [SyncVar] private int teamId;
     [SyncVar(hook = nameof(OnUnitDataIdChanged))]
@@ -10,6 +10,7 @@ public class Unit : NetworkBehaviour, ISelectable
     private UnitData data;
     private Health health;
     private UnitMovement movement;
+    private UnitCombat combat;
     private UnitStateMachine stateMachine;
 
     private float cachedRadius = -1f;
@@ -25,9 +26,14 @@ public class Unit : NetworkBehaviour, ISelectable
         }
     }
     public UnitMovement Movement => movement;
+    public UnitCombat Combat => combat;
     public UnitStateMachine StateMachine => stateMachine;
     public string DisplayName => data != null ? data.displayName : "Unit";
     Health ISelectable.Health => health;
+    Health IAttackable.Health => health;
+    ArmorType IAttackable.ArmorType => data != null ? data.armorType : ArmorType.Unarmored;
+    float IAttackable.TargetRadius => EffectiveRadius;
+    TargetPriority IAttackable.Priority => TargetPriority.Unit;
 
     private const float MaxAutoRadius = 2f;
     private const float MaxEffectiveRadius = 4f; // Large creatures (dragons, cyclops) need bigger footprints
@@ -97,6 +103,7 @@ public class Unit : NetworkBehaviour, ISelectable
     {
         health = GetComponent<Health>();
         movement = GetComponent<UnitMovement>();
+        combat = GetComponent<UnitCombat>();
         stateMachine = GetComponent<UnitStateMachine>();
 
         Debug.Assert(health != null, $"[Unit] {gameObject.name} missing Health component", this);

@@ -74,7 +74,6 @@ public class GameUIBuilder : MonoBehaviour
         CreateGameOverPanel(canvasObj.transform);
         CreateSelectionManager();
         CreateDebugSystem(canvasObj.transform);
-        CreateCombatVFX();
     }
 
     // ====================================================================
@@ -745,17 +744,6 @@ public class GameUIBuilder : MonoBehaviour
 
         var debugPanel = canvasRoot.gameObject.AddComponent<DebugPanel>();
         debugPanel.Init(overlay);
-    }
-
-    // ====================================================================
-    // COMBAT VFX
-    // ====================================================================
-
-    private void CreateCombatVFX()
-    {
-        if (CombatVFX.Instance != null) return;
-        var vfxObj = new GameObject("CombatVFX");
-        vfxObj.AddComponent<CombatVFX>();
     }
 
     // ====================================================================

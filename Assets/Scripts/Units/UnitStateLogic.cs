@@ -7,11 +7,11 @@ public static class UnitStateLogic
     /// Compute the next state based on current conditions.
     /// This mirrors UnitStateMachine.UpdateState() logic.
     /// </summary>
-    public static UnitState ComputeNextState(UnitState currentState, bool isDead, bool isMoving, bool isWaitingForPath)
+    public static UnitState ComputeNextState(UnitState currentState, bool isDead, bool isMoving, bool isWaitingForPath, bool hasTarget = false)
     {
         if (isDead) return UnitState.Dying;
         if (currentState == UnitState.Dying) return UnitState.Dying;
-        if (currentState == UnitState.Fighting) return UnitState.Fighting;
+        if (hasTarget) return UnitState.Fighting;
         if (isMoving || isWaitingForPath) return UnitState.Moving;
         return UnitState.Idle;
     }

@@ -84,6 +84,24 @@ public class BuildingManager : NetworkBehaviour
         {
             Bounds bounds = ComputeBuildingBounds(obj);
             var occupiedCells = grid.GetCellsOverlappingBounds(bounds);
+
+            // Reject if any unit occupies the footprint
+            var unitPresence = UnitGridPresence.Instance;
+            if (unitPresence != null)
+            {
+                foreach (var cell in occupiedCells)
+                {
+                    if (unitPresence.IsOccupied(cell))
+                    {
+                        Debug.LogWarning($"[Build] Rejected {data.buildingName} at {position:F1}: unit occupies cell {cell}");
+                        if (teamBuildings.TryGetValue(teamId, out var list))
+                            list.Remove(building);
+                        Destroy(obj);
+                        return null;
+                    }
+                }
+            }
+
             grid.MarkCells(occupiedCells, CellState.Building);
             building.SetOccupiedCells(occupiedCells);
         }

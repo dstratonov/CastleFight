@@ -3,7 +3,7 @@ using Mirror;
 using System.Collections.Generic;
 
 [RequireComponent(typeof(Health))]
-public class Castle : NetworkBehaviour, ISelectable
+public class Castle : NetworkBehaviour, ISelectable, IAttackable
 {
     [SerializeField] private int initialTeamId = -1;
 
@@ -19,6 +19,9 @@ public class Castle : NetworkBehaviour, ISelectable
     public int TeamId => teamId;
     public Health Health => health;
     public string DisplayName => TeamId == 0 ? "Blue Castle" : "Red Castle";
+    ArmorType IAttackable.ArmorType => ArmorType.Fortified;
+    float IAttackable.TargetRadius => BoundsHelper.GetRadius(gameObject);
+    TargetPriority IAttackable.Priority => TargetPriority.Default;
 
     private void Awake()
     {

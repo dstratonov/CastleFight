@@ -21,6 +21,8 @@ public class UnitData : ScriptableObject
     public float attackDamage = 10f;
     public float attackSpeed = 1f;
     public float attackRange = 2f;
+    [Tooltip("Radius in which the unit detects and aggros on enemies. Should be >= attackRange.")]
+    public float aggroRadius = 8f;
     public AttackType attackType = AttackType.Normal;
     public ArmorType armorType = ArmorType.Unarmored;
     public bool isRanged;
@@ -40,6 +42,7 @@ public class UnitData : ScriptableObject
             attackRange = Mathf.Clamp(attackRange, 0.3f, 2f);
         else
             attackRange = Mathf.Clamp(attackRange, 1f, 8f);
+        aggroRadius = Mathf.Max(aggroRadius, attackRange);
     }
 #endif
 }

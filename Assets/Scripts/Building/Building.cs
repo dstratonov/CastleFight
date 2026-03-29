@@ -3,7 +3,7 @@ using Mirror;
 using System.Collections.Generic;
 
 [RequireComponent(typeof(Health))]
-public class Building : NetworkBehaviour, ISelectable
+public class Building : NetworkBehaviour, ISelectable, IAttackable
 {
     [SyncVar] private int teamId;
     [SyncVar] private int ownerId;
@@ -19,6 +19,10 @@ public class Building : NetworkBehaviour, ISelectable
     public IReadOnlyList<Vector2Int> OccupiedCells => occupiedCells;
     public string DisplayName => data != null ? data.buildingName : "Building";
     Health ISelectable.Health => health;
+    Health IAttackable.Health => health;
+    ArmorType IAttackable.ArmorType => data != null ? data.armorType : ArmorType.Fortified;
+    float IAttackable.TargetRadius => BoundsHelper.GetRadius(gameObject);
+    TargetPriority IAttackable.Priority => TargetPriority.Building;
 
     public void SetOccupiedCells(List<Vector2Int> cells)
     {
