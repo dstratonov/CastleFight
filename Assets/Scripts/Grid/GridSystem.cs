@@ -19,9 +19,13 @@ public class GridSystem : MonoBehaviour, IGrid
 
     private CellState[,] cells;
 
-    // Unit obstacle layer: ref-counted so overlapping footprints work correctly.
-    // Cells with count > 0 are unwalkable for pathfinding but remain Empty in CellState.
-    private int[,] unitObstacles;
+    // Per-team unit obstacle layers. Units only block pathfinding for same-team units.
+    // Enemy units are not obstacles — the combat system handles engagement.
+    private int[,] unitObstaclesTeam0;
+    private int[,] unitObstaclesTeam1;
+
+    /// <summary>Current team context for IsWalkable checks. Set before pathfinding.</summary>
+    public int WalkableTeamContext { get; set; } = -1;
 
     private ClearanceMap clearanceMap;
     public ClearanceMap ClearanceMap => clearanceMap;
@@ -59,7 +63,8 @@ public class GridSystem : MonoBehaviour, IGrid
     private void InitializeGrid()
     {
         cells = new CellState[gridWidth, gridHeight];
-        unitObstacles = new int[gridWidth, gridHeight];
+        unitObstaclesTeam0 = new int[gridWidth, gridHeight];
+        unitObstaclesTeam1 = new int[gridWidth, gridHeight];
         for (int x = 0; x < gridWidth; x++)
             for (int y = 0; y < gridHeight; y++)
                 cells[x, y] = CellState.Empty;
@@ -114,31 +119,40 @@ public class GridSystem : MonoBehaviour, IGrid
     {
         if (cells == null || !IsInBounds(cell)) return false;
         if (cells[cell.x, cell.y] != CellState.Empty) return false;
-        if (unitObstacles != null && unitObstacles[cell.x, cell.y] > 0) return false;
+
+        // Check same-team unit obstacles only (enemies are not obstacles)
+        if (WalkableTeamContext >= 0)
+        {
+            var teamObstacles = WalkableTeamContext == 0 ? unitObstaclesTeam0 : unitObstaclesTeam1;
+            if (teamObstacles != null && teamObstacles[cell.x, cell.y] > 0) return false;
+        }
+
         return true;
     }
 
     /// <summary>
-    /// Mark cells as blocked by a stationary unit. Ref-counted — call UnmarkUnitObstacle to undo.
+    /// Mark cells as blocked by a unit on the given team.
     /// </summary>
-    public void MarkUnitObstacle(List<Vector2Int> cellList)
+    public void MarkUnitObstacle(List<Vector2Int> cellList, int teamId)
     {
+        var arr = teamId == 0 ? unitObstaclesTeam0 : unitObstaclesTeam1;
         foreach (var cell in cellList)
         {
             if (IsInBounds(cell))
-                unitObstacles[cell.x, cell.y]++;
+                arr[cell.x, cell.y]++;
         }
     }
 
     /// <summary>
-    /// Unmark cells previously blocked by a stationary unit.
+    /// Unmark cells previously blocked by a unit on the given team.
     /// </summary>
-    public void UnmarkUnitObstacle(List<Vector2Int> cellList)
+    public void UnmarkUnitObstacle(List<Vector2Int> cellList, int teamId)
     {
+        var arr = teamId == 0 ? unitObstaclesTeam0 : unitObstaclesTeam1;
         foreach (var cell in cellList)
         {
             if (IsInBounds(cell))
-                unitObstacles[cell.x, cell.y] = Mathf.Max(0, unitObstacles[cell.x, cell.y] - 1);
+                arr[cell.x, cell.y] = Mathf.Max(0, arr[cell.x, cell.y] - 1);
         }
     }
 

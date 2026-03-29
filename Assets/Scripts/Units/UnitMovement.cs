@@ -183,22 +183,27 @@ public class UnitMovement : NetworkBehaviour
         Vector3 newPos = oldPos + velocity * Time.deltaTime;
         newPos.y = grid.GridOrigin.y;
 
+        // Set team context so IsWalkable only checks same-team obstacles
+        int myTeam = unit != null ? unit.TeamId : 0;
+        grid.WalkableTeamContext = myTeam;
+
         // Temporarily unmark self so our own cells don't block checks
         UnmarkSelf();
 
         int fp = unit != null ? unit.FootprintSize : 1;
 
         // Check if the next waypoint cell is blocked — recompute path
-        // Only check waypoint cells (validated by A*), not intermediate world positions
         Vector2Int wpCell = grid.WorldToCell(nextWp);
         if (!FootprintHelper.IsWalkable(grid, wpCell, fp))
         {
             ComputePathInternal();
             RemarkSelf();
+            grid.WalkableTeamContext = -1;
             return;
         }
 
         RemarkSelf();
+        grid.WalkableTeamContext = -1;
 
         transform.position = newPos;
 
@@ -300,9 +305,12 @@ public class UnitMovement : NetworkBehaviour
 
     private void ComputePath()
     {
+        int myTeam = unit != null ? unit.TeamId : 0;
+        grid.WalkableTeamContext = myTeam;
         UnmarkSelf();
         ComputePathInternal();
         RemarkSelf();
+        grid.WalkableTeamContext = -1;
     }
 
     /// <summary>A* path computation. Caller must unmark/remark self.</summary>

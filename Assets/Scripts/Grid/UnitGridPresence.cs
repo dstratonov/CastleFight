@@ -88,20 +88,23 @@ public class UnitGridPresence : MonoBehaviour
                 }
             }
 
+            int teamId = unit.TeamId;
+
             if (changed)
             {
-                // Unmark old cells
+                // Unmark old cells (use stored team in case team changed)
+                int oldTeam = unitTeams.TryGetValue(unitId, out int t) ? t : teamId;
                 if (oldCells != null)
-                    grid.UnmarkUnitObstacle(oldCells);
+                    grid.UnmarkUnitObstacle(oldCells, oldTeam);
 
                 // Mark new cells
                 var newCells = new List<Vector2Int>(cellBuffer);
-                grid.MarkUnitObstacle(newCells);
+                grid.MarkUnitObstacle(newCells, teamId);
 
                 unitCells[unitId] = newCells;
             }
 
-            unitTeams[unitId] = unit.TeamId;
+            unitTeams[unitId] = teamId;
 
             // Update cell -> unit mapping
             for (int c = 0; c < cellBuffer.Count; c++)
@@ -128,7 +131,8 @@ public class UnitGridPresence : MonoBehaviour
             }
             if (!alive)
             {
-                grid.UnmarkUnitObstacle(kvp.Value);
+                int deadTeam = unitTeams.TryGetValue(kvp.Key, out int dt) ? dt : 0;
+                grid.UnmarkUnitObstacle(kvp.Value, deadTeam);
                 deadUnits.Add(kvp.Key);
             }
         }
@@ -148,7 +152,8 @@ public class UnitGridPresence : MonoBehaviour
     public void UnmarkUnit(int unitId)
     {
         if (!unitCells.TryGetValue(unitId, out var cells)) return;
-        grid?.UnmarkUnitObstacle(cells);
+        int teamId = unitTeams.TryGetValue(unitId, out int t) ? t : 0;
+        grid?.UnmarkUnitObstacle(cells, teamId);
     }
 
     /// <summary>
@@ -157,7 +162,8 @@ public class UnitGridPresence : MonoBehaviour
     public void RemarkUnit(int unitId)
     {
         if (!unitCells.TryGetValue(unitId, out var cells)) return;
-        grid?.MarkUnitObstacle(cells);
+        int teamId = unitTeams.TryGetValue(unitId, out int t) ? t : 0;
+        grid?.MarkUnitObstacle(cells, teamId);
     }
 
     private void ComputeOccupiedCells(Vector3 worldPos, int footprintSize, List<Vector2Int> result)
