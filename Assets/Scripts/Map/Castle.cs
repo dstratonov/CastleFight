@@ -22,6 +22,8 @@ public class Castle : NetworkBehaviour, ISelectable, IAttackable
     ArmorType IAttackable.ArmorType => ArmorType.Fortified;
     float IAttackable.TargetRadius => BoundsHelper.GetRadius(gameObject);
     Vector2Int IAttackable.CurrentCell => GridSystem.Instance != null ? GridSystem.Instance.WorldToCell(transform.position) : Vector2Int.zero;
+    int IAttackable.FootprintSize => occupiedCells.Count > 0
+        ? Mathf.CeilToInt(Mathf.Sqrt(occupiedCells.Count)) : 2;
     TargetPriority IAttackable.Priority => TargetPriority.Default;
 
     private void Awake()

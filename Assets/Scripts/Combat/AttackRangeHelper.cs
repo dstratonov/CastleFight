@@ -1,34 +1,24 @@
 using UnityEngine;
-using System.Collections.Generic;
 
 /// <summary>
 /// Grid-based attack range. The unit's footprint is expanded by attackRangeCells
 /// in each direction to form the attack rectangle. A target is "in range" when
-/// its footprint cells intersect this rectangle.
+/// its footprint rectangle intersects this attack rectangle.
+/// All footprint calculations go through FootprintHelper.
 /// </summary>
 public static class AttackRangeHelper
 {
     /// <summary>
     /// Compute the attack rectangle: unit footprint expanded by attackRangeCells.
-    /// Returns (min, max) cell bounds inclusive.
     /// </summary>
     public static (Vector2Int min, Vector2Int max) GetAttackRect(
         Vector2Int unitCell, int footprintSize, int attackRangeCells)
     {
         var (fpMin, fpMax) = FootprintHelper.GetRect(unitCell, footprintSize);
-        Vector2Int min = new Vector2Int(fpMin.x - attackRangeCells, fpMin.y - attackRangeCells);
-        Vector2Int max = new Vector2Int(fpMax.x + attackRangeCells, fpMax.y + attackRangeCells);
-        return (min, max);
-    }
-
-    /// <summary>
-    /// Compute the footprint rectangle for an entity at the given cell.
-    /// Returns (min, max) cell bounds inclusive.
-    /// </summary>
-    public static (Vector2Int min, Vector2Int max) GetFootprintRect(
-        Vector2Int cell, int footprintSize)
-    {
-        return FootprintHelper.GetRect(cell, footprintSize);
+        return (
+            new Vector2Int(fpMin.x - attackRangeCells, fpMin.y - attackRangeCells),
+            new Vector2Int(fpMax.x + attackRangeCells, fpMax.y + attackRangeCells)
+        );
     }
 
     /// <summary>
@@ -41,28 +31,18 @@ public static class AttackRangeHelper
     }
 
     /// <summary>
-    /// Check if a target's footprint is within the attacker's attack range on the grid.
+    /// Check if a target is within the attacker's attack range using grid rect intersection.
     /// </summary>
     public static bool IsTargetInRange(
         GridSystem grid, Vector3 attackerPos, int attackerFootprint, int attackRangeCells,
-        GameObject targetObj)
+        IAttackable target)
     {
         Vector2Int attackerCell = grid.WorldToCell(attackerPos);
         var (atkMin, atkMax) = GetAttackRect(attackerCell, attackerFootprint, attackRangeCells);
 
-        // Get target's footprint cells from bounds
-        Bounds targetBounds = BoundsHelper.GetPhysicalBounds(targetObj);
-        var targetCells = grid.GetCellsOverlappingBounds(targetBounds);
+        var (tMin, tMax) = FootprintHelper.GetRect(target.CurrentCell, target.FootprintSize);
 
-        // Check if any target cell falls within the attack rect
-        foreach (var cell in targetCells)
-        {
-            if (cell.x >= atkMin.x && cell.x <= atkMax.x &&
-                cell.y >= atkMin.y && cell.y <= atkMax.y)
-                return true;
-        }
-
-        return false;
+        return RectsOverlap(atkMin, atkMax, tMin, tMax);
     }
 
     /// <summary>
@@ -71,24 +51,12 @@ public static class AttackRangeHelper
     /// </summary>
     public static Vector2Int? FindAttackCell(
         GridSystem grid, Vector3 attackerPos, int attackerFootprint, int attackRangeCells,
-        GameObject targetObj)
+        IAttackable target)
     {
         Vector2Int attackerCell = grid.WorldToCell(attackerPos);
+        var (tMin, tMax) = FootprintHelper.GetRect(target.CurrentCell, target.FootprintSize);
 
-        // Get target footprint bounds on grid
-        Bounds targetBounds = BoundsHelper.GetPhysicalBounds(targetObj);
-        var targetCells = grid.GetCellsOverlappingBounds(targetBounds);
-        if (targetCells.Count == 0) return null;
-
-        // Compute target's bounding rect on grid
-        Vector2Int tMin = targetCells[0], tMax = targetCells[0];
-        foreach (var c in targetCells)
-        {
-            tMin = Vector2Int.Min(tMin, c);
-            tMax = Vector2Int.Max(tMax, c);
-        }
-
-        // The attacker needs to stand at a cell where its attack rect overlaps the target rect.
+        // Search area: expand target rect by attacker's footprint + attack range
         FootprintHelper.GetHalfExtents(attackerFootprint, out int halfLow, out int halfHigh);
         int expand = attackRangeCells + Mathf.Max(halfLow, halfHigh) + 1;
 
@@ -104,16 +72,13 @@ public static class AttackRangeHelper
             {
                 Vector2Int candidate = new Vector2Int(x, y);
 
-                // Check full footprint fits
                 if (!FootprintHelper.IsWalkable(grid, candidate, attackerFootprint))
                     continue;
 
-                // Check attack rect overlaps target rect
                 var (atkMin, atkMax) = GetAttackRect(candidate, attackerFootprint, attackRangeCells);
                 if (!RectsOverlap(atkMin, atkMax, tMin, tMax))
                     continue;
 
-                // Pick closest to attacker
                 float distSq = (candidate - attackerCell).sqrMagnitude;
                 if (distSq < bestDistSq)
                 {

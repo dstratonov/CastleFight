@@ -80,20 +80,8 @@ public static class TargetingService
                 IAttackable attackable = b;
                 if (attackable.Health == null || attackable.Health.IsDead) continue;
 
-                // Get building footprint on grid
-                Bounds bBounds = BoundsHelper.GetPhysicalBounds(b.gameObject);
-                var bCells = grid.GetCellsOverlappingBounds(bBounds);
-
-                bool overlaps = false;
-                foreach (var cell in bCells)
-                {
-                    if (cell.x >= atkMin.x && cell.x <= atkMax.x &&
-                        cell.y >= atkMin.y && cell.y <= atkMax.y)
-                    {
-                        overlaps = true;
-                        break;
-                    }
-                }
+                var (bMin, bMax) = FootprintHelper.GetRect(attackable.CurrentCell, attackable.FootprintSize);
+                bool overlaps = AttackRangeHelper.RectsOverlap(atkMin, atkMax, bMin, bMax);
 
                 if (overlaps)
                 {
@@ -114,15 +102,10 @@ public static class TargetingService
         Castle castle = GameRegistry.GetEnemyCastle(teamId);
         if (castle != null && castle.Health != null && !castle.Health.IsDead)
         {
-            Bounds cBounds = BoundsHelper.GetPhysicalBounds(castle.gameObject);
-            var cCells = grid.GetCellsOverlappingBounds(cBounds);
-
-            foreach (var cell in cCells)
-            {
-                if (cell.x >= atkMin.x && cell.x <= atkMax.x &&
-                    cell.y >= atkMin.y && cell.y <= atkMax.y)
-                    return castle;
-            }
+            IAttackable castleTarget = castle;
+            var (cMin, cMax) = FootprintHelper.GetRect(castleTarget.CurrentCell, castleTarget.FootprintSize);
+            if (AttackRangeHelper.RectsOverlap(atkMin, atkMax, cMin, cMax))
+                return castle;
         }
 
         return null;

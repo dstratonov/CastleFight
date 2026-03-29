@@ -18,6 +18,11 @@ public interface IAttackable
     Vector2Int CurrentCell { get; }
 
     /// <summary>
+    /// Grid footprint size (NxN cells). Used for attack range rect intersection.
+    /// </summary>
+    int FootprintSize { get; }
+
+    /// <summary>
     /// Target priority. Higher priority targets are preferred.
     /// Hard targets lock the attacker; soft targets allow upgrading.
     /// </summary>

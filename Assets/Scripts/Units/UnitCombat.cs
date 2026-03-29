@@ -76,7 +76,7 @@ public class UnitCombat : NetworkBehaviour
         {
             bool inRange = AttackRangeHelper.IsTargetInRange(
                 grid, transform.position, unit.FootprintSize,
-                unit.Data.attackRangeCells, target.gameObject);
+                unit.Data.attackRangeCells, target);
 
             if (inRange)
             {
@@ -169,7 +169,7 @@ public class UnitCombat : NetworkBehaviour
 
             var cell = AttackRangeHelper.FindAttackCell(
                 grid, transform.position, unit.FootprintSize,
-                unit.Data.attackRangeCells, target.gameObject);
+                unit.Data.attackRangeCells, target);
 
             attackPosition = cell.HasValue ? grid.CellToWorld(cell.Value) : target.gameObject.transform.position;
         }

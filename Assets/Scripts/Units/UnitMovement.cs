@@ -179,11 +179,16 @@ public class UnitMovement : NetworkBehaviour
 
         Vector3 velocity = dir.normalized * speed;
 
+        Vector3 oldPos = transform.position;
+        Vector3 newPos = oldPos + velocity * Time.deltaTime;
+        newPos.y = grid.GridOrigin.y;
+
         // Temporarily unmark self so our own cells don't block checks
         UnmarkSelf();
 
-        // Check if the next waypoint's footprint is blocked — if so, recompute path
         int fp = unit != null ? unit.FootprintSize : 1;
+
+        // Check if the next waypoint is blocked — recompute path
         Vector2Int wpCell = grid.WorldToCell(nextWp);
         if (!FootprintHelper.IsWalkable(grid, wpCell, fp))
         {
@@ -192,9 +197,14 @@ public class UnitMovement : NetworkBehaviour
             return;
         }
 
-        Vector3 oldPos = transform.position;
-        Vector3 newPos = oldPos + velocity * Time.deltaTime;
-        newPos.y = grid.GridOrigin.y;
+        // Check if the actual move position is blocked — stop until next frame
+        Vector2Int newCell = grid.WorldToCell(newPos);
+        Vector2Int oldCell = grid.WorldToCell(oldPos);
+        if (newCell != oldCell && !FootprintHelper.IsWalkable(grid, newCell, fp))
+        {
+            RemarkSelf();
+            return;
+        }
 
         RemarkSelf();
 

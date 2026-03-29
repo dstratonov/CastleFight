@@ -23,6 +23,8 @@ public class Building : NetworkBehaviour, ISelectable, IAttackable
     ArmorType IAttackable.ArmorType => data != null ? data.armorType : ArmorType.Fortified;
     float IAttackable.TargetRadius => BoundsHelper.GetRadius(gameObject);
     Vector2Int IAttackable.CurrentCell => GridSystem.Instance != null ? GridSystem.Instance.WorldToCell(transform.position) : Vector2Int.zero;
+    int IAttackable.FootprintSize => occupiedCells.Count > 0
+        ? Mathf.CeilToInt(Mathf.Sqrt(occupiedCells.Count)) : 1;
     TargetPriority IAttackable.Priority => TargetPriority.Building;
 
     public void SetOccupiedCells(List<Vector2Int> cells)
