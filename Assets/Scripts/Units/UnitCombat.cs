@@ -110,7 +110,6 @@ public class UnitCombat : NetworkBehaviour
         else
         {
             // Arrived but not in range — recompute
-            UnmarkAsObstacle();
             if (stateMachine.CurrentState == UnitState.Fighting)
                 stateMachine.SetState(UnitState.Moving);
 
@@ -138,7 +137,6 @@ public class UnitCombat : NetworkBehaviour
         bool accepted = targeting.TrySetTarget(found);
         if (accepted)
         {
-            UnmarkAsObstacle();
             attackPosition = null;
             lastTargetCell = found.CurrentCell;
 
