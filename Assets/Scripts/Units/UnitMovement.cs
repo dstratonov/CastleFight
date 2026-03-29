@@ -204,6 +204,7 @@ public class UnitMovement : NetworkBehaviour
         }
 
         // Check if moving to a new cell that's occupied by another unit
+        // But always allow movement if we're ALREADY overlapping (let units separate)
         int myId = unit != null ? unit.GetInstanceID() : 0;
         var presence = UnitGridPresence.Instance;
         Vector2Int newCell = grid.WorldToCell(newPos);
@@ -211,17 +212,28 @@ public class UnitMovement : NetworkBehaviour
         if (newCell != oldCell && presence != null)
         {
             FootprintHelper.GetHalfExtents(fp, out int hl, out int hh);
-            for (int dx = -hl; dx <= hh; dx++)
+
+            // Check if we're currently overlapping at old position
+            bool alreadyOverlapping = false;
+            for (int dx = -hl; dx <= hh && !alreadyOverlapping; dx++)
+                for (int dy = -hl; dy <= hh && !alreadyOverlapping; dy++)
+                    if (presence.IsOccupiedByOther(new Vector2Int(oldCell.x + dx, oldCell.y + dy), myId))
+                        alreadyOverlapping = true;
+
+            // Only block if we'd create a NEW overlap (not already overlapping)
+            if (!alreadyOverlapping)
             {
-                for (int dy = -hl; dy <= hh; dy++)
+                for (int dx = -hl; dx <= hh; dx++)
                 {
-                    if (presence.IsOccupiedByOther(new Vector2Int(newCell.x + dx, newCell.y + dy), myId))
+                    for (int dy = -hl; dy <= hh; dy++)
                     {
-                        // Cell occupied — recompute path around
-                        ComputePathInternal();
-                        RemarkSelf();
-                        grid.WalkableTeamContext = -1;
-                        return;
+                        if (presence.IsOccupiedByOther(new Vector2Int(newCell.x + dx, newCell.y + dy), myId))
+                        {
+                            ComputePathInternal();
+                            RemarkSelf();
+                            grid.WalkableTeamContext = -1;
+                            return;
+                        }
                     }
                 }
             }
