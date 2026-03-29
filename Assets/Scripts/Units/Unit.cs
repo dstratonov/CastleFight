@@ -124,7 +124,7 @@ public class Unit : NetworkBehaviour, ISelectable, IAttackable
 
         if (GameDebug.UnitLifecycle)
             Debug.Log($"[Unit] INIT {gameObject.name} data={unitData.unitName} team={team} hp={unitData.maxHealth} " +
-                $"atk={unitData.attackDamage} spd={unitData.moveSpeed} range={unitData.attackRange} " +
+                $"atk={unitData.attackDamage} spd={unitData.moveSpeed} rangeCells={unitData.attackRangeCells} " +
                 $"radius={unitData.unitRadius:F2} isRanged={unitData.isRanged}");
     }
 

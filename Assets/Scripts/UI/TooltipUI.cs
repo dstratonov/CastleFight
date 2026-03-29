@@ -84,7 +84,7 @@ public class TooltipUI : MonoBehaviour
         if (statsText != null)
         {
             statsText.text = $"HP: {data.maxHealth}\nDamage: {data.attackDamage}\n" +
-                             $"Speed: {data.moveSpeed}\nRange: {data.attackRange}\n" +
+                             $"Speed: {data.moveSpeed}\nRange: {data.attackRangeCells}\n" +
                              $"Attack: {data.attackType} | Armor: {data.armorType}";
         }
 

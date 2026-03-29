@@ -20,8 +20,9 @@ public class UnitData : ScriptableObject
     [Header("Combat")]
     public float attackDamage = 10f;
     public float attackSpeed = 1f;
-    public float attackRange = 2f;
-    [Tooltip("Radius in which the unit detects and aggros on enemies. Should be >= attackRange.")]
+    [Tooltip("Attack range in grid cells. Expands the unit's footprint rectangle by this many cells in each direction. 1 = melee (adjacent cell).")]
+    public int attackRangeCells = 1;
+    [Tooltip("Radius in world units for detecting and aggroing on enemies.")]
     public float aggroRadius = 8f;
     public AttackType attackType = AttackType.Normal;
     public ArmorType armorType = ArmorType.Unarmored;
@@ -38,11 +39,9 @@ public class UnitData : ScriptableObject
 #if UNITY_EDITOR
     private void OnValidate()
     {
-        if (!isRanged)
-            attackRange = Mathf.Clamp(attackRange, 0.3f, 2f);
-        else
-            attackRange = Mathf.Clamp(attackRange, 1f, 8f);
-        aggroRadius = Mathf.Max(aggroRadius, attackRange);
+        attackRangeCells = Mathf.Clamp(attackRangeCells, 1, isRanged ? 6 : 2);
+        float rangeCellsWorld = attackRangeCells * 2f; // approx cellSize
+        aggroRadius = Mathf.Max(aggroRadius, rangeCellsWorld);
     }
 #endif
 }

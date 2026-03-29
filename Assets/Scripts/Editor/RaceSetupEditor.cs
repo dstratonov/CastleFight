@@ -10,7 +10,8 @@ public static class RaceSetupEditor
     {
         public string id, displayName, description, modelPath;
         public int hp, bounty;
-        public float damage, attackSpeed, attackRange, moveSpeed;
+        public float damage, attackSpeed, moveSpeed;
+        public int attackRangeCells;
         public AttackType attackType;
         public ArmorType armorType;
         public bool isRanged;
@@ -364,7 +365,7 @@ public static class RaceSetupEditor
         data.moveSpeed = def.moveSpeed;
         data.attackDamage = def.damage;
         data.attackSpeed = def.attackSpeed;
-        data.attackRange = def.attackRange;
+        data.attackRangeCells = def.attackRangeCells;
         data.attackType = def.attackType;
         data.armorType = def.armorType;
         data.isRanged = def.isRanged;
@@ -487,27 +488,27 @@ public static class RaceSetupEditor
                 Bld("goblin_hut", "Goblin Hut", "Spawns Goblins", Market01, 0.8f, 80, 400, 1, 10f,
                     U("goblin", "Goblin", "Weak but fast greenskin",
                       "Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Must Have Fantasy Villains Pack/Goblin/Prefabs/Goblin_PBR.prefab",
-                      70, 8f, 1.4f, 2f, 5f, AttackType.Normal, ArmorType.Light, 6)),
+                      70, 8f, 1.4f, 1, 5f, AttackType.Normal, ArmorType.Light, 6)),
 
                 Bld("kobold_camp", "Kobold Camp", "Spawns Kobolds", House01, 0.9f, 100, 500, 1, 12f,
                     U("kobold", "Kobold", "Balanced melee fighter",
                       "Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Must Have Fantasy Villains Pack/Kobold/Prefabs/Kobold_PBR.prefab",
-                      100, 10f, 1.2f, 2f, 4f, AttackType.Normal, ArmorType.Light, 8)),
+                      100, 10f, 1.2f, 1, 4f, AttackType.Normal, ArmorType.Light, 8)),
 
                 Bld("orc_barracks", "Orc Barracks", "Spawns Orcs", House02, 1.0f, 160, 600, 2, 15f,
                     U("orc", "Orc", "Strong melee fighter",
                       "Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Must Have Fantasy Villains Pack/Orc/Prefabs/Orc_PBR.prefab",
-                      160, 16f, 1.0f, 2f, 3.5f, AttackType.Normal, ArmorType.Medium, 12)),
+                      160, 16f, 1.0f, 1, 3.5f, AttackType.Normal, ArmorType.Medium, 12)),
 
                 Bld("troll_den", "Troll Den", "Spawns Trolls", House03, 1.1f, 250, 700, 3, 18f,
                     U("troll", "Troll", "Towering bruiser",
                       "Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Must Have Fantasy Villains Pack/Troll/Prefabs/Troll_PBR.prefab",
-                      280, 22f, 0.8f, 2.5f, 3f, AttackType.Normal, ArmorType.Heavy, 18)),
+                      280, 22f, 0.8f, 1, 3f, AttackType.Normal, ArmorType.Heavy, 18)),
 
                 Bld("cyclops_hall", "Cyclops Hall", "Spawns Cyclops", StoneTower, 1.2f, 380, 800, 3, 22f,
                     U("cyclops", "Cyclops", "Massive siege creature",
                       "Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Must Have Fantasy Villains Pack/Cyclops/Prefabs/Cyclops_PBR.prefab",
-                      450, 32f, 0.6f, 3f, 2.5f, AttackType.Siege, ArmorType.Fortified, 28))
+                      450, 32f, 0.6f, 1, 2.5f, AttackType.Siege, ArmorType.Fortified, 28))
             }
         };
     }
@@ -523,27 +524,27 @@ public static class RaceSetupEditor
                 Bld("crypt", "Crypt", "Spawns Ghouls", Market02, 0.8f, 80, 400, 1, 10f,
                     U("ghoul", "Ghoul", "Fast undead attacker",
                       "Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Living Dead Pack/Ghoul/Prefabs/Ghoul_PBR.prefab",
-                      65, 11f, 1.4f, 2f, 5f, AttackType.Normal, ArmorType.Unarmored, 6)),
+                      65, 11f, 1.4f, 1, 5f, AttackType.Normal, ArmorType.Unarmored, 6)),
 
                 Bld("graveyard", "Graveyard", "Spawns Skeleton Knights", House01, 0.9f, 120, 500, 2, 13f,
                     U("skeleton_knight", "Skeleton Knight", "Armored undead warrior",
                       "Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Living Dead Pack/Skeleton Knight/Prefabs/SkeletonKnight_PBR.prefab",
-                      140, 12f, 1.0f, 2f, 3.5f, AttackType.Normal, ArmorType.Heavy, 10)),
+                      140, 12f, 1.0f, 1, 3.5f, AttackType.Normal, ArmorType.Heavy, 10)),
 
                 Bld("tomb", "Tomb", "Spawns Mummies", House03, 1.0f, 180, 600, 2, 16f,
                     U("mummy", "Mummy", "Slow but heavily armored",
                       "Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Living Dead Pack/Mummy/Prefabs/Mummy_PBR.prefab",
-                      220, 14f, 0.7f, 2f, 2.5f, AttackType.Normal, ArmorType.Fortified, 14)),
+                      220, 14f, 0.7f, 1, 2.5f, AttackType.Normal, ArmorType.Fortified, 14)),
 
                 Bld("blood_sanctum", "Blood Sanctum", "Spawns Vampires", House02, 1.1f, 240, 650, 3, 18f,
                     U("vampire", "Vampire", "Fast elite melee",
                       "Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Living Dead Pack/Vampire/Prefabs/Vampire_PBR.prefab",
-                      150, 20f, 1.3f, 2f, 4.5f, AttackType.Normal, ArmorType.Medium, 18)),
+                      150, 20f, 1.3f, 1, 4.5f, AttackType.Normal, ArmorType.Medium, 18)),
 
                 Bld("necropolis", "Necropolis", "Spawns Undead", StoneTower, 1.3f, 340, 750, 3, 20f,
                     U("undead", "Undead", "Heavy undead abomination",
                       "Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Living Dead Pack/Undead/Prefabs/Undead_PBR.prefab",
-                      350, 26f, 0.7f, 2.5f, 2.5f, AttackType.Normal, ArmorType.Heavy, 24))
+                      350, 26f, 0.7f, 1, 2.5f, AttackType.Normal, ArmorType.Heavy, 24))
             }
         };
     }
@@ -559,27 +560,27 @@ public static class RaceSetupEditor
                 Bld("rat_warren", "Rat Warren", "Spawns Giant Rats", Market03, 0.7f, 60, 350, 1, 8f,
                     U("giant_rat", "Giant Rat", "Tiny but numerous",
                       "Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Fantasy Animals Pack/Giant Rat/Prefabs/GiantRat_PBR.prefab",
-                      45, 5f, 1.6f, 1.5f, 6f, AttackType.Normal, ArmorType.Unarmored, 4)),
+                      45, 5f, 1.6f, 1, 6f, AttackType.Normal, ArmorType.Unarmored, 4)),
 
                 Bld("snake_pit", "Snake Pit", "Spawns Giant Vipers", Market01, 0.85f, 100, 450, 1, 12f,
                     U("giant_viper", "Giant Viper", "Venomous ranged attacker",
                       "Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Fantasy Animals Pack/Giant Viper/Prefabs/GiantViper_PBR.prefab",
-                      80, 12f, 1.0f, 6f, 3.5f, AttackType.Pierce, ArmorType.Light, 8, true)),
+                      80, 12f, 1.0f, 3, 3.5f, AttackType.Pierce, ArmorType.Light, 8, true)),
 
                 Bld("wolf_den", "Wolf Den", "Spawns Fantasy Wolves", House01, 1.0f, 160, 550, 2, 14f,
                     U("fantasy_wolf", "Fantasy Wolf", "Fast pack hunter",
                       "Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Fantasy Animals Pack/Fantasy Wolf/Prefabs/M_FantasyWolf_PBR.prefab",
-                      130, 16f, 1.2f, 2f, 5f, AttackType.Normal, ArmorType.Medium, 12)),
+                      130, 16f, 1.2f, 1, 5f, AttackType.Normal, ArmorType.Medium, 12)),
 
                 Bld("spider_lair", "Spider Lair", "Spawns Darkness Spiders", House02, 1.05f, 200, 600, 2, 16f,
                     U("darkness_spider", "Darkness Spider", "Tough venomous predator",
                       "Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Fantasy Animals Pack/Darkness Spider/Prefabs/DarknessSpider_PBR.prefab",
-                      170, 15f, 1.0f, 2f, 3.5f, AttackType.Pierce, ArmorType.Medium, 14)),
+                      170, 15f, 1.0f, 1, 3.5f, AttackType.Pierce, ArmorType.Medium, 14)),
 
                 Bld("ancient_grove", "Ancient Grove", "Spawns Oak Tree Ents", House03, 1.2f, 360, 750, 3, 22f,
                     U("oak_tree_ent", "Oak Tree Ent", "Ancient siege tank",
                       "Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Demonic Creatures Pack/Oak Tree Ent/Prefabs/OakTreeEnt_PBR.prefab",
-                      500, 22f, 0.5f, 2.5f, 2f, AttackType.Siege, ArmorType.Fortified, 26))
+                      500, 22f, 0.5f, 1, 2f, AttackType.Siege, ArmorType.Fortified, 26))
             }
         };
     }
@@ -595,27 +596,27 @@ public static class RaceSetupEditor
                 Bld("lizard_pit", "Lizard Pit", "Spawns Lizard Warriors", Market01, 0.85f, 100, 450, 1, 12f,
                     U("lizard_warrior", "Lizard Warrior", "Reptilian melee fighter",
                       "Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Fantasy Lizards Pack/Lizard Warrior/Prefabs/LizardWarrior_PBR.prefab",
-                      110, 11f, 1.1f, 2f, 3.5f, AttackType.Normal, ArmorType.Medium, 8)),
+                      110, 11f, 1.1f, 1, 3.5f, AttackType.Normal, ArmorType.Medium, 8)),
 
                 Bld("hatchery", "Hatchery", "Spawns Dragonides", Market03, 0.95f, 170, 550, 2, 15f,
                     U("dragonide", "Dragonide", "Agile dragon kin",
                       "Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Fantasy Lizards Pack/Dragonide/Prefabs/Dragonide_PBR.prefab",
-                      150, 17f, 1.0f, 2f, 3.5f, AttackType.Normal, ArmorType.Medium, 12)),
+                      150, 17f, 1.0f, 1, 3.5f, AttackType.Normal, ArmorType.Medium, 12)),
 
                 Bld("wyvern_roost", "Wyvern Roost", "Spawns Wyverns", House02, 1.0f, 200, 550, 2, 16f,
                     U("wyvern", "Wyvern", "Fast flying drake",
                       "Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Fantasy Lizards Pack/Wyvern/Prefabs/Wyvern_PBR.prefab",
-                      130, 15f, 1.2f, 2f, 4.5f, AttackType.Normal, ArmorType.Light, 14)),
+                      130, 15f, 1.2f, 1, 4.5f, AttackType.Normal, ArmorType.Light, 14)),
 
                 Bld("hydra_pool", "Hydra Pool", "Spawns Hydras", House03, 1.15f, 300, 700, 3, 20f,
                     U("hydra", "Hydra", "Multi-headed behemoth",
                       "Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Fantasy Lizards Pack/Hydra/Prefabs/Hydra_PBR.prefab",
-                      380, 24f, 0.7f, 2.5f, 2.5f, AttackType.Normal, ArmorType.Heavy, 22)),
+                      380, 24f, 0.7f, 1, 2.5f, AttackType.Normal, ArmorType.Heavy, 22)),
 
                 Bld("dragon_lair", "Dragon Lair", "Spawns Mountain Dragons", StoneTower, 1.4f, 420, 850, 4, 25f,
                     U("mountain_dragon", "Mountain Dragon", "Devastating elder dragon",
                       "Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Fantasy Lizards Pack/Mountain Dragon/Prefabs/MountainDragon_PBR.prefab",
-                      550, 38f, 0.5f, 3f, 2f, AttackType.Chaos, ArmorType.Fortified, 32))
+                      550, 38f, 0.5f, 1, 2f, AttackType.Chaos, ArmorType.Fortified, 32))
             }
         };
     }
@@ -631,27 +632,27 @@ public static class RaceSetupEditor
                 Bld("werewolf_den", "Werewolf Den", "Spawns Werewolves", Market02, 0.85f, 100, 450, 1, 12f,
                     U("werewolf", "Werewolf", "Fast savage melee",
                       "Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Mythological Creatures Pack/Werewolf/Prefabs/Werewolf_PBR.prefab",
-                      100, 14f, 1.3f, 2f, 4.5f, AttackType.Normal, ArmorType.Light, 8)),
+                      100, 14f, 1.3f, 1, 4.5f, AttackType.Normal, ArmorType.Light, 8)),
 
                 Bld("harpy_aerie", "Harpy Aerie", "Spawns Harpies", House01, 0.95f, 140, 500, 2, 13f,
                     U("harpy", "Harpy", "Swift flying attacker",
                       "Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Mythological Creatures Pack/Harpy/Prefabs/HarpyBreastsCovered_PBR.prefab",
-                      95, 13f, 1.3f, 2f, 5f, AttackType.Normal, ArmorType.Unarmored, 10)),
+                      95, 13f, 1.3f, 1, 5f, AttackType.Normal, ArmorType.Unarmored, 10)),
 
                 Bld("griffin_roost", "Griffin Roost", "Spawns Griffins", House03, 1.0f, 210, 600, 2, 16f,
                     U("griffin", "Griffin", "Powerful flying fighter",
                       "Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Mythological Creatures Pack/Griffin/Prefabs/Griffin2sidedFeathers_PBR.prefab",
-                      175, 19f, 1.0f, 2f, 4f, AttackType.Normal, ArmorType.Medium, 16)),
+                      175, 19f, 1.0f, 1, 4f, AttackType.Normal, ArmorType.Medium, 16)),
 
                 Bld("manticora_lair", "Manticora Lair", "Spawns Manticoras", House02, 1.1f, 290, 700, 3, 18f,
                     U("manticora", "Manticora", "Ranged mythical beast",
                       "Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Mythological Creatures Pack/Manticora/Prefabs/Manticora_PBR.prefab",
-                      260, 23f, 0.9f, 6f, 3f, AttackType.Pierce, ArmorType.Heavy, 22, true)),
+                      260, 23f, 0.9f, 3, 3f, AttackType.Pierce, ArmorType.Heavy, 22, true)),
 
                 Bld("chimera_sanctum", "Chimera Sanctum", "Spawns Chimeras", StoneTower, 1.3f, 400, 800, 4, 22f,
                     U("chimera", "Chimera", "Three-headed elite",
                       "Assets/HEROIC FANTASY CREATURES FULL PACK VOL 1/Mythological Creatures Pack/Chimera/Prefabs/Chimera_PBR.prefab",
-                      420, 32f, 0.7f, 2.5f, 2.5f, AttackType.Magic, ArmorType.Heavy, 30))
+                      420, 32f, 0.7f, 1, 2.5f, AttackType.Magic, ArmorType.Heavy, 30))
             }
         };
     }
@@ -667,27 +668,27 @@ public static class RaceSetupEditor
                 Bld("mushroom_patch", "Mushroom Patch", "Spawns Mushrooms", Market03, 0.75f, 60, 350, 1, 9f,
                     U("mushroom", "Mushroom", "Tiny fungal warrior",
                       "Assets/Monsters Ultimate Pack 11/Mushroom/Prefabs/Mushroom Black No Root.prefab",
-                      55, 7f, 1.4f, 2f, 4.5f, AttackType.Normal, ArmorType.Unarmored, 4)),
+                      55, 7f, 1.4f, 1, 4.5f, AttackType.Normal, ArmorType.Unarmored, 4)),
 
                 Bld("hive", "Hive", "Spawns Bees", Market01, 0.85f, 90, 400, 1, 10f,
                     U("bee", "Bee", "Agile flying insect",
                       "Assets/Monsters Ultimate Pack 11/Bee/Prefabs/Bee Black No Root.prefab",
-                      70, 10f, 1.4f, 2f, 5f, AttackType.Normal, ArmorType.Light, 6)),
+                      70, 10f, 1.4f, 1, 5f, AttackType.Normal, ArmorType.Light, 6)),
 
                 Bld("thorn_garden", "Thorn Garden", "Spawns Plant Shooters", House01, 1.0f, 150, 550, 2, 14f,
                     U("plant_shooter", "Plant Shooter", "Thorny ranged plant",
                       "Assets/Monsters Ultimate Pack 11/Plant Shooter/Prefabs/No Root/Plant Shooter Red No Root.prefab",
-                      110, 14f, 1.0f, 6f, 3f, AttackType.Pierce, ArmorType.Medium, 10, true)),
+                      110, 14f, 1.0f, 3, 3f, AttackType.Pierce, ArmorType.Medium, 10, true)),
 
                 Bld("eye_tower", "Eye Tower", "Spawns Eyeball Monsters", House02, 1.05f, 200, 600, 2, 16f,
                     U("eyeball_monster", "Eyeball Monster", "Arcane floating eye",
                       "Assets/Monsters Ultimate Pack 11/Eyeball Monster/Prefabs/No Root/Eyeball Monster 03 NR.prefab",
-                      130, 17f, 1.0f, 6f, 3f, AttackType.Magic, ArmorType.Light, 14, true)),
+                      130, 17f, 1.0f, 3, 3f, AttackType.Magic, ArmorType.Light, 14, true)),
 
                 Bld("dark_sanctum", "Dark Sanctum", "Spawns Dark Wizards", House03, 1.15f, 320, 700, 3, 20f,
                     U("dark_wizard", "Dark Wizard", "Powerful dark caster",
                       "Assets/Monsters Ultimate Pack 11/Modular Dark Wizard/Prefabs/Characters/Dark Wizard Black No Root Setup.prefab",
-                      220, 28f, 0.8f, 7f, 3f, AttackType.Magic, ArmorType.Medium, 24, true))
+                      220, 28f, 0.8f, 3, 3f, AttackType.Magic, ArmorType.Medium, 24, true))
             }
         };
     }
@@ -697,13 +698,13 @@ public static class RaceSetupEditor
     // ========================================================================
 
     static UnitDef U(string id, string displayName, string desc, string modelPath,
-        int hp, float dmg, float atkSpd, float atkRange, float moveSpd,
+        int hp, float dmg, float atkSpd, int atkRange, float moveSpd,
         AttackType atkType, ArmorType armType, int bounty, bool ranged = false)
     {
         return new UnitDef
         {
             id = id, displayName = displayName, description = desc, modelPath = modelPath,
-            hp = hp, damage = dmg, attackSpeed = atkSpd, attackRange = atkRange,
+            hp = hp, damage = dmg, attackSpeed = atkSpd, attackRangeCells = atkRange,
             moveSpeed = moveSpd, attackType = atkType, armorType = armType,
             bounty = bounty, isRanged = ranged
         };

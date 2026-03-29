@@ -3,6 +3,9 @@ using UnityEngine;
 /// <summary>
 /// Stateless targeting service. Finds IAttackable targets for a unit by scanning
 /// units, buildings, and castles in priority order.
+///
+/// Unit detection uses aggroRadius (world-space, via SpatialHashGrid).
+/// Structure detection uses grid-based attack range (cell rectangle intersection).
 /// </summary>
 public static class TargetingService
 {
@@ -10,23 +13,22 @@ public static class TargetingService
     /// Find the best target for a unit at the given position.
     /// Returns null if nothing is in range.
     /// </summary>
-    public static IAttackable FindTarget(Vector3 position, int teamId, float aggroRadius, float attackRange, float unitRadius)
+    public static IAttackable FindTarget(Vector3 position, int teamId, float aggroRadius,
+        int attackRangeCells, int footprintSize)
     {
-        // Priority 1: enemy units within aggro radius
+        // Priority 1: enemy units within aggro radius (world-space)
         var unitTarget = FindEnemyUnit(position, teamId, aggroRadius);
         if (unitTarget != null)
             return unitTarget;
 
-        // Priority 2: enemy buildings within attack range
-        float structureRange = attackRange + unitRadius;
-        var building = FindEnemyBuilding(position, teamId, structureRange);
-        if (building != null)
-            return building;
-
-        // Priority 3: enemy castle within attack range
-        var castle = FindEnemyCastle(position, teamId, structureRange);
-        if (castle != null)
-            return castle;
+        // Priority 2-3: enemy structures within grid attack range
+        var grid = GridSystem.Instance;
+        if (grid != null)
+        {
+            var structure = FindEnemyStructure(grid, position, teamId, attackRangeCells, footprintSize);
+            if (structure != null)
+                return structure;
+        }
 
         // Fallback: enemy castle regardless of range (default objective)
         return GetDefaultTarget(teamId);
@@ -51,56 +53,78 @@ public static class TargetingService
     }
 
     // ================================================================
-    //  BUILDING SCAN
+    //  STRUCTURE SCAN (buildings + castle, grid-based)
     // ================================================================
 
-    private static IAttackable FindEnemyBuilding(Vector3 position, int teamId, float maxRange)
+    private static IAttackable FindEnemyStructure(GridSystem grid, Vector3 position, int teamId,
+        int attackRangeCells, int footprintSize)
     {
-        if (BuildingManager.Instance == null) return null;
+        Vector2Int myCell = grid.WorldToCell(position);
+        var (atkMin, atkMax) = AttackRangeHelper.GetAttackRect(myCell, footprintSize, attackRangeCells);
 
         int enemyTeam = TeamManager.Instance != null
             ? TeamManager.Instance.GetEnemyTeamId(teamId)
             : (teamId == 0 ? 1 : 0);
 
-        var buildings = BuildingManager.Instance.GetTeamBuildings(enemyTeam);
-        float bestDistSq = float.MaxValue;
-        Building best = null;
-
-        for (int i = 0; i < buildings.Count; i++)
+        // Check enemy buildings
+        if (BuildingManager.Instance != null)
         {
-            var b = buildings[i];
-            if (b == null) continue;
-            IAttackable attackable = b;
-            if (attackable.Health == null || attackable.Health.IsDead) continue;
+            var buildings = BuildingManager.Instance.GetTeamBuildings(enemyTeam);
+            float bestDistSq = float.MaxValue;
+            Building best = null;
 
-            // Distance to closest edge, not center
-            Vector3 closest = BoundsHelper.ClosestPoint(b.gameObject, position);
-            float distSq = (closest - position).sqrMagnitude;
-
-            if (distSq <= maxRange * maxRange && distSq < bestDistSq)
+            for (int i = 0; i < buildings.Count; i++)
             {
-                bestDistSq = distSq;
-                best = b;
+                var b = buildings[i];
+                if (b == null) continue;
+                IAttackable attackable = b;
+                if (attackable.Health == null || attackable.Health.IsDead) continue;
+
+                // Get building footprint on grid
+                Bounds bBounds = BoundsHelper.GetPhysicalBounds(b.gameObject);
+                var bCells = grid.GetCellsOverlappingBounds(bBounds);
+
+                bool overlaps = false;
+                foreach (var cell in bCells)
+                {
+                    if (cell.x >= atkMin.x && cell.x <= atkMax.x &&
+                        cell.y >= atkMin.y && cell.y <= atkMax.y)
+                    {
+                        overlaps = true;
+                        break;
+                    }
+                }
+
+                if (overlaps)
+                {
+                    float distSq = (b.transform.position - position).sqrMagnitude;
+                    if (distSq < bestDistSq)
+                    {
+                        bestDistSq = distSq;
+                        best = b;
+                    }
+                }
+            }
+
+            if (best != null)
+                return best;
+        }
+
+        // Check enemy castle
+        Castle castle = GameRegistry.GetEnemyCastle(teamId);
+        if (castle != null && castle.Health != null && !castle.Health.IsDead)
+        {
+            Bounds cBounds = BoundsHelper.GetPhysicalBounds(castle.gameObject);
+            var cCells = grid.GetCellsOverlappingBounds(cBounds);
+
+            foreach (var cell in cCells)
+            {
+                if (cell.x >= atkMin.x && cell.x <= atkMax.x &&
+                    cell.y >= atkMin.y && cell.y <= atkMax.y)
+                    return castle;
             }
         }
 
-        return best;
-    }
-
-    // ================================================================
-    //  CASTLE SCAN
-    // ================================================================
-
-    private static IAttackable FindEnemyCastle(Vector3 position, int teamId, float maxRange)
-    {
-        Castle castle = GameRegistry.GetEnemyCastle(teamId);
-        if (castle == null || castle.Health == null || castle.Health.IsDead) return null;
-
-        // Distance to closest edge, not center
-        Vector3 closest = BoundsHelper.ClosestPoint(castle.gameObject, position);
-        float dist = Vector3.Distance(position, closest);
-        if (dist > maxRange) return null;
-
-        return castle;
+        return null;
     }
 }

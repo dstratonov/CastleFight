@@ -1,13 +1,14 @@
 using UnityEngine;
 using Mirror;
+using System.Collections.Generic;
 
 /// <summary>
 /// Server-side combat component. Delegates target selection to TargetingState
 /// and TargetingService. Handles chase, attack, and target lifecycle.
 ///
-/// Units always have a target. TargetingService scans in priority order
-/// and falls back to the enemy castle as default. The unit marches toward
-/// whatever target it has and attacks when in range.
+/// Attack range is grid-based: the unit's footprint is expanded by attackRangeCells
+/// to form an attack rectangle. A target is in range when its footprint cells
+/// intersect this rectangle.
 /// </summary>
 public class UnitCombat : NetworkBehaviour
 {
@@ -27,7 +28,7 @@ public class UnitCombat : NetworkBehaviour
     private const float TargetMoveThreshold = 1.5f;
 
     // Unit obstacle: cells blocked while fighting in place
-    private System.Collections.Generic.List<Vector2Int> blockedCells;
+    private List<Vector2Int> blockedCells;
     private bool isBlocking;
 
     /// <summary>
@@ -76,7 +77,7 @@ public class UnitCombat : NetworkBehaviour
 
         var target = targeting.Current;
 
-        // Still walking — don't check range, wait for arrival
+        // Still walking — wait for arrival
         if (movement.IsMoving || movement.HasPath)
         {
             if (!attackPosition.HasValue)
@@ -84,14 +85,16 @@ public class UnitCombat : NetworkBehaviour
             return;
         }
 
-        // Arrived at destination — validate attack range
-        Vector3 closestPoint = BoundsHelper.ClosestPoint(target.gameObject, transform.position);
-        float dist = Vector3.Distance(transform.position, closestPoint);
-        float atkRange = unit.Data.attackRange + unit.EffectiveRadius;
+        // Arrived — check if target footprint intersects our attack rectangle
+        var grid = GridSystem.Instance;
+        if (grid == null) return;
 
-        if (dist <= atkRange)
+        bool inRange = AttackRangeHelper.IsTargetInRange(
+            grid, transform.position, unit.FootprintSize,
+            unit.Data.attackRangeCells, target.gameObject);
+
+        if (inRange)
         {
-            // In range — fight
             if (!isBlocking)
                 MarkAsObstacle();
 
@@ -108,7 +111,7 @@ public class UnitCombat : NetworkBehaviour
         }
         else
         {
-            // Arrived but out of range — recompute attack position
+            // Arrived but not in range — recompute
             UnmarkAsObstacle();
             if (stateMachine.CurrentState == UnitState.Fighting)
                 stateMachine.SetState(UnitState.Moving);
@@ -126,7 +129,7 @@ public class UnitCombat : NetworkBehaviour
     {
         var found = TargetingService.FindTarget(
             transform.position, unit.TeamId,
-            unit.Data.aggroRadius, unit.Data.attackRange, unit.EffectiveRadius
+            unit.Data.aggroRadius, unit.Data.attackRangeCells, unit.FootprintSize
         );
 
         if (found == null) return;
@@ -154,76 +157,27 @@ public class UnitCombat : NetworkBehaviour
     private void MoveToAttackPosition(IAttackable target)
     {
         var grid = GridSystem.Instance;
-        Vector3 targetPos = target.gameObject.transform.position;
-
         if (grid == null)
         {
-            movement.SetDestinationWorld(targetPos);
+            movement.SetDestinationWorld(target.gameObject.transform.position);
             return;
         }
 
+        Vector3 targetPos = target.gameObject.transform.position;
         float targetMoved = Vector3.Distance(targetPos, lastTargetPos);
         if (!attackPosition.HasValue || targetMoved > TargetMoveThreshold)
         {
             lastTargetPos = targetPos;
-            attackPosition = FindAttackCell(grid, target);
+
+            var cell = AttackRangeHelper.FindAttackCell(
+                grid, transform.position, unit.FootprintSize,
+                unit.Data.attackRangeCells, target.gameObject);
+
+            attackPosition = cell.HasValue ? grid.CellToWorld(cell.Value) : targetPos;
         }
 
         if (attackPosition.HasValue)
             movement.SetDestinationWorld(attackPosition.Value);
-    }
-
-    private Vector3? FindAttackCell(GridSystem grid, IAttackable target)
-    {
-        float atkRange = unit.Data.attackRange + unit.EffectiveRadius;
-        GameObject targetObj = target.gameObject;
-        Vector3 targetPos = targetObj.transform.position;
-        Vector2Int targetCell = grid.WorldToCell(targetPos);
-
-        int footprint = unit.FootprintSize;
-        int halfLow = (footprint - 1) / 2;
-        int halfHigh = footprint / 2;
-
-        int searchRadius = Mathf.CeilToInt((atkRange + target.TargetRadius) / grid.CellSize) + 2;
-
-        float bestDistSq = float.MaxValue;
-        Vector2Int bestCell = targetCell;
-        bool found = false;
-
-        for (int r = 0; r <= searchRadius; r++)
-        {
-            for (int dx = -r; dx <= r; dx++)
-            {
-                for (int dy = -r; dy <= r; dy++)
-                {
-                    if (Mathf.Abs(dx) != r && Mathf.Abs(dy) != r) continue;
-
-                    Vector2Int cell = new Vector2Int(targetCell.x + dx, targetCell.y + dy);
-                    if (!GridAStar.IsFootprintWalkable(grid, cell, halfLow, halfHigh)) continue;
-
-                    // Distance from this cell to the closest edge of the target
-                    Vector3 cellWorld = grid.CellToWorld(cell);
-                    Vector3 closest = BoundsHelper.ClosestPoint(targetObj, cellWorld);
-                    float distToEdgeSq = (cellWorld - closest).sqrMagnitude;
-                    if (distToEdgeSq > atkRange * atkRange) continue;
-
-                    float distToUnitSq = (cellWorld - transform.position).sqrMagnitude;
-                    if (distToUnitSq < bestDistSq)
-                    {
-                        bestDistSq = distToUnitSq;
-                        bestCell = cell;
-                        found = true;
-                    }
-                }
-            }
-
-            if (found) break;
-        }
-
-        if (found)
-            return grid.CellToWorld(bestCell);
-
-        return targetPos;
     }
 
     // ================================================================
@@ -270,11 +224,10 @@ public class UnitCombat : NetworkBehaviour
         var cells = presence.GetUnitCells(unit.GetInstanceID());
         if (cells == null || cells.Count == 0) return;
 
-        blockedCells = new System.Collections.Generic.List<Vector2Int>(cells);
+        blockedCells = new List<Vector2Int>(cells);
         grid.MarkUnitObstacle(blockedCells);
         isBlocking = true;
 
-        // Invalidate paths passing through blocked cells
         InvalidateNearbyPaths();
 
         if (GameDebug.Combat)
@@ -289,7 +242,6 @@ public class UnitCombat : NetworkBehaviour
         if (grid != null && blockedCells != null)
             grid.UnmarkUnitObstacle(blockedCells);
 
-        // Invalidate so nearby units replan through now-open cells
         InvalidateNearbyPaths();
 
         blockedCells = null;

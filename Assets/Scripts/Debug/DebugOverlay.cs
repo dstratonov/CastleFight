@@ -494,7 +494,8 @@ public class DebugOverlay : MonoBehaviour
             pos.y = y;
 
             GL.Color(new Color(1f, 0.8f, 0.2f, 0.25f));
-            DrawCircle(pos, unit.Data.attackRange, 16);
+            float rangeWorld = unit.Data.attackRangeCells * (GridSystem.Instance != null ? GridSystem.Instance.CellSize : 2f);
+            DrawCircle(pos, rangeWorld, 16);
         }
         GL.End();
     }
