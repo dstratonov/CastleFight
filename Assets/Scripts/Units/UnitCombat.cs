@@ -75,9 +75,12 @@ public class UnitCombat : NetworkBehaviour
 
         if (dist <= atkRange)
         {
-            // In range — stop and attack
+            // In range — stop movement first, attack only after fully stopped
             if (movement.IsMoving)
+            {
                 movement.Stop();
+                return;
+            }
 
             FaceTarget(target.gameObject.transform.position);
 
