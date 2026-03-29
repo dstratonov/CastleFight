@@ -12,6 +12,12 @@ public interface IAttackable
     float TargetRadius { get; }
 
     /// <summary>
+    /// Current grid cell of this entity. Used by chasers to detect when
+    /// the target has moved and the path needs recalculation.
+    /// </summary>
+    Vector2Int CurrentCell { get; }
+
+    /// <summary>
     /// Target priority. Higher priority targets are preferred.
     /// Hard targets lock the attacker; soft targets allow upgrading.
     /// </summary>

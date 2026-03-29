@@ -33,6 +33,7 @@ public class Unit : NetworkBehaviour, ISelectable, IAttackable
     Health IAttackable.Health => health;
     ArmorType IAttackable.ArmorType => data != null ? data.armorType : ArmorType.Unarmored;
     float IAttackable.TargetRadius => EffectiveRadius;
+    Vector2Int IAttackable.CurrentCell => GridSystem.Instance != null ? GridSystem.Instance.WorldToCell(transform.position) : Vector2Int.zero;
     TargetPriority IAttackable.Priority => TargetPriority.Unit;
 
     private const float MaxAutoRadius = 2f;

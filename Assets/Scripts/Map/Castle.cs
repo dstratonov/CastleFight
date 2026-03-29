@@ -21,6 +21,7 @@ public class Castle : NetworkBehaviour, ISelectable, IAttackable
     public string DisplayName => TeamId == 0 ? "Blue Castle" : "Red Castle";
     ArmorType IAttackable.ArmorType => ArmorType.Fortified;
     float IAttackable.TargetRadius => BoundsHelper.GetRadius(gameObject);
+    Vector2Int IAttackable.CurrentCell => GridSystem.Instance != null ? GridSystem.Instance.WorldToCell(transform.position) : Vector2Int.zero;
     TargetPriority IAttackable.Priority => TargetPriority.Default;
 
     private void Awake()

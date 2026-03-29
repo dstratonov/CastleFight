@@ -22,10 +22,9 @@ public class UnitCombat : NetworkBehaviour
     private const float ScanInterval = 0.25f;
     private const float LeashMultiplier = 1.5f;
 
-    // Cached attack position
+    // Cached attack position — recomputed when target changes cell
     private Vector3? attackPosition;
-    private Vector3 lastTargetPos;
-    private const float TargetMoveThreshold = 1.5f;
+    private Vector2Int lastTargetCell;
 
     // Unit obstacle: cells blocked while fighting in place
     private List<Vector2Int> blockedCells;
@@ -77,11 +76,19 @@ public class UnitCombat : NetworkBehaviour
 
         var target = targeting.Current;
 
-        // Still walking — wait for arrival
+        // Still walking — check if target moved to a new cell, recompute if so
         if (movement.IsMoving || movement.HasPath)
         {
+            Vector2Int targetCell = target.CurrentCell;
             if (!attackPosition.HasValue)
+            {
                 MoveToAttackPosition(target);
+            }
+            else if (targetCell != lastTargetCell)
+            {
+                attackPosition = null;
+                MoveToAttackPosition(target);
+            }
             return;
         }
 
@@ -142,7 +149,7 @@ public class UnitCombat : NetworkBehaviour
         {
             UnmarkAsObstacle();
             attackPosition = null;
-            lastTargetPos = found.gameObject.transform.position;
+            lastTargetCell = found.CurrentCell;
 
             if (GameDebug.Combat)
                 Debug.Log($"[Combat] {gameObject.name} aggro -> {found.gameObject.name} " +
@@ -163,17 +170,16 @@ public class UnitCombat : NetworkBehaviour
             return;
         }
 
-        Vector3 targetPos = target.gameObject.transform.position;
-        float targetMoved = Vector3.Distance(targetPos, lastTargetPos);
-        if (!attackPosition.HasValue || targetMoved > TargetMoveThreshold)
+        Vector2Int targetCell = target.CurrentCell;
+        if (!attackPosition.HasValue || targetCell != lastTargetCell)
         {
-            lastTargetPos = targetPos;
+            lastTargetCell = targetCell;
 
             var cell = AttackRangeHelper.FindAttackCell(
                 grid, transform.position, unit.FootprintSize,
                 unit.Data.attackRangeCells, target.gameObject);
 
-            attackPosition = cell.HasValue ? grid.CellToWorld(cell.Value) : targetPos;
+            attackPosition = cell.HasValue ? grid.CellToWorld(cell.Value) : target.gameObject.transform.position;
         }
 
         if (attackPosition.HasValue)
