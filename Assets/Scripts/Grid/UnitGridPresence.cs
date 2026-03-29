@@ -134,6 +134,20 @@ public class UnitGridPresence : MonoBehaviour
     }
 
     /// <summary>
+    /// Check if a cell is occupied by any unit OTHER than the given one.
+    /// </summary>
+    public bool IsOccupiedByOther(Vector2Int cell, int excludeUnitId)
+    {
+        long key = CellKey(cell);
+        if (!cellOccupants.TryGetValue(key, out var list)) return false;
+        for (int i = 0; i < list.Count; i++)
+        {
+            if (list[i] != excludeUnitId) return true;
+        }
+        return false;
+    }
+
+    /// <summary>
     /// Get the cells a specific unit currently occupies.
     /// </summary>
     public IReadOnlyList<Vector2Int> GetUnitCells(int unitInstanceId)

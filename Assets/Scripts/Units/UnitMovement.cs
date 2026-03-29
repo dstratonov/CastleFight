@@ -185,7 +185,13 @@ public class UnitMovement : NetworkBehaviour
         newPos = ValidatePosition(oldPos, newPos);
         transform.position = newPos;
 
-        ApplyRotation(newPos - oldPos);
+        // Rotate toward movement direction. Use actual movement delta if meaningful,
+        // otherwise face toward the next waypoint so the unit looks where it's going.
+        Vector3 moveDelta = newPos - oldPos;
+        moveDelta.y = 0f;
+        Vector3 faceDir = moveDelta.sqrMagnitude > 0.0001f ? moveDelta : dir;
+        ApplyRotation(faceDir);
+
         TrackProgress();
     }
 
@@ -198,19 +204,17 @@ public class UnitMovement : NetworkBehaviour
     {
         if (grid == null) return;
 
+        // Validate destination using unit's full footprint, not just center cell
+        int footprint = unit != null ? unit.FootprintSize : 1;
+        int halfLow = (footprint - 1) / 2;
+        int halfHigh = footprint / 2;
+
         Vector2Int cell = grid.WorldToCell(target);
-        if (!grid.IsInBounds(cell) || !grid.IsWalkable(cell))
+        if (!GridAStar.IsFootprintWalkable(grid, cell, halfLow, halfHigh))
         {
-            var pfm = PathfindingManager.Instance;
-            if (pfm == null) return;
-            Vector3 corrected = pfm.FindNearestWalkable(target);
-
-            // Grid is authoritative
-            Vector2Int correctedCell = grid.WorldToCell(corrected);
-            if (!grid.IsInBounds(correctedCell) || !grid.IsWalkable(correctedCell))
-                corrected = grid.FindNearestWalkablePosition(target, transform.position);
-
-            target = corrected;
+            Vector2Int nearest = GridAStar.FindNearestWalkableCellForFootprint(
+                grid, cell, 15, halfLow, halfHigh);
+            target = grid.CellToWorld(nearest);
         }
 
         if (worldTarget.HasValue && HasPath)
@@ -443,20 +447,53 @@ public class UnitMovement : NetworkBehaviour
     //  WALL COLLISION (grid-based wall sliding)
     // ================================================================
 
+    private int cachedHalfLow = -1;
+    private int cachedHalfHigh;
+
+    private void EnsureFootprintCache()
+    {
+        if (cachedHalfLow >= 0) return;
+        int fp = unit != null ? unit.FootprintSize : 1;
+        cachedHalfLow = (fp - 1) / 2;
+        cachedHalfHigh = fp / 2;
+    }
+
+    private bool IsPositionValid(Vector3 pos)
+    {
+        EnsureFootprintCache();
+        Vector2Int cell = grid.WorldToCell(pos);
+        if (!GridAStar.IsFootprintWalkable(grid, cell, cachedHalfLow, cachedHalfHigh))
+            return false;
+
+        // Check unit footprint overlap
+        var presence = UnitGridPresence.Instance;
+        if (presence != null)
+        {
+            int myId = unit != null ? unit.GetInstanceID() : 0;
+            for (int dx = -cachedHalfLow; dx <= cachedHalfHigh; dx++)
+            {
+                for (int dy = -cachedHalfLow; dy <= cachedHalfHigh; dy++)
+                {
+                    if (presence.IsOccupiedByOther(new Vector2Int(cell.x + dx, cell.y + dy), myId))
+                        return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
     private Vector3 ValidatePosition(Vector3 oldPos, Vector3 newPos)
     {
-        Vector2Int newCell = grid.WorldToCell(newPos);
-        if (grid.IsInBounds(newCell) && grid.IsWalkable(newCell))
+        if (IsPositionValid(newPos))
             return newPos;
 
         // Try sliding along each axis
         Vector3 slideX = new Vector3(newPos.x, newPos.y, oldPos.z);
-        Vector2Int cellX = grid.WorldToCell(slideX);
-        bool xOk = grid.IsInBounds(cellX) && grid.IsWalkable(cellX);
+        bool xOk = IsPositionValid(slideX);
 
         Vector3 slideZ = new Vector3(oldPos.x, newPos.y, newPos.z);
-        Vector2Int cellZ = grid.WorldToCell(slideZ);
-        bool zOk = grid.IsInBounds(cellZ) && grid.IsWalkable(cellZ);
+        bool zOk = IsPositionValid(slideZ);
 
         if (xOk && zOk)
         {
