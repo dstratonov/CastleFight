@@ -75,21 +75,23 @@ public class UnitCombat : NetworkBehaviour
         if (!targeting.HasTarget) return;
 
         var target = targeting.Current;
-        // Distance to closest edge of target, not center-to-center
+
+        // Still walking — don't check range, wait for arrival
+        if (movement.IsMoving || movement.HasPath)
+        {
+            if (!attackPosition.HasValue)
+                MoveToAttackPosition(target);
+            return;
+        }
+
+        // Arrived at destination — validate attack range
         Vector3 closestPoint = BoundsHelper.ClosestPoint(target.gameObject, transform.position);
         float dist = Vector3.Distance(transform.position, closestPoint);
         float atkRange = unit.Data.attackRange + unit.EffectiveRadius;
 
         if (dist <= atkRange)
         {
-            // In range — stop movement first, attack only after fully stopped
-            if (movement.IsMoving)
-            {
-                movement.Stop();
-                return;
-            }
-
-            // Mark cells as obstacle once stopped
+            // In range — fight
             if (!isBlocking)
                 MarkAsObstacle();
 
@@ -106,12 +108,12 @@ public class UnitCombat : NetworkBehaviour
         }
         else
         {
-            // Unblock before moving
+            // Arrived but out of range — recompute attack position
             UnmarkAsObstacle();
-            // Out of range — march toward target
             if (stateMachine.CurrentState == UnitState.Fighting)
                 stateMachine.SetState(UnitState.Moving);
 
+            attackPosition = null;
             MoveToAttackPosition(target);
         }
     }
