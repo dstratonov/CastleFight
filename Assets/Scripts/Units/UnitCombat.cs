@@ -26,6 +26,10 @@ public class UnitCombat : NetworkBehaviour
     private Vector3 lastTargetPos;
     private const float TargetMoveThreshold = 1.5f;
 
+    // Unit obstacle: cells blocked while fighting in place
+    private System.Collections.Generic.List<Vector2Int> blockedCells;
+    private bool isBlocking;
+
     /// <summary>
     /// True when engaged with a hard-locked target (unit or building).
     /// Soft-locked castle does not count — state machine shows Moving while marching.
@@ -55,6 +59,7 @@ public class UnitCombat : NetworkBehaviour
             {
                 attackPosition = null;
                 targeting.Clear();
+                UnmarkAsObstacle();
             }
         }
 
@@ -82,6 +87,10 @@ public class UnitCombat : NetworkBehaviour
                 return;
             }
 
+            // Mark cells as obstacle once stopped
+            if (!isBlocking)
+                MarkAsObstacle();
+
             FaceTarget(target.gameObject.transform.position);
 
             if (stateMachine.CurrentState != UnitState.Fighting)
@@ -95,6 +104,8 @@ public class UnitCombat : NetworkBehaviour
         }
         else
         {
+            // Unblock before moving
+            UnmarkAsObstacle();
             // Out of range — march toward target
             if (stateMachine.CurrentState == UnitState.Fighting)
                 stateMachine.SetState(UnitState.Moving);
@@ -119,6 +130,7 @@ public class UnitCombat : NetworkBehaviour
         bool accepted = targeting.TrySetTarget(found);
         if (accepted)
         {
+            UnmarkAsObstacle();
             attackPosition = null;
             lastTargetPos = found.gameObject.transform.position;
 
@@ -231,5 +243,45 @@ public class UnitCombat : NetworkBehaviour
         dir.y = 0f;
         if (dir.sqrMagnitude > 0.001f)
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), 10f * Time.deltaTime);
+    }
+
+    // ================================================================
+    //  UNIT OBSTACLE
+    // ================================================================
+
+    private void MarkAsObstacle()
+    {
+        var grid = GridSystem.Instance;
+        if (grid == null || isBlocking) return;
+
+        var presence = UnitGridPresence.Instance;
+        if (presence == null) return;
+
+        var cells = presence.GetUnitCells(unit.GetInstanceID());
+        if (cells == null || cells.Count == 0) return;
+
+        blockedCells = new System.Collections.Generic.List<Vector2Int>(cells);
+        grid.MarkUnitObstacle(blockedCells);
+        isBlocking = true;
+
+        if (GameDebug.Combat)
+            Debug.Log($"[Combat] {gameObject.name} blocked {blockedCells.Count} cells");
+    }
+
+    private void UnmarkAsObstacle()
+    {
+        if (!isBlocking) return;
+
+        var grid = GridSystem.Instance;
+        if (grid != null && blockedCells != null)
+            grid.UnmarkUnitObstacle(blockedCells);
+
+        blockedCells = null;
+        isBlocking = false;
+    }
+
+    private void OnDestroy()
+    {
+        UnmarkAsObstacle();
     }
 }

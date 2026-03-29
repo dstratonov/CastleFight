@@ -19,6 +19,10 @@ public class GridSystem : MonoBehaviour, IGrid
 
     private CellState[,] cells;
 
+    // Unit obstacle layer: ref-counted so overlapping footprints work correctly.
+    // Cells with count > 0 are unwalkable for pathfinding but remain Empty in CellState.
+    private int[,] unitObstacles;
+
     private ClearanceMap clearanceMap;
     public ClearanceMap ClearanceMap => clearanceMap;
 
@@ -55,6 +59,7 @@ public class GridSystem : MonoBehaviour, IGrid
     private void InitializeGrid()
     {
         cells = new CellState[gridWidth, gridHeight];
+        unitObstacles = new int[gridWidth, gridHeight];
         for (int x = 0; x < gridWidth; x++)
             for (int y = 0; y < gridHeight; y++)
                 cells[x, y] = CellState.Empty;
@@ -108,7 +113,33 @@ public class GridSystem : MonoBehaviour, IGrid
     public bool IsWalkable(Vector2Int cell)
     {
         if (cells == null || !IsInBounds(cell)) return false;
-        return cells[cell.x, cell.y] == CellState.Empty;
+        if (cells[cell.x, cell.y] != CellState.Empty) return false;
+        if (unitObstacles != null && unitObstacles[cell.x, cell.y] > 0) return false;
+        return true;
+    }
+
+    /// <summary>
+    /// Mark cells as blocked by a stationary unit. Ref-counted — call UnmarkUnitObstacle to undo.
+    /// </summary>
+    public void MarkUnitObstacle(List<Vector2Int> cellList)
+    {
+        foreach (var cell in cellList)
+        {
+            if (IsInBounds(cell))
+                unitObstacles[cell.x, cell.y]++;
+        }
+    }
+
+    /// <summary>
+    /// Unmark cells previously blocked by a stationary unit.
+    /// </summary>
+    public void UnmarkUnitObstacle(List<Vector2Int> cellList)
+    {
+        foreach (var cell in cellList)
+        {
+            if (IsInBounds(cell))
+                unitObstacles[cell.x, cell.y] = Mathf.Max(0, unitObstacles[cell.x, cell.y] - 1);
+        }
     }
 
     public bool CanPlaceBuilding(Vector3 worldPosition, int teamId)
