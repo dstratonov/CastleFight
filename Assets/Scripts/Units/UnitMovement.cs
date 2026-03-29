@@ -203,6 +203,30 @@ public class UnitMovement : NetworkBehaviour
             return;
         }
 
+        // Check if moving to a new cell that's occupied by another unit
+        int myId = unit != null ? unit.GetInstanceID() : 0;
+        var presence = UnitGridPresence.Instance;
+        Vector2Int newCell = grid.WorldToCell(newPos);
+        Vector2Int oldCell = grid.WorldToCell(oldPos);
+        if (newCell != oldCell && presence != null)
+        {
+            FootprintHelper.GetHalfExtents(fp, out int hl, out int hh);
+            for (int dx = -hl; dx <= hh; dx++)
+            {
+                for (int dy = -hl; dy <= hh; dy++)
+                {
+                    if (presence.IsOccupiedByOther(new Vector2Int(newCell.x + dx, newCell.y + dy), myId))
+                    {
+                        // Cell occupied — recompute path around
+                        ComputePathInternal();
+                        RemarkSelf();
+                        grid.WalkableTeamContext = -1;
+                        return;
+                    }
+                }
+            }
+        }
+
         RemarkSelf();
         grid.WalkableTeamContext = -1;
 

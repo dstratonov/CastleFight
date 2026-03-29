@@ -184,7 +184,7 @@ public class UnitCombat : NetworkBehaviour
             grid.WalkableTeamContext = -2; // hard lock: avoid all
             var cell = AttackRangeHelper.FindAttackCell(
                 grid, transform.position, unit.FootprintSize,
-                unit.Data.attackRangeCells, target);
+                unit.Data.attackRangeCells, target, unit.GetInstanceID());
             grid.WalkableTeamContext = -1;
 
             // Remark target

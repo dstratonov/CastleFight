@@ -51,10 +51,11 @@ public static class AttackRangeHelper
     /// </summary>
     public static Vector2Int? FindAttackCell(
         GridSystem grid, Vector3 attackerPos, int attackerFootprint, int attackRangeCells,
-        IAttackable target)
+        IAttackable target, int attackerUnitId = -1)
     {
         Vector2Int attackerCell = grid.WorldToCell(attackerPos);
         var (tMin, tMax) = FootprintHelper.GetRect(target.CurrentCell, target.FootprintSize);
+        var presence = UnitGridPresence.Instance;
 
         // Search area: expand target rect by attacker's footprint + attack range
         FootprintHelper.GetHalfExtents(attackerFootprint, out int halfLow, out int halfHigh);
@@ -75,6 +76,10 @@ public static class AttackRangeHelper
                 if (!FootprintHelper.IsWalkable(grid, candidate, attackerFootprint))
                     continue;
 
+                // Reject if another unit already occupies this cell
+                if (presence != null && IsCellOccupiedByOther(presence, candidate, attackerFootprint, halfLow, halfHigh, attackerUnitId))
+                    continue;
+
                 var (atkMin, atkMax) = GetAttackRect(candidate, attackerFootprint, attackRangeCells);
                 if (!RectsOverlap(atkMin, atkMax, tMin, tMax))
                     continue;
@@ -89,5 +94,19 @@ public static class AttackRangeHelper
         }
 
         return bestCell;
+    }
+
+    private static bool IsCellOccupiedByOther(UnitGridPresence presence,
+        Vector2Int center, int footprintSize, int halfLow, int halfHigh, int excludeId)
+    {
+        for (int dx = -halfLow; dx <= halfHigh; dx++)
+        {
+            for (int dy = -halfLow; dy <= halfHigh; dy++)
+            {
+                if (presence.IsOccupiedByOther(new Vector2Int(center.x + dx, center.y + dy), excludeId))
+                    return true;
+            }
+        }
+        return false;
     }
 }
