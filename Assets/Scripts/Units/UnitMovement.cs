@@ -187,21 +187,20 @@ public class UnitMovement : NetworkBehaviour
         Vector3 oldPos = transform.position;
         Vector3 newPos = oldPos + velocity * Time.deltaTime;
         newPos.y = grid.GridOrigin.y;
-        newPos = ValidatePosition(oldPos, newPos);
 
-        presence?.RemarkUnit(unitId);
-
-        // Completely stuck — recompute path around the obstacle
-        if (newPos == oldPos)
+        // If next position is blocked, recompute path around obstacle
+        if (!IsPositionValid(newPos))
         {
+            presence?.RemarkUnit(unitId);
             ComputePath();
             return;
         }
 
+        presence?.RemarkUnit(unitId);
+
         transform.position = newPos;
 
-        // Rotate toward movement direction. Use actual movement delta if meaningful,
-        // otherwise face toward the next waypoint so the unit looks where it's going.
+        // Rotate toward movement direction
         Vector3 moveDelta = newPos - oldPos;
         moveDelta.y = 0f;
         Vector3 faceDir = moveDelta.sqrMagnitude > 0.0001f ? moveDelta : dir;
@@ -467,7 +466,7 @@ public class UnitMovement : NetworkBehaviour
     }
 
     // ================================================================
-    //  WALL COLLISION (grid-based wall sliding)
+    //  OBSTACLE CHECK
     // ================================================================
 
     private int cachedHalfLow = -1;
@@ -486,29 +485,6 @@ public class UnitMovement : NetworkBehaviour
         EnsureFootprintCache();
         Vector2Int cell = grid.WorldToCell(pos);
         return GridAStar.IsFootprintWalkable(grid, cell, cachedHalfLow, cachedHalfHigh);
-    }
-
-    private Vector3 ValidatePosition(Vector3 oldPos, Vector3 newPos)
-    {
-        if (IsPositionValid(newPos))
-            return newPos;
-
-        // Wall-slide against obstacles
-        Vector3 slideX = new Vector3(newPos.x, newPos.y, oldPos.z);
-        bool xOk = IsPositionValid(slideX);
-
-        Vector3 slideZ = new Vector3(oldPos.x, newPos.y, newPos.z);
-        bool zOk = IsPositionValid(slideZ);
-
-        if (xOk && zOk)
-        {
-            Vector3 delta = newPos - oldPos;
-            return Mathf.Abs(delta.x) >= Mathf.Abs(delta.z) ? slideX : slideZ;
-        }
-        if (xOk) return slideX;
-        if (zOk) return slideZ;
-
-        return oldPos;
     }
 
     // ================================================================
