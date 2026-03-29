@@ -24,7 +24,13 @@ public class GridSystem : MonoBehaviour, IGrid
     private int[,] unitObstaclesTeam0;
     private int[,] unitObstaclesTeam1;
 
-    /// <summary>Current team context for IsWalkable checks. Set before pathfinding.</summary>
+    /// <summary>
+    /// Controls which unit obstacles IsWalkable checks.
+    ///  -1 = no unit obstacles (default, building placement)
+    ///   0 = team 0 only (soft lock marching)
+    ///   1 = team 1 only (soft lock marching)
+    ///  -2 = ALL unit obstacles (hard lock, must navigate around everyone)
+    /// </summary>
     public int WalkableTeamContext { get; set; } = -1;
 
     private ClearanceMap clearanceMap;
@@ -120,11 +126,17 @@ public class GridSystem : MonoBehaviour, IGrid
         if (cells == null || !IsInBounds(cell)) return false;
         if (cells[cell.x, cell.y] != CellState.Empty) return false;
 
-        // Check same-team unit obstacles only (enemies are not obstacles)
-        if (WalkableTeamContext >= 0)
+        if (WalkableTeamContext == -2)
         {
+            // Hard lock: check ALL unit obstacles
+            if (unitObstaclesTeam0[cell.x, cell.y] > 0) return false;
+            if (unitObstaclesTeam1[cell.x, cell.y] > 0) return false;
+        }
+        else if (WalkableTeamContext >= 0)
+        {
+            // Soft lock: check same-team only
             var teamObstacles = WalkableTeamContext == 0 ? unitObstaclesTeam0 : unitObstaclesTeam1;
-            if (teamObstacles != null && teamObstacles[cell.x, cell.y] > 0) return false;
+            if (teamObstacles[cell.x, cell.y] > 0) return false;
         }
 
         return true;

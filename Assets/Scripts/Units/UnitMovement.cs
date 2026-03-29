@@ -183,9 +183,10 @@ public class UnitMovement : NetworkBehaviour
         Vector3 newPos = oldPos + velocity * Time.deltaTime;
         newPos.y = grid.GridOrigin.y;
 
-        // Set team context so IsWalkable only checks same-team obstacles
-        int myTeam = unit != null ? unit.TeamId : 0;
-        grid.WalkableTeamContext = myTeam;
+        // Hard lock (chasing specific enemy) → avoid ALL units
+        // Soft lock (marching) → avoid same-team only, walk through enemies
+        bool hardLock = unit != null && unit.Combat != null && unit.Combat.HasTarget;
+        grid.WalkableTeamContext = hardLock ? -2 : (unit != null ? unit.TeamId : 0);
 
         // Temporarily unmark self so our own cells don't block checks
         UnmarkSelf();
@@ -305,8 +306,8 @@ public class UnitMovement : NetworkBehaviour
 
     private void ComputePath()
     {
-        int myTeam = unit != null ? unit.TeamId : 0;
-        grid.WalkableTeamContext = myTeam;
+        bool hardLock = unit != null && unit.Combat != null && unit.Combat.HasTarget;
+        grid.WalkableTeamContext = hardLock ? -2 : (unit != null ? unit.TeamId : 0);
         UnmarkSelf();
         ComputePathInternal();
         RemarkSelf();
