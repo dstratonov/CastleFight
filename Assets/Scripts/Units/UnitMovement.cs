@@ -179,10 +179,8 @@ public class UnitMovement : NetworkBehaviour
 
         Vector3 velocity = dir.normalized * speed;
 
-        // Temporarily unmark self so our own cells don't block movement
-        var presence = UnitGridPresence.Instance;
-        int unitId = unit != null ? unit.GetInstanceID() : 0;
-        presence?.UnmarkUnit(unitId);
+        // Temporarily unmark self so our own cells don't block checks
+        UnmarkSelf();
 
         Vector3 oldPos = transform.position;
         Vector3 newPos = oldPos + velocity * Time.deltaTime;
@@ -191,12 +189,12 @@ public class UnitMovement : NetworkBehaviour
         // If next position is blocked, recompute path around obstacle
         if (!IsPositionValid(newPos))
         {
-            presence?.RemarkUnit(unitId);
-            ComputePath();
+            ComputePathInternal();
+            RemarkSelf();
             return;
         }
 
-        presence?.RemarkUnit(unitId);
+        RemarkSelf();
 
         transform.position = newPos;
 
@@ -302,21 +300,20 @@ public class UnitMovement : NetworkBehaviour
 
     private void ComputePath()
     {
+        UnmarkSelf();
+        ComputePathInternal();
+        RemarkSelf();
+    }
+
+    /// <summary>A* path computation. Caller must unmark/remark self.</summary>
+    private void ComputePathInternal()
+    {
         if (!worldTarget.HasValue || grid == null) return;
 
         int footprint = unit != null ? unit.FootprintSize : 1;
 
-        // Temporarily unmark self so A* doesn't treat our own cells as obstacles
-        var presence = UnitGridPresence.Instance;
-        int unitId = unit != null ? unit.GetInstanceID() : 0;
-        presence?.UnmarkUnit(unitId);
-
-        // Grid A* with footprint checking and debug cell path
         debugCellPath.Clear();
         var path = GridAStar.FindPath(grid, transform.position, worldTarget.Value, debugCellPath, footprint);
-
-        // Re-mark self
-        presence?.RemarkUnit(unitId);
 
         if (path != null && path.Count > 0)
         {
@@ -485,6 +482,24 @@ public class UnitMovement : NetworkBehaviour
         EnsureFootprintCache();
         Vector2Int cell = grid.WorldToCell(pos);
         return GridAStar.IsFootprintWalkable(grid, cell, cachedHalfLow, cachedHalfHigh);
+    }
+
+    // ================================================================
+    //  SELF UNMARK/REMARK
+    // ================================================================
+
+    private void UnmarkSelf()
+    {
+        var presence = UnitGridPresence.Instance;
+        if (presence != null && unit != null)
+            presence.UnmarkUnit(unit.GetInstanceID());
+    }
+
+    private void RemarkSelf()
+    {
+        var presence = UnitGridPresence.Instance;
+        if (presence != null && unit != null)
+            presence.RemarkUnit(unit.GetInstanceID());
     }
 
     // ================================================================
