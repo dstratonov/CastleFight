@@ -70,7 +70,34 @@ public class UnitCombat : NetworkBehaviour
 
         var target = targeting.Current;
 
-        // Still walking — check if target moved to a new cell, recompute if so
+        // Check if target is already in attack range — attack immediately
+        var grid = GridSystem.Instance;
+        if (grid != null)
+        {
+            bool inRange = AttackRangeHelper.IsTargetInRange(
+                grid, transform.position, unit.FootprintSize,
+                unit.Data.attackRangeCells, target.gameObject);
+
+            if (inRange)
+            {
+                if (movement.IsMoving || movement.HasPath)
+                    movement.Stop();
+
+                FaceTarget(target.gameObject.transform.position);
+
+                if (stateMachine.CurrentState != UnitState.Fighting)
+                    stateMachine.SetState(UnitState.Fighting);
+
+                if (attackCooldown <= 0f)
+                {
+                    Attack(target);
+                    attackCooldown = 1f / unit.Data.attackSpeed;
+                }
+                return;
+            }
+        }
+
+        // Not in range — walk to attack position
         if (movement.IsMoving || movement.HasPath)
         {
             Vector2Int targetCell = target.CurrentCell;
@@ -86,36 +113,12 @@ public class UnitCombat : NetworkBehaviour
             return;
         }
 
-        // Arrived — check if target footprint intersects our attack rectangle
-        var grid = GridSystem.Instance;
-        if (grid == null) return;
+        // Arrived but not in range — recompute
+        if (stateMachine.CurrentState == UnitState.Fighting)
+            stateMachine.SetState(UnitState.Moving);
 
-        bool inRange = AttackRangeHelper.IsTargetInRange(
-            grid, transform.position, unit.FootprintSize,
-            unit.Data.attackRangeCells, target.gameObject);
-
-        if (inRange)
-        {
-            FaceTarget(target.gameObject.transform.position);
-
-            if (stateMachine.CurrentState != UnitState.Fighting)
-                stateMachine.SetState(UnitState.Fighting);
-
-            if (attackCooldown <= 0f)
-            {
-                Attack(target);
-                attackCooldown = 1f / unit.Data.attackSpeed;
-            }
-        }
-        else
-        {
-            // Arrived but not in range — recompute
-            if (stateMachine.CurrentState == UnitState.Fighting)
-                stateMachine.SetState(UnitState.Moving);
-
-            attackPosition = null;
-            MoveToAttackPosition(target);
-        }
+        attackPosition = null;
+        MoveToAttackPosition(target);
     }
 
     // ================================================================
