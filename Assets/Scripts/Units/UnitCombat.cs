@@ -75,8 +75,10 @@ public class UnitCombat : NetworkBehaviour
         if (!targeting.HasTarget) return;
 
         var target = targeting.Current;
-        float dist = Vector3.Distance(transform.position, target.gameObject.transform.position);
-        float atkRange = unit.Data.attackRange + unit.EffectiveRadius + target.TargetRadius;
+        // Distance to closest edge of target, not center-to-center
+        Vector3 closestPoint = BoundsHelper.ClosestPoint(target.gameObject, transform.position);
+        float dist = Vector3.Distance(transform.position, closestPoint);
+        float atkRange = unit.Data.attackRange + unit.EffectiveRadius;
 
         if (dist <= atkRange)
         {
@@ -162,24 +164,25 @@ public class UnitCombat : NetworkBehaviour
         if (!attackPosition.HasValue || targetMoved > TargetMoveThreshold)
         {
             lastTargetPos = targetPos;
-            attackPosition = FindAttackCell(grid, targetPos, target.TargetRadius);
+            attackPosition = FindAttackCell(grid, target);
         }
 
         if (attackPosition.HasValue)
             movement.SetDestinationWorld(attackPosition.Value);
     }
 
-    private Vector3? FindAttackCell(GridSystem grid, Vector3 targetPos, float targetRadius)
+    private Vector3? FindAttackCell(GridSystem grid, IAttackable target)
     {
-        float atkRange = unit.Data.attackRange + unit.EffectiveRadius + targetRadius;
-        float atkRangeSq = atkRange * atkRange;
+        float atkRange = unit.Data.attackRange + unit.EffectiveRadius;
+        GameObject targetObj = target.gameObject;
+        Vector3 targetPos = targetObj.transform.position;
         Vector2Int targetCell = grid.WorldToCell(targetPos);
 
         int footprint = unit.FootprintSize;
         int halfLow = (footprint - 1) / 2;
         int halfHigh = footprint / 2;
 
-        int searchRadius = Mathf.CeilToInt(atkRange / grid.CellSize) + 2;
+        int searchRadius = Mathf.CeilToInt((atkRange + target.TargetRadius) / grid.CellSize) + 2;
 
         float bestDistSq = float.MaxValue;
         Vector2Int bestCell = targetCell;
@@ -196,9 +199,11 @@ public class UnitCombat : NetworkBehaviour
                     Vector2Int cell = new Vector2Int(targetCell.x + dx, targetCell.y + dy);
                     if (!GridAStar.IsFootprintWalkable(grid, cell, halfLow, halfHigh)) continue;
 
+                    // Distance from this cell to the closest edge of the target
                     Vector3 cellWorld = grid.CellToWorld(cell);
-                    float distToTargetSq = (cellWorld - targetPos).sqrMagnitude;
-                    if (distToTargetSq > atkRangeSq) continue;
+                    Vector3 closest = BoundsHelper.ClosestPoint(targetObj, cellWorld);
+                    float distToEdgeSq = (cellWorld - closest).sqrMagnitude;
+                    if (distToEdgeSq > atkRange * atkRange) continue;
 
                     float distToUnitSq = (cellWorld - transform.position).sqrMagnitude;
                     if (distToUnitSq < bestDistSq)

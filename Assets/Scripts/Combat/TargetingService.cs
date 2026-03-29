@@ -73,11 +73,11 @@ public static class TargetingService
             IAttackable attackable = b;
             if (attackable.Health == null || attackable.Health.IsDead) continue;
 
-            float bRadius = attackable.TargetRadius;
-            float effectiveRange = maxRange + bRadius;
-            float distSq = (b.transform.position - position).sqrMagnitude;
+            // Distance to closest edge, not center
+            Vector3 closest = BoundsHelper.ClosestPoint(b.gameObject, position);
+            float distSq = (closest - position).sqrMagnitude;
 
-            if (distSq <= effectiveRange * effectiveRange && distSq < bestDistSq)
+            if (distSq <= maxRange * maxRange && distSq < bestDistSq)
             {
                 bestDistSq = distSq;
                 best = b;
@@ -96,9 +96,10 @@ public static class TargetingService
         Castle castle = GameRegistry.GetEnemyCastle(teamId);
         if (castle == null || castle.Health == null || castle.Health.IsDead) return null;
 
-        float castleRadius = ((IAttackable)castle).TargetRadius;
-        float dist = Vector3.Distance(position, castle.transform.position);
-        if (dist > maxRange + castleRadius) return null;
+        // Distance to closest edge, not center
+        Vector3 closest = BoundsHelper.ClosestPoint(castle.gameObject, position);
+        float dist = Vector3.Distance(position, closest);
+        if (dist > maxRange) return null;
 
         return castle;
     }
