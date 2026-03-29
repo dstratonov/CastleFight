@@ -63,7 +63,21 @@ public class UnitGridPresence : MonoBehaviour
         for (int i = 0; i < allUnits.Count; i++)
         {
             var unit = allUnits[i];
-            if (unit == null || unit.IsDead) continue;
+            if (unit == null) continue;
+
+            // Immediately unmark dead units' cells
+            if (unit.IsDead)
+            {
+                int deadId = unit.GetInstanceID();
+                if (unitCells.TryGetValue(deadId, out var deadCells))
+                {
+                    int deadTeam = unitTeams.TryGetValue(deadId, out int dt) ? dt : 0;
+                    grid.UnmarkUnitObstacle(deadCells, deadTeam);
+                    unitCells.Remove(deadId);
+                    unitTeams.Remove(deadId);
+                }
+                continue;
+            }
 
             int unitId = unit.GetInstanceID();
             int footprint = unit.FootprintSize;
