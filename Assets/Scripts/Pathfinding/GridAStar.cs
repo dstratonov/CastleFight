@@ -64,10 +64,7 @@ public static class GridAStar
     {
         StatPathsRequested++;
 
-        // Footprint half-extents: 1→(0,0), 2→(0,1), 3→(1,1), 4→(1,2)
-        int cellSpan = Mathf.Max(1, footprintSize);
-        int halfLow = (cellSpan - 1) / 2;
-        int halfHigh = cellSpan / 2;
+        FootprintHelper.GetHalfExtents(footprintSize, out int halfLow, out int halfHigh);
 
         Vector2Int startCell = grid.WorldToCell(startWorld);
         Vector2Int goalCell = grid.WorldToCell(goalWorld);
@@ -76,10 +73,10 @@ public static class GridAStar
         goalCell = ClampToGrid(goalCell, grid);
 
         // If start/goal footprint overlaps obstacle, find nearest valid cell
-        if (!IsFootprintWalkable(grid, startCell, halfLow, halfHigh))
-            startCell = FindNearestWalkableCellForFootprint(grid, startCell, 10, halfLow, halfHigh);
-        if (!IsFootprintWalkable(grid, goalCell, halfLow, halfHigh))
-            goalCell = FindNearestWalkableCellForFootprint(grid, goalCell, 10, halfLow, halfHigh);
+        if (!FootprintHelper.IsWalkable(grid, startCell, footprintSize))
+            startCell = FootprintHelper.FindNearestWalkable(grid, startCell, footprintSize, 10);
+        if (!FootprintHelper.IsWalkable(grid, goalCell, footprintSize))
+            goalCell = FootprintHelper.FindNearestWalkable(grid, goalCell, footprintSize, 10);
 
         if (startCell == goalCell)
         {
@@ -151,15 +148,15 @@ public static class GridAStar
                 Vector2Int nCell = new Vector2Int(nx, ny);
 
                 // Check entire footprint at this cell is walkable (no obstacle overlap)
-                if (!IsFootprintWalkable(grid, nCell, halfLow, halfHigh)) continue;
+                if (!FootprintHelper.IsWalkable(grid, nCell, footprintSize)) continue;
 
                 // Diagonal: require both adjacent cardinal footprints to be walkable
                 if (d >= 4)
                 {
                     Vector2Int adj1 = new Vector2Int(cx + Dirs[d].x, cy);
                     Vector2Int adj2 = new Vector2Int(cx, cy + Dirs[d].y);
-                    if (!IsFootprintWalkable(grid, adj1, halfLow, halfHigh)) continue;
-                    if (!IsFootprintWalkable(grid, adj2, halfLow, halfHigh)) continue;
+                    if (!FootprintHelper.IsWalkable(grid, adj1, footprintSize)) continue;
+                    if (!FootprintHelper.IsWalkable(grid, adj2, footprintSize)) continue;
                 }
 
                 int nIdx = ny * w + nx;
@@ -280,47 +277,10 @@ public static class GridAStar
         return center; // fallback: return original
     }
 
-    /// <summary>
-    /// Check if the entire NxN footprint centered at the given cell is walkable.
-    /// For 1x1 units (halfLow=0, halfHigh=0), this is just a single cell check.
-    /// For larger units, all cells in the rectangle must be walkable and in bounds.
-    /// </summary>
+    /// <summary>Delegates to FootprintHelper — kept for backward compatibility.</summary>
     public static bool IsFootprintWalkable(IGrid grid, Vector2Int center, int halfLow, int halfHigh)
     {
-        for (int dx = -halfLow; dx <= halfHigh; dx++)
-        {
-            for (int dy = -halfLow; dy <= halfHigh; dy++)
-            {
-                Vector2Int cell = new Vector2Int(center.x + dx, center.y + dy);
-                if (!grid.IsInBounds(cell) || !grid.IsWalkable(cell))
-                    return false;
-            }
-        }
-        return true;
-    }
-
-    /// <summary>
-    /// Find the nearest cell where the full footprint is walkable.
-    /// </summary>
-    public static Vector2Int FindNearestWalkableCellForFootprint(IGrid grid, Vector2Int center,
-        int maxRadius, int halfLow, int halfHigh)
-    {
-        if (IsFootprintWalkable(grid, center, halfLow, halfHigh))
-            return center;
-
-        for (int r = 1; r <= maxRadius; r++)
-        {
-            for (int dx = -r; dx <= r; dx++)
-            {
-                for (int dy = -r; dy <= r; dy++)
-                {
-                    if (Mathf.Abs(dx) != r && Mathf.Abs(dy) != r) continue;
-                    Vector2Int c = new Vector2Int(center.x + dx, center.y + dy);
-                    if (IsFootprintWalkable(grid, c, halfLow, halfHigh))
-                        return c;
-                }
-            }
-        }
-        return center;
+        int footprintSize = halfLow + halfHigh + 1;
+        return FootprintHelper.IsWalkable(grid, center, footprintSize);
     }
 }

@@ -43,20 +43,46 @@ public static class FootprintHelper
     }
 
     /// <summary>
-    /// Check if the full footprint at center is walkable on the grid.
+    /// Check if the full NxN footprint at center is walkable on the grid.
+    /// This is the ONE place that checks footprint walkability.
     /// </summary>
     public static bool IsWalkable(IGrid grid, Vector2Int center, int footprintSize)
     {
         GetHalfExtents(footprintSize, out int halfLow, out int halfHigh);
-        return GridAStar.IsFootprintWalkable(grid, center, halfLow, halfHigh);
+        for (int dx = -halfLow; dx <= halfHigh; dx++)
+        {
+            for (int dy = -halfLow; dy <= halfHigh; dy++)
+            {
+                Vector2Int cell = new Vector2Int(center.x + dx, center.y + dy);
+                if (!grid.IsInBounds(cell) || !grid.IsWalkable(cell))
+                    return false;
+            }
+        }
+        return true;
     }
 
     /// <summary>
     /// Find the nearest cell where the full footprint is walkable.
+    /// Searches in a spiral pattern outward from center.
     /// </summary>
     public static Vector2Int FindNearestWalkable(IGrid grid, Vector2Int center, int footprintSize, int maxRadius = 15)
     {
-        GetHalfExtents(footprintSize, out int halfLow, out int halfHigh);
-        return GridAStar.FindNearestWalkableCellForFootprint(grid, center, maxRadius, halfLow, halfHigh);
+        if (IsWalkable(grid, center, footprintSize))
+            return center;
+
+        for (int r = 1; r <= maxRadius; r++)
+        {
+            for (int dx = -r; dx <= r; dx++)
+            {
+                for (int dy = -r; dy <= r; dy++)
+                {
+                    if (Mathf.Abs(dx) != r && Mathf.Abs(dy) != r) continue;
+                    Vector2Int c = new Vector2Int(center.x + dx, center.y + dy);
+                    if (IsWalkable(grid, c, footprintSize))
+                        return c;
+                }
+            }
+        }
+        return center;
     }
 }
