@@ -35,6 +35,7 @@ public class Unit : NetworkBehaviour, ISelectable, IAttackable
     float IAttackable.TargetRadius => EffectiveRadius;
     Vector2Int IAttackable.CurrentCell => GridSystem.Instance != null ? GridSystem.Instance.WorldToCell(transform.position) : Vector2Int.zero;
     int IAttackable.FootprintSize => FootprintSize;
+    (Vector2Int min, Vector2Int max) IAttackable.FootprintBounds => FootprintHelper.GetRect(((IAttackable)this).CurrentCell, FootprintSize);
     TargetPriority IAttackable.Priority => TargetPriority.Unit;
 
     private const float MaxAutoRadius = 2f;

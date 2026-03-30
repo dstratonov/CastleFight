@@ -24,6 +24,21 @@ public class Castle : NetworkBehaviour, ISelectable, IAttackable
     Vector2Int IAttackable.CurrentCell => GridSystem.Instance != null ? GridSystem.Instance.WorldToCell(transform.position) : Vector2Int.zero;
     int IAttackable.FootprintSize => occupiedCells.Count > 0
         ? Mathf.CeilToInt(Mathf.Sqrt(occupiedCells.Count)) : 2;
+    (Vector2Int min, Vector2Int max) IAttackable.FootprintBounds
+    {
+        get
+        {
+            if (occupiedCells.Count == 0)
+                return FootprintHelper.GetRect(((IAttackable)this).CurrentCell, 2);
+            Vector2Int min = occupiedCells[0], max = occupiedCells[0];
+            for (int i = 1; i < occupiedCells.Count; i++)
+            {
+                min = Vector2Int.Min(min, occupiedCells[i]);
+                max = Vector2Int.Max(max, occupiedCells[i]);
+            }
+            return (min, max);
+        }
+    }
     TargetPriority IAttackable.Priority => TargetPriority.Default;
 
     private void Awake()

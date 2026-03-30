@@ -40,7 +40,7 @@ public static class AttackRangeHelper
         Vector2Int attackerCell = grid.WorldToCell(attackerPos);
         var (atkMin, atkMax) = GetAttackRect(attackerCell, attackerFootprint, attackRangeCells);
 
-        var (tMin, tMax) = FootprintHelper.GetRect(target.CurrentCell, target.FootprintSize);
+        var (tMin, tMax) = target.FootprintBounds;
 
         return RectsOverlap(atkMin, atkMax, tMin, tMax);
     }
@@ -54,7 +54,7 @@ public static class AttackRangeHelper
         IAttackable target, int attackerUnitId = -1)
     {
         Vector2Int attackerCell = grid.WorldToCell(attackerPos);
-        var (tMin, tMax) = FootprintHelper.GetRect(target.CurrentCell, target.FootprintSize);
+        var (tMin, tMax) = target.FootprintBounds;
         var presence = UnitGridPresence.Instance;
 
         // Search area: expand target rect by attacker's footprint + attack range

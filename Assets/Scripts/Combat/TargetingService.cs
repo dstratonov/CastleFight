@@ -80,7 +80,7 @@ public static class TargetingService
                 IAttackable attackable = b;
                 if (attackable.Health == null || attackable.Health.IsDead) continue;
 
-                var (bMin, bMax) = FootprintHelper.GetRect(attackable.CurrentCell, attackable.FootprintSize);
+                var (bMin, bMax) = attackable.FootprintBounds;
                 bool overlaps = AttackRangeHelper.RectsOverlap(atkMin, atkMax, bMin, bMax);
 
                 if (overlaps)
@@ -103,7 +103,7 @@ public static class TargetingService
         if (castle != null && castle.Health != null && !castle.Health.IsDead)
         {
             IAttackable castleTarget = castle;
-            var (cMin, cMax) = FootprintHelper.GetRect(castleTarget.CurrentCell, castleTarget.FootprintSize);
+            var (cMin, cMax) = castleTarget.FootprintBounds;
             if (AttackRangeHelper.RectsOverlap(atkMin, atkMax, cMin, cMax))
                 return castle;
         }

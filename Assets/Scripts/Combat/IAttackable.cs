@@ -23,6 +23,13 @@ public interface IAttackable
     int FootprintSize { get; }
 
     /// <summary>
+    /// Actual footprint bounds on the grid (min, max inclusive).
+    /// For units: computed from CurrentCell + FootprintSize via FootprintHelper.
+    /// For buildings/castles: computed from actual occupied cells.
+    /// </summary>
+    (Vector2Int min, Vector2Int max) FootprintBounds { get; }
+
+    /// <summary>
     /// Target priority. Higher priority targets are preferred.
     /// Hard targets lock the attacker; soft targets allow upgrading.
     /// </summary>
