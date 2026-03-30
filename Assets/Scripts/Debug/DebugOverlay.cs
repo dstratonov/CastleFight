@@ -422,21 +422,30 @@ public class DebugOverlay : MonoBehaviour
         float cs = grid.CellSize;
         float half = cs * 0.5f;
 
+        // Show what A* actually sees: buildings + unit obstacles
+        grid.WalkableTeamContext = -2;
+
         GetVisibleGroundBounds(out float viewMinX, out float viewMaxX, out float viewMinZ, out float viewMaxZ);
 
         GL.Begin(GL.LINES);
-        GL.Color(new Color(1f, 0.2f, 0.2f, 0.3f));
 
         for (int gx = 0; gx < grid.Width; gx++)
         {
             for (int gy = 0; gy < grid.Height; gy++)
             {
-                if (grid.IsWalkable(new Vector2Int(gx, gy))) continue;
+                var cell = new Vector2Int(gx, gy);
+                if (grid.IsWalkable(cell)) continue;
 
-                Vector3 center = grid.CellToWorld(new Vector2Int(gx, gy));
+                Vector3 center = grid.CellToWorld(cell);
                 if (center.x + half < viewMinX || center.x - half > viewMaxX ||
                     center.z + half < viewMinZ || center.z - half > viewMaxZ)
                     continue;
+
+                // Red = building, magenta = unit obstacle
+                bool isBuilding = grid.GetCellState(cell) == CellState.Building;
+                GL.Color(isBuilding
+                    ? new Color(1f, 0.2f, 0.2f, 0.3f)
+                    : new Color(1f, 0.2f, 1f, 0.3f));
 
                 GLLine(new Vector3(center.x - half, y, center.z - half),
                        new Vector3(center.x + half, y, center.z + half));
@@ -445,6 +454,7 @@ public class DebugOverlay : MonoBehaviour
             }
         }
         GL.End();
+        grid.WalkableTeamContext = -1;
     }
 
     // ================================================================
