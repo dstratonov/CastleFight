@@ -194,91 +194,106 @@ public static class AttackRangeHelper
     }
 
     // ================================================================
-    //  ATTACK POSITION — CONTINUOUS KISSING PACKING
+    //  PERIMETER WALK — rectangle & circle positioning
     // ================================================================
 
     /// <summary>
-    /// Return the target's world position directly. Attackers set their
-    /// movement destination to this point and let A* Pro's RVO simulator
-    /// handle all the tangential packing: the target itself is an RVO
-    /// agent (units and buildings both have RVOController components),
-    /// so the attacker's body can never overlap the target's body —
-    /// RVO steers the attacker to tangentially kiss the target from the
-    /// side it arrived on. Multiple attackers arriving from different
-    /// directions each find their own contact point on the ring.
+    /// Returns a world position on the perimeter of a rectangle defined
+    /// by <paramref name="bounds"/>, at arc-length parameter
+    /// <paramref name="t"/> ∈ [0, perimeter). Walks the edges
+    /// clockwise from the SW corner: south → east → north → west.
     ///
-    /// This is the most "A* Pro native" approach. There are no discrete
-    /// slots, no occupancy tracking, no per-attacker offsets. Ring
-    /// formation emerges purely from RVO collision avoidance plus the
-    /// fact that the target's RVO agent has high priority / is locked.
+    /// Then steps outward by <paramref name="buffer"/> so the position
+    /// sits just outside the building footprint / navmesh cut.
+    /// </summary>
+    public static Vector3 RectPerimeterPoint(Bounds bounds, float t, float buffer)
+    {
+        float w = bounds.extents.x * 2f; // full width
+        float h = bounds.extents.z * 2f; // full height
+        float perim = 2f * (w + h);
+        t = ((t % perim) + perim) % perim; // wrap to [0, perim)
+
+        float cx = bounds.center.x;
+        float cy = bounds.center.y;
+        float cz = bounds.center.z;
+        float hw = bounds.extents.x;
+        float hh = bounds.extents.z;
+
+        float px, pz, nx, nz; // position on edge + outward normal
+
+        if (t < w)
+        {
+            // South edge: SW → SE (walking +X)
+            px = cx - hw + t;
+            pz = cz - hh;
+            nx = 0f; nz = -1f;
+        }
+        else if (t < w + h)
+        {
+            // East edge: SE → NE (walking +Z)
+            float d = t - w;
+            px = cx + hw;
+            pz = cz - hh + d;
+            nx = 1f; nz = 0f;
+        }
+        else if (t < 2f * w + h)
+        {
+            // North edge: NE → NW (walking -X)
+            float d = t - w - h;
+            px = cx + hw - d;
+            pz = cz + hh;
+            nx = 0f; nz = 1f;
+        }
+        else
+        {
+            // West edge: NW → SW (walking -Z)
+            float d = t - 2f * w - h;
+            px = cx - hw;
+            pz = cz + hh - d;
+            nx = -1f; nz = 0f;
+        }
+
+        return new Vector3(px + nx * buffer, cy, pz + nz * buffer);
+    }
+
+    /// <summary>
+    /// Perimeter of the target's shape in world units.
+    /// Circle (TargetRadius > 0): 2π(R + attackerRadius).
+    /// Rectangle (TargetRadius == 0): 2(w+h) of WorldBounds.
+    /// </summary>
+    public static float GetPerimeter(IAttackable target, float attackerRadius)
+    {
+        if (target.TargetRadius > 0.01f)
+            return 2f * Mathf.PI * (target.TargetRadius + attackerRadius * RingPaddingMultiplier);
+        var b = target.WorldBounds;
+        return 2f * (b.extents.x * 2f + b.extents.z * 2f);
+    }
+
+    // ================================================================
+    //  ATTACK POSITION — unified for units, buildings, castles
+    // ================================================================
+
+    /// <summary>
+    /// Returns the target's position. That's it.
     ///
-    /// The <paramref name="attackerUnitId"/> and <paramref name="attacker"/>
-    /// parameters are kept for API compatibility but no longer used.
+    /// Units walk toward the target. A* routes to the nearest walkable
+    /// point. RVO prevents body overlap. Units attack the moment they're
+    /// in range — they don't need to reach a specific slot.
+    ///
+    /// Pre-computing unique positions per attacker was tried extensively
+    /// and failed: hash-based positions become invalid by the time the
+    /// unit arrives (another unit already took that spot), perimeter
+    /// walks send units to the far side of buildings, and approach-biased
+    /// angles oscillate as the unit moves. The simple "aim at target,
+    /// let physics sort it out" is what every shipping RTS does.
     /// </summary>
     public static Vector3 FindAttackPosition(
         Vector3 attackerPos, float attackerRadius, float attackRange,
         IAttackable target, int attackerUnitId = -1, Unit attacker = null)
     {
-        var bounds = target.WorldBounds;
-
-        // Split behaviour by target size:
-        //
-        // Point-like targets (units, small objects): aim straight at the
-        // body centre. Attackers naturally pack around the body on the
-        // side they approached from, and the arc-based capacity check in
-        // UnitCombat.Scan caps ring membership to however many fit.
-        //
-        // Extended targets (buildings, castles): aim at the point on the
-        // target's perimeter that is closest to the attacker's current
-        // position, then nudge outward by the attacker's own radius so the
-        // final destination sits ON the walkable navmesh just outside the
-        // building footprint. This naturally distributes attackers around
-        // the building perimeter — each attacker has a destination that
-        // matches its approach direction, not a single shared point on
-        // one side of the structure. Without this, GetNearest on the
-        // bounds centre snaps every attacker to the same navmesh node
-        // (whichever side was closest to the query) and they all pile on
-        // one face of the building.
-        const float ExtentedThreshold = 1.5f;
-        bool isExtended =
-            bounds.extents.x > ExtentedThreshold ||
-            bounds.extents.z > ExtentedThreshold;
-
-        Vector3 pos;
-        if (isExtended)
-        {
-            Vector3 sample = new(attackerPos.x, bounds.center.y, attackerPos.z);
-            Vector3 perimeter = bounds.ClosestPoint(sample);
-            Vector3 outward = new(sample.x - perimeter.x, 0f, sample.z - perimeter.z);
-            if (outward.sqrMagnitude > 0.0001f)
-            {
-                outward.Normalize();
-                pos = perimeter + outward * attackerRadius;
-            }
-            else
-            {
-                // Attacker is already inside or directly on the bounds
-                // (rare edge case) — fall back to the centre.
-                pos = bounds.center;
-            }
-            pos.y = attackerPos.y;
-        }
-        else
-        {
-            pos = new Vector3(bounds.center.x, attackerPos.y, bounds.center.z);
-        }
-
-        // Snap to walkable navmesh so the pathfinder doesn't try to route
-        // into a NavmeshCut or off-mesh area inside the target.
-        if (AstarPath.active != null &&
-            AstarPath.active.data != null &&
-            AstarPath.active.data.graphs != null &&
-            AstarPath.active.data.graphs.Length > 0)
-        {
-            var nn = AstarPath.active.GetNearest(pos, Pathfinding.NearestNodeConstraint.Walkable);
-            if (nn.node != null && nn.node.Walkable)
-                return nn.position;
-        }
+        if (target == null) return attackerPos;
+        Vector3 pos = target.Position;
+        pos.y = attackerPos.y;
         return pos;
     }
 }

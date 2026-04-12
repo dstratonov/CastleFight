@@ -327,15 +327,9 @@ public class UnitMovement : NetworkBehaviour
 
         if (castle == null) return;
 
-        Vector3 castlePos = castle.transform.position;
-
-        // Spread units around the castle target using deterministic hash
-        float spreadRadius = 2f;
-        uint id = (uint)Mathf.Abs(GetInstanceID());
-        float angle = ((id * 2654435761u) >> 16) / 65536f * Mathf.PI * 2f;
-        float dist = ((id * 340573321u) >> 16) / 65536f * spreadRadius;
-        Vector3 offset = new Vector3(Mathf.Cos(angle) * dist, 0f, Mathf.Sin(angle) * dist);
-        Vector3 target = castlePos + offset;
+        // Just aim at the castle. A* routes to the nearest walkable
+        // point, RVO prevents overlap, combat attacks when in range.
+        Vector3 target = castle.transform.position;
 
         strategicDestination = target;
         ForceSetDestinationWorld(target);

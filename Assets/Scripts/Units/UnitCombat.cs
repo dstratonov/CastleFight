@@ -258,21 +258,8 @@ public class UnitCombat : NetworkBehaviour
         if (needsRefresh)
         {
             lastKnownTargetPos = targetPos;
-            Vector3 dest;
-            if (hasAssignedAngle)
-            {
-                // Hard-lock target: walk to the pre-assigned arc slot on
-                // the kissing ring so we settle at a distinct angle.
-                dest = AttackRangeHelper.GetRingPosition(target, myRadius, assignedAttackAngle);
-            }
-            else
-            {
-                // Soft-lock (castle) or no angle assigned: fall back to
-                // the perimeter-closest-point logic for extended targets
-                // or the center for point-like targets.
-                dest = AttackRangeHelper.FindAttackPosition(
-                    transform.position, myRadius, attackRange, target, unit.GetInstanceID(), unit);
-            }
+            Vector3 dest = AttackRangeHelper.FindAttackPosition(
+                transform.position, myRadius, attackRange, target, unit.GetInstanceID(), unit);
             attackPosition = dest;
             movement.SetDestinationWorld(dest);
         }
@@ -325,27 +312,16 @@ public class UnitCombat : NetworkBehaviour
             reachedAttackRangeThisTarget = false;
             SetAttackLock(false);
 
-            // Pre-assign an attack angle based on the current occupied arc.
-            // This gives each committer a distinct spot on the target's
-            // kissing ring — the first committer gets angle 0, the second
-            // gets <first's arc>, the third gets <first + second>, and so
-            // on. Locked attackers never occupy the same angle and can't
-            // physically overlap. If the target is soft-lock (castle),
-            // skip angle assignment and let combat use FindAttackPosition's
-            // perimeter-closest-point path.
-            if (found.Priority != TargetPriority.Default)
-            {
-                assignedAttackAngle = existingArc + AttackRangeHelper.GetArcRequiredFor(found, unit.EffectiveRadius) * 0.5f;
-                hasAssignedAngle = true;
-            }
-            else
-            {
-                hasAssignedAngle = false;
-            }
+            // No angle assignment. All targets use FindAttackPosition
+            // which returns target.Position. A* routes to nearest
+            // walkable point, RVO packs attackers naturally, combat
+            // attacks the moment they're in range. Same approach for
+            // units, buildings, and castles.
+            hasAssignedAngle = false;
 
             if (GameDebug.Combat)
                 Debug.Log($"[Combat] {gameObject.name} aggro -> {found.gameObject.name} " +
-                    $"priority={found.Priority} angle={(hasAssignedAngle ? assignedAttackAngle.ToString("F2") : "n/a")}");
+                    $"priority={found.Priority}");
         }
     }
 
