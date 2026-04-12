@@ -4,10 +4,26 @@ using UnityEngine.InputSystem;
 #endif
 
 /// <summary>
-/// Runtime keyboard toggle for debug overlays.
-/// F1 = Pathfinding logs, F2 = Movement logs, F3 = Unit cells,
-/// F4 = Grid walkability, F5 = Attack range, F6 = Velocity arrows,
-/// F7 = Combat logs, F9 = All ON, F10 = All OFF.
+/// Runtime keyboard toggles for debug overlays and logging.
+/// Reflects the A* Pro architecture — there is no grid overlay.
+///
+/// Logging:
+///   F1 = Pathfinding logs
+///   F2 = Movement logs
+///   F7 = Combat logs
+///
+/// Visualisation (via DebugOverlay):
+///   F3 = Unit paths (lines from units to their destinations)
+///   F4 = A* Pro NavMesh triangles
+///   F5 = Attack range rectangles
+///   F6 = Velocity arrows
+///   F8 = RVO agent radii (local avoidance circles)
+///   F11 = Building footprints (real BoxCollider bounds)
+///   F12 = Build zones
+///
+/// Presets:
+///   F9 = All ON
+///   F10 = All OFF
 /// </summary>
 public class PathfindingDebugToggle : MonoBehaviour
 {
@@ -16,72 +32,104 @@ public class PathfindingDebugToggle : MonoBehaviour
         if (WasKeyPressed(Key.F1))
         {
             GameDebug.Pathfinding = !GameDebug.Pathfinding;
-            Debug.Log($"[DebugToggle] Pathfinding = {GameDebug.Pathfinding}");
+            Debug.Log($"[DebugToggle] Pathfinding logs = {GameDebug.Pathfinding}");
         }
 
         if (WasKeyPressed(Key.F2))
         {
             GameDebug.Movement = !GameDebug.Movement;
-            Debug.Log($"[DebugToggle] Movement = {GameDebug.Movement}");
+            Debug.Log($"[DebugToggle] Movement logs = {GameDebug.Movement}");
         }
 
         if (WasKeyPressed(Key.F3))
         {
-            var overlay = DebugOverlay.Instance;
-            if (overlay != null)
+            var o = DebugOverlay.Instance;
+            if (o != null)
             {
-                overlay.showUnitCells = !overlay.showUnitCells;
-                Debug.Log($"[DebugToggle] Unit cells = {overlay.showUnitCells}");
+                o.showPaths = !o.showPaths;
+                Debug.Log($"[DebugToggle] Paths = {o.showPaths}");
             }
         }
 
         if (WasKeyPressed(Key.F4))
         {
-            var overlay = DebugOverlay.Instance;
-            if (overlay != null)
+            var o = DebugOverlay.Instance;
+            if (o != null)
             {
-                overlay.showNavMesh = !overlay.showNavMesh;
-                Debug.Log($"[DebugToggle] Walkability = {overlay.showNavMesh}");
+                o.showNavMesh = !o.showNavMesh;
+                Debug.Log($"[DebugToggle] NavMesh = {o.showNavMesh}");
             }
         }
 
         if (WasKeyPressed(Key.F5))
         {
-            var overlay = DebugOverlay.Instance;
-            if (overlay != null)
+            var o = DebugOverlay.Instance;
+            if (o != null)
             {
-                overlay.showAttackRange = !overlay.showAttackRange;
-                Debug.Log($"[DebugToggle] Attack range = {overlay.showAttackRange}");
+                o.showAttackRange = !o.showAttackRange;
+                Debug.Log($"[DebugToggle] Attack range = {o.showAttackRange}");
             }
         }
 
         if (WasKeyPressed(Key.F6))
         {
-            var overlay = DebugOverlay.Instance;
-            if (overlay != null)
+            var o = DebugOverlay.Instance;
+            if (o != null)
             {
-                overlay.showVelocities = !overlay.showVelocities;
-                Debug.Log($"[DebugToggle] Velocity arrows = {overlay.showVelocities}");
+                o.showVelocities = !o.showVelocities;
+                Debug.Log($"[DebugToggle] Velocity arrows = {o.showVelocities}");
             }
         }
 
         if (WasKeyPressed(Key.F7))
         {
             GameDebug.Combat = !GameDebug.Combat;
-            Debug.Log($"[DebugToggle] Combat = {GameDebug.Combat}");
+            Debug.Log($"[DebugToggle] Combat logs = {GameDebug.Combat}");
+        }
+
+        if (WasKeyPressed(Key.F8))
+        {
+            var o = DebugOverlay.Instance;
+            if (o != null)
+            {
+                o.showUnitRadius = !o.showUnitRadius;
+                Debug.Log($"[DebugToggle] Unit radius = {o.showUnitRadius}");
+            }
+        }
+
+        if (WasKeyPressed(Key.F11))
+        {
+            var o = DebugOverlay.Instance;
+            if (o != null)
+            {
+                o.showBuildingFootprints = !o.showBuildingFootprints;
+                Debug.Log($"[DebugToggle] Building footprints = {o.showBuildingFootprints}");
+            }
+        }
+
+        if (WasKeyPressed(Key.F12))
+        {
+            var o = DebugOverlay.Instance;
+            if (o != null)
+            {
+                o.showBuildZones = !o.showBuildZones;
+                Debug.Log($"[DebugToggle] Build zones = {o.showBuildZones}");
+            }
         }
 
         if (WasKeyPressed(Key.F9))
         {
             GameDebug.EnableAll();
-            var overlay = DebugOverlay.Instance;
-            if (overlay != null)
+            var o = DebugOverlay.Instance;
+            if (o != null)
             {
-                overlay.showNavMesh = true;
-                overlay.showPaths = true;
-                overlay.showVelocities = true;
-                overlay.showUnitCells = true;
-                overlay.showAttackRange = true;
+                o.showNavMesh = true;
+                o.showPaths = true;
+                o.showVelocities = true;
+                o.showAttackRange = true;
+                o.showUnitRadius = true;
+                o.showBuildingFootprints = true;
+                o.showBuildZones = true;
             }
             Debug.Log("[DebugToggle] ALL DEBUG ON");
         }
@@ -89,14 +137,16 @@ public class PathfindingDebugToggle : MonoBehaviour
         if (WasKeyPressed(Key.F10))
         {
             GameDebug.DisableAll();
-            var overlay = DebugOverlay.Instance;
-            if (overlay != null)
+            var o = DebugOverlay.Instance;
+            if (o != null)
             {
-                overlay.showNavMesh = false;
-                overlay.showPaths = false;
-                overlay.showVelocities = false;
-                overlay.showUnitCells = false;
-                overlay.showAttackRange = false;
+                o.showNavMesh = false;
+                o.showPaths = false;
+                o.showVelocities = false;
+                o.showAttackRange = false;
+                o.showUnitRadius = false;
+                o.showBuildingFootprints = false;
+                o.showBuildZones = false;
             }
             Debug.Log("[DebugToggle] ALL DEBUG OFF");
         }

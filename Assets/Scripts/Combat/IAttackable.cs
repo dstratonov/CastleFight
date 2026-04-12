@@ -2,6 +2,11 @@ using UnityEngine;
 
 /// <summary>
 /// Implemented by any entity that can be targeted and attacked (Unit, Building, Castle).
+///
+/// Combat is now world-space (not grid-based). Targets expose their world
+/// position and a WorldBounds AABB. Range is computed via Bounds.ClosestPoint
+/// projected to the XZ plane, so the same check works for point targets
+/// (units) and rectangular targets (buildings/castles).
 /// </summary>
 public interface IAttackable
 {
@@ -9,25 +14,20 @@ public interface IAttackable
     Health Health { get; }
     int TeamId { get; }
     ArmorType ArmorType { get; }
+
+    /// <summary>World position of the entity's center (used for line-of-sight, facing, default approach).</summary>
+    Vector3 Position { get; }
+
+    /// <summary>Target radius for range calculations (buildings use 0 since bounds already encode their size).</summary>
     float TargetRadius { get; }
 
     /// <summary>
-    /// Current grid cell of this entity. Used by chasers to detect when
-    /// the target has moved and the path needs recalculation.
+    /// World-space axis-aligned bounds of the physical footprint. Used for
+    /// closest-point distance checks. For point-like targets (units) this is
+    /// a small sphere around Position; for buildings/castles it's the
+    /// BoxCollider bounds.
     /// </summary>
-    Vector2Int CurrentCell { get; }
-
-    /// <summary>
-    /// Grid footprint size (NxN cells). Used for attack range rect intersection.
-    /// </summary>
-    int FootprintSize { get; }
-
-    /// <summary>
-    /// Actual footprint bounds on the grid (min, max inclusive).
-    /// For units: computed from CurrentCell + FootprintSize via FootprintHelper.
-    /// For buildings/castles: computed from actual occupied cells.
-    /// </summary>
-    (Vector2Int min, Vector2Int max) FootprintBounds { get; }
+    Bounds WorldBounds { get; }
 
     /// <summary>
     /// Target priority. Higher priority targets are preferred.

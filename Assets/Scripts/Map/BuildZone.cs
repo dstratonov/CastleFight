@@ -30,6 +30,25 @@ public class BuildZone : MonoBehaviour
         return zone.bounds.Contains(worldPoint);
     }
 
+    /// <summary>
+    /// True when <paramref name="worldPoint"/> is inside any build zone owned
+    /// by <paramref name="teamId"/>. If no build zones exist, returns true
+    /// (placement unrestricted). Use from server-side placement code so grid
+    /// is no longer needed as a placement gate.
+    /// </summary>
+    public static bool Contains(int teamId, Vector3 worldPoint)
+    {
+        var zones = GameRegistry.BuildZones;
+        if (zones == null || zones.Count == 0) return true;
+        for (int i = 0; i < zones.Count; i++)
+        {
+            var z = zones[i];
+            if (z == null || z.TeamId != teamId) continue;
+            if (z.ContainsPoint(worldPoint)) return true;
+        }
+        return false;
+    }
+
     private void OnDrawGizmos()
     {
         var col = GetComponent<BoxCollider>();

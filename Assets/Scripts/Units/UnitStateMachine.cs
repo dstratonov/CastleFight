@@ -95,8 +95,11 @@ public class UnitStateMachine : NetworkBehaviour
     {
         bool isMoving = movement != null && movement.IsMoving;
         bool isWaiting = movement != null && movement.IsWaitingForPath;
-        bool hasTarget = combat != null && combat.HasTarget;
-        var next = UnitStateLogic.ComputeNextState(currentState, unit.IsDead, isMoving, isWaiting, hasTarget);
+        // Fighting state is driven by "is actively in attack range", not
+        // targeting lock. Soft-lock castle targets also trigger Fighting
+        // when the attacker is in range, and chasing units show Moving.
+        bool isAttacking = combat != null && combat.IsAttacking;
+        var next = UnitStateLogic.ComputeNextState(currentState, unit.IsDead, isMoving, isWaiting, isAttacking);
         if (UnitStateLogic.ShouldTransition(currentState, next))
             SetState(next);
     }

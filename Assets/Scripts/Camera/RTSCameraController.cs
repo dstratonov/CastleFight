@@ -46,10 +46,7 @@ public class RTSCameraController : MonoBehaviour
         pos.y = targetHeight;
         transform.position = pos;
 
-        float groundY = 0f;
-        if (GridSystem.Instance != null)
-            groundY = GridSystem.Instance.GridOrigin.y;
-        groundPlane = new Plane(Vector3.up, new Vector3(0f, groundY, 0f));
+        groundPlane = new Plane(Vector3.up, Vector3.zero);
     }
 
     private void Update()

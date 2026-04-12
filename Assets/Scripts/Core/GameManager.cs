@@ -62,10 +62,8 @@ public class GameManager : NetworkBehaviour
     [Server]
     public void StartMatch()
     {
-        if (PathfindingManager.Instance != null)
-            PathfindingManager.Instance.RequestInitialize();
-        else if (GridSystem.Instance != null)
-            GridSystem.Instance.BuildClearanceMap();
+        // Pathfinding is handled by A* Pathfinding Project Pro (AstarPath).
+        // No manual initialization needed — Recast Graph auto-scans.
         SetState(GameState.Playing);
     }
 

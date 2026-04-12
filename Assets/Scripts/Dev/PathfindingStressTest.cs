@@ -1,6 +1,7 @@
 using UnityEngine;
 using Mirror;
 using System.Collections.Generic;
+using Pathfinding;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -25,6 +26,7 @@ public class PathfindingStressTest : MonoBehaviour
     private int selectedBuildingIndex;
     private int spawnTeam;
     private bool castlesInvincible = true;
+    [SerializeField] private bool disableAIOnStart = false;
 
     // Cached asset lists
     private string[] unitNames;
@@ -39,9 +41,35 @@ public class PathfindingStressTest : MonoBehaviour
     private void Start()
     {
         LoadAssetLists();
+        if (disableAIOnStart)
+            DisableAIPlayers();
         if (castlesInvincible)
             SetCastlesInvincible(true);
         // GameDebug.Movement can be toggled via PathfindingDebugToggle (F10)
+
+        // Enable the debug overlay with useful defaults. GameUIBuilder adds
+        // the DebugOverlay component at runtime with enabled=false; by the
+        // time Invoke() fires (0.5s), Unity has finished scene bootstrap so
+        // the component definitely exists and we can enable it without
+        // racing the UI builder.
+        Invoke(nameof(EnableDebugOverlay), 0.5f);
+    }
+
+    private void EnableDebugOverlay()
+    {
+        var cam = Camera.main;
+        if (cam == null) return;
+        var overlay = cam.GetComponent<DebugOverlay>();
+        if (overlay == null)
+            overlay = cam.gameObject.AddComponent<DebugOverlay>();
+        overlay.enabled = true;
+        overlay.showPaths = true;
+        overlay.showAttackRange = true;        // attack reach
+        overlay.showAggroRange = false;        // off by default — too much clutter in S7
+        overlay.showUnitRadius = true;         // the unified physical radius
+        overlay.showAttackSlots = true;
+        overlay.showBuildingFootprints = true;
+        Debug.Log("[StressTest] DebugOverlay enabled with default test-scene flags");
     }
 
     private void Update()
@@ -86,11 +114,10 @@ public class PathfindingStressTest : MonoBehaviour
     {
         GUILayout.Label("--- Status ---");
         bool hostActive = NetworkServer.active;
-        bool pfReady = PathfindingManager.Instance != null && PathfindingManager.Instance.IsInitialized;
-        bool gridReady = GridSystem.Instance != null;
+        bool pfReady = AstarPath.active != null;
         bool unitMgr = UnitManager.Instance != null;
 
-        GUILayout.Label($"Host: {(hostActive ? "OK" : "NOT ACTIVE")}  Grid: {(gridReady ? "OK" : "NO")}");
+        GUILayout.Label($"Host: {(hostActive ? "OK" : "NOT ACTIVE")}");
         GUILayout.Label($"Pathfinding: {(pfReady ? "OK" : "NOT READY")}  UnitMgr: {(unitMgr ? "OK" : "NO")}");
 
         int unitCount = 0;
@@ -114,8 +141,6 @@ public class PathfindingStressTest : MonoBehaviour
             {
                 if (GameManager.Instance != null)
                     GameManager.Instance.StartMatch();
-                else
-                    PathfindingManager.Instance?.RequestInitialize();
             }
         }
 
@@ -235,6 +260,12 @@ public class PathfindingStressTest : MonoBehaviour
 
         if (GUILayout.Button("S6: Units Near Buildings"))
             RunScenarioNearBuildings();
+
+        if (GUILayout.Button("S7: Dogpile Small Target"))
+            RunScenarioDogpileSmallTarget();
+
+        if (GUILayout.Button("S8: Mixed Attackers (small/med/large)"))
+            RunScenarioMixedAttackers();
     }
 
     // ================================================================
@@ -266,12 +297,27 @@ public class PathfindingStressTest : MonoBehaviour
     private void SpawnUnitsMarching(Vector3 from, Vector3 to, int count, int team)
     {
         if (!ValidateReady()) return;
-
         var data = LoadUnitData();
+        if (data == null) return;
+        SpawnUnitsMarchingOfType(data, from, to, count, team);
+    }
+
+    /// <summary>
+    /// Same as <see cref="SpawnUnitsMarching"/> but takes an explicit
+    /// <see cref="UnitData"/> so scenarios can mix multiple unit types in
+    /// a single spawn (e.g. S8's small/medium/large attacker test).
+    /// </summary>
+    private void SpawnUnitsMarchingOfType(UnitData data, Vector3 from, Vector3 to, int count, int team)
+    {
+        if (!ValidateReady()) return;
         if (data == null) return;
 
         Vector3 right = Vector3.Cross(Vector3.up, (to - from).normalized);
-        float spacing = data.unitRadius * 2.5f;
+        // 3× body radius = 1.5× body diameter between centres. Gives a
+        // ~0.5-body gap between adjacent spawns so RVO has slack to sort
+        // the crowd without units popping through each other as the back
+        // rows catch up to the slowing front rows.
+        float spacing = data.unitRadius * 3.0f;
 
         for (int i = 0; i < count; i++)
         {
@@ -291,6 +337,24 @@ public class PathfindingStressTest : MonoBehaviour
         }
 
         Debug.Log($"[StressTest] Spawned {count} {data.unitName} from {from:F0} -> {to:F0}");
+    }
+
+    /// <summary>
+    /// Looks up a UnitData asset by name (via the cached unitNames/
+    /// unitPaths discovered in <see cref="LoadAssetLists"/>). Returns
+    /// null if no matching asset is found. Editor-only.
+    /// </summary>
+    private UnitData LoadUnitDataByName(string unitName)
+    {
+#if UNITY_EDITOR
+        if (unitPaths == null || unitNames == null) return null;
+        for (int i = 0; i < unitNames.Length; i++)
+        {
+            if (string.Equals(unitNames[i], unitName, System.StringComparison.OrdinalIgnoreCase))
+                return AssetDatabase.LoadAssetAtPath<UnitData>(unitPaths[i]);
+        }
+#endif
+        return null;
     }
 
     private void SpawnUnitsConverge(Vector3 target, float radius, int count, int team)
@@ -325,8 +389,7 @@ public class PathfindingStressTest : MonoBehaviour
         var data = LoadBuildingData();
         if (data == null) return;
 
-        var grid = GridSystem.Instance;
-        if (grid != null) pos = grid.SnapToGrid(pos);
+        pos.y = 0f;
 
         var obj = BuildingManager.Instance?.PlaceBuilding(data, pos, Quaternion.identity, spawnTeam, -1);
         if (obj != null)
@@ -463,6 +526,128 @@ public class PathfindingStressTest : MonoBehaviour
         Debug.Log($"[StressTest] S6: Units Near Buildings — {count} units spawned near buildings, heading to {target:F0}");
     }
 
+    /// <summary>
+    /// S7: Dogpile Small Target - regression test for the RVO clumping bug.
+    /// Spawns ONE stationary INVINCIBLE enemy target at origin and spawnCount
+    /// attackers 40u west, all using the currently-selected unit type (so
+    /// attacker mesh is at least target mesh - worst case for visual overlap).
+    /// After the AttackRangeHelper fan-out + RVO radius fix, attackers should
+    /// form a crescent on the west side of the target with no mesh
+    /// interpenetration.
+    /// Combat targeting is automatic via UnitCombat aggro scan - no explicit
+    /// attack commands. The target is pinned by Stop() which hard-locks its
+    /// RVO agent, and made invincible so it doesn't die to the dogpile and
+    /// let attackers auto-resume toward the enemy castle.
+    /// </summary>
+    private void RunScenarioDogpileSmallTarget()
+    {
+        CleanupUnits();
+        CleanupBuildings();
+
+        if (!ValidateReady()) return;
+        var data = LoadUnitData();
+        if (data == null) return;
+
+        Vector3 targetPos = SnapToWalkable(Vector3.zero);
+        var targetObj = UnitManager.Instance.SpawnUnit(data, targetPos, Quaternion.identity, 1);
+        if (targetObj == null)
+        {
+            Debug.LogWarning("[StressTest] S7: failed to spawn target");
+            return;
+        }
+        spawnedUnits.Add(targetObj);
+
+        // Pin the target in place:
+        // - Movement.Stop() hard-locks its RVO agent and halts RichAI
+        // - UnitCombat is disabled so it cannot retaliate via MoveToAttackPosition,
+        //   which would call SetDestinationWorld and UNLOCK the RVO agent — letting
+        //   the target drift away from origin chasing attackers.
+        // - Health.Invincible keeps it alive through the dogpile so attackers don't
+        //   finish it off in ~1s and auto-resume toward the enemy castle.
+        var targetUnit = targetObj.GetComponent<Unit>();
+        targetUnit?.Movement?.Stop();
+        var targetCombat = targetObj.GetComponent<UnitCombat>();
+        if (targetCombat != null) targetCombat.enabled = false;
+        var targetHealth = targetObj.GetComponent<Health>();
+        if (targetHealth != null) targetHealth.Invincible = true;
+
+        SpawnUnitsMarching(new Vector3(-40, 0, 0), targetPos, spawnCount, 0);
+
+        Debug.Log($"[StressTest] S7: Dogpile - 1 invincible {data.unitName} target at origin, {spawnCount} attackers from (-40,0,0)");
+    }
+
+    /// <summary>
+    /// S8: Mixed attacker sizes against one target.
+    ///
+    /// Spawns a medium goblin target at origin, then three waves of
+    /// attackers with very different body radii, each from a different
+    /// direction:
+    ///   - 12 footmen (r ≈ 0.30, small)   from west
+    ///   - 10 goblins (r ≈ 1.02, medium)  from south
+    ///   -  4 trolls  (r ≈ 3.34, large)   from east
+    ///
+    /// The arc-based capacity check in UnitCombat.Scan should accept a
+    /// MIX of sizes up to the target ring's 2π rad budget: each small
+    /// footman takes ~0.46 rad, each medium goblin ~1.05 rad, each large
+    /// troll ~1.74 rad. First-come-first-serve — arrival order determines
+    /// which types fit, and the rest overflow to the enemy castle.
+    ///
+    /// The key test is NOT "how many fit" (that's order-dependent) but
+    /// "does every committed attacker actually reach and attack", and
+    /// "is <see cref="UnitManager"/> ever left with idle units that
+    /// neither fight nor walk". A healthy run has noTarget == 0 once the
+    /// waves settle.
+    /// </summary>
+    private void RunScenarioMixedAttackers()
+    {
+        CleanupUnits();
+        CleanupBuildings();
+
+        if (!ValidateReady()) return;
+
+        var smallData = LoadUnitDataByName("footman");
+        var mediumData = LoadUnitDataByName("goblin");
+        var largeData = LoadUnitDataByName("troll");
+
+        if (mediumData == null)
+        {
+            Debug.LogWarning("[StressTest] S8: goblin UnitData not found");
+            return;
+        }
+
+        Vector3 targetPos = SnapToWalkable(Vector3.zero);
+        var targetObj = UnitManager.Instance.SpawnUnit(mediumData, targetPos, Quaternion.identity, 1);
+        if (targetObj == null)
+        {
+            Debug.LogWarning("[StressTest] S8: failed to spawn target");
+            return;
+        }
+        spawnedUnits.Add(targetObj);
+
+        // Pin the target (same rules as S7).
+        var targetUnit = targetObj.GetComponent<Unit>();
+        targetUnit?.Movement?.Stop();
+        var targetCombat = targetObj.GetComponent<UnitCombat>();
+        if (targetCombat != null) targetCombat.enabled = false;
+        var targetHealth = targetObj.GetComponent<Health>();
+        if (targetHealth != null) targetHealth.Invincible = true;
+
+        // Three waves from three sides.
+        if (smallData != null)
+            SpawnUnitsMarchingOfType(smallData, new Vector3(-40, 0, 0), targetPos, 12, 0);
+        else
+            Debug.LogWarning("[StressTest] S8: footman UnitData not found, skipping small wave");
+
+        SpawnUnitsMarchingOfType(mediumData, new Vector3(0, 0, -40), targetPos, 10, 0);
+
+        if (largeData != null)
+            SpawnUnitsMarchingOfType(largeData, new Vector3(40, 0, 0), targetPos, 4, 0);
+        else
+            Debug.LogWarning("[StressTest] S8: troll UnitData not found, skipping large wave");
+
+        Debug.Log("[StressTest] S8: Mixed attackers - goblin target, 12 footmen/W + 10 goblins/S + 4 trolls/E");
+    }
+
     // ================================================================
     //  CLEANUP
     // ================================================================
@@ -535,6 +720,27 @@ public class PathfindingStressTest : MonoBehaviour
         Debug.Log($"[StressTest] Castles invincible = {invincible}");
     }
 
+    /// <summary>
+    /// Destroy any AIPlayer GameObjects already in the scene. Called from Start()
+    /// when disableAIOnStart is true. Belt-and-suspenders purge for the case
+    /// where SampleScene (dontDestroyOnLoad NetworkGameManager) was opened
+    /// first and carried its spawned AIPlayers into the test scene.
+    /// Idempotent - safe when no AIPlayers exist.
+    /// </summary>
+    private void DisableAIPlayers()
+    {
+        var ais = Object.FindObjectsByType<AIPlayer>(FindObjectsSortMode.None);
+        int count = 0;
+        foreach (var ai in ais)
+        {
+            if (ai == null) continue;
+            Destroy(ai.gameObject);
+            count++;
+        }
+        if (count > 0)
+            Debug.Log($"[StressTest] Disabled {count} AIPlayer(s) for deterministic test scene");
+    }
+
     private bool ValidateReady()
     {
         if (!NetworkServer.active)
@@ -547,9 +753,9 @@ public class PathfindingStressTest : MonoBehaviour
             Debug.LogWarning("[StressTest] UnitManager not available");
             return false;
         }
-        if (PathfindingManager.Instance == null || !PathfindingManager.Instance.IsInitialized)
+        if (AstarPath.active == null)
         {
-            Debug.LogWarning("[StressTest] PathfindingManager not initialized — call StartMatch first");
+            Debug.LogWarning("[StressTest] AstarPath not active — ensure A* Pro is in the scene");
             return false;
         }
         return true;
@@ -557,13 +763,13 @@ public class PathfindingStressTest : MonoBehaviour
 
     private Vector3 SnapToWalkable(Vector3 pos)
     {
-        var grid = GridSystem.Instance;
-        if (grid == null) return pos;
-        pos = grid.SnapToGrid(pos);
-        Vector2Int cell = grid.WorldToCell(pos);
-        if (grid.IsInBounds(cell) && grid.IsWalkable(cell))
-            return pos;
-        return grid.FindNearestWalkablePosition(pos, pos);
+        pos.y = 0f;
+        if (AstarPath.active != null)
+        {
+            var nearest = AstarPath.active.GetNearest(pos, NearestNodeConstraint.Walkable);
+            if (nearest.node != null) return nearest.position;
+        }
+        return pos;
     }
 
     private UnitData LoadUnitData()

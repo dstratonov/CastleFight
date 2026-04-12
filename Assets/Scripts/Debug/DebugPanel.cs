@@ -47,7 +47,7 @@ public class DebugPanel : MonoBehaviour
         rect.anchorMax = new Vector2(0, 1);
         rect.pivot = new Vector2(0, 1);
         rect.anchoredPosition = new Vector2(10, -70);
-        rect.sizeDelta = new Vector2(200, 230);
+        rect.sizeDelta = new Vector2(200, 320);
 
         var bg = panelRoot.AddComponent<Image>();
         bg.color = BG_COLOR;
@@ -62,10 +62,15 @@ public class DebugPanel : MonoBehaviour
 
         CreateHeader(panelRoot.transform);
 
-        CreateToggle(panelRoot.transform, "Grid", overlay.showGrid, v => overlay.showGrid = v);
-        CreateToggle(panelRoot.transform, "Unit Paths", overlay.showPaths, v => overlay.showPaths = v);
-        CreateToggle(panelRoot.transform, "Attack Range", overlay.showAttackRange, v => overlay.showAttackRange = v);
-        CreateToggle(panelRoot.transform, "Build Zones", overlay.showBuildZones, v => overlay.showBuildZones = v);
+        CreateToggle(panelRoot.transform, "NavMesh",        overlay.showNavMesh,            v => overlay.showNavMesh = v);
+        CreateToggle(panelRoot.transform, "Unit Paths",     overlay.showPaths,              v => overlay.showPaths = v);
+        CreateToggle(panelRoot.transform, "Attack Range",   overlay.showAttackRange,        v => overlay.showAttackRange = v);
+        CreateToggle(panelRoot.transform, "Aggro Range",    overlay.showAggroRange,         v => overlay.showAggroRange = v);
+        CreateToggle(panelRoot.transform, "Velocities",     overlay.showVelocities,         v => overlay.showVelocities = v);
+        CreateToggle(panelRoot.transform, "Unit Radius",    overlay.showUnitRadius,         v => overlay.showUnitRadius = v);
+        CreateToggle(panelRoot.transform, "Attack Slots",   overlay.showAttackSlots,        v => overlay.showAttackSlots = v);
+        CreateToggle(panelRoot.transform, "Buildings",      overlay.showBuildingFootprints, v => overlay.showBuildingFootprints = v);
+        CreateToggle(panelRoot.transform, "Build Zones",    overlay.showBuildZones,         v => overlay.showBuildZones = v);
     }
 
     private void CreateHeader(Transform parent)

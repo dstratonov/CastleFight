@@ -295,31 +295,24 @@ public class AIPlayer : MonoBehaviour
 
     private Vector3? FindValidPosition(BuildingData data)
     {
-        if (!hasBuildZone) return null;
+        if (!hasBuildZone || data == null) return null;
 
-        var grid = GridSystem.Instance;
-        if (grid == null) return null;
-
-        int footprintRadius = data != null && data.prefab != null ? EstimateBuildingRadius(data) : 2;
-
+        // Try random positions inside the team's build zone. Use the
+        // physics overlap check from BuildingManager to see if the spot
+        // is free of existing buildings/castles, then a unit-radius check.
         for (int attempt = 0; attempt < 30; attempt++)
         {
             float x = Random.Range(buildZoneBounds.min.x, buildZoneBounds.max.x);
             float z = Random.Range(buildZoneBounds.min.z, buildZoneBounds.max.z);
-            Vector3 candidate = new(x, buildZoneBounds.center.y, z);
+            Vector3 candidate = new(x, 0f, z);
 
-            candidate = grid.SnapToGrid(candidate);
-
-            if (!grid.CanPlaceBuilding(candidate, teamId))
+            if (!BuildZone.Contains(teamId, candidate))
                 continue;
 
-            if (!IsAreaClear(grid, candidate, footprintRadius + 1))
+            if (BuildingManager.IsBuildingSpaceBlocked(data, candidate, Quaternion.identity))
                 continue;
 
-            if (!IsAreaFreeOfUnits(candidate, footprintRadius))
-                continue;
-
-            if (!IsAreaFreeOfBuildings(candidate, footprintRadius))
+            if (!IsAreaFreeOfUnits(candidate, data))
                 continue;
 
             return candidate;
@@ -328,68 +321,16 @@ public class AIPlayer : MonoBehaviour
         return null;
     }
 
-    private int EstimateBuildingRadius(BuildingData data)
+    private bool IsAreaFreeOfUnits(Vector3 position, BuildingData data)
     {
-        if (data.prefab == null) return 2;
-        var renderers = data.prefab.GetComponentsInChildren<Renderer>();
-        if (renderers.Length == 0) return 2;
-        Bounds b = renderers[0].bounds;
-        foreach (var r in renderers)
-            b.Encapsulate(r.bounds);
-        float maxExtent = Mathf.Max(b.extents.x, b.extents.z);
-        var grid = GridSystem.Instance;
-        float cellSize = grid != null ? grid.CellSize : 2f;
-        return Mathf.CeilToInt(maxExtent / cellSize) + 1;
-    }
+        if (UnitManager.Instance == null) return true;
 
-    private bool IsAreaClear(GridSystem grid, Vector3 position, int checkRadius)
-    {
-        Vector2Int cell = grid.WorldToCell(position);
-        for (int dx = -checkRadius; dx <= checkRadius; dx++)
-        {
-            for (int dz = -checkRadius; dz <= checkRadius; dz++)
-            {
-                Vector2Int c = new(cell.x + dx, cell.y + dz);
-                if (!grid.IsInBounds(c) || !grid.IsWalkable(c))
-                    return false;
-            }
-        }
-        return true;
-    }
+        // Use the building's expected footprint as the clearance radius
+        Vector3 fp = BuildingManager.EstimateFootprint(data);
+        float checkDist = Mathf.Max(fp.x, fp.z) * 0.5f + 1f;
 
-    private bool IsAreaFreeOfUnits(Vector3 position, int radius)
-    {
-        if (UnitManager.Instance == null)
-        {
-            Debug.LogError("[AIPlayer] IsAreaFreeOfUnits: UnitManager.Instance is null — cannot check");
-            return false;
-        }
-        var grid = GridSystem.Instance;
-        float checkDist = grid != null ? radius * grid.CellSize + 1f : radius * 2f + 1f;
         var nearby = UnitManager.Instance.GetUnitsInRadius(position, checkDist);
         return nearby.Count == 0;
-    }
-
-    private bool IsAreaFreeOfBuildings(Vector3 position, int radius)
-    {
-        if (BuildingManager.Instance == null)
-        {
-            Debug.LogError("[AIPlayer] IsAreaFreeOfBuildings: BuildingManager.Instance is null — cannot check");
-            return false;
-        }
-        var grid = GridSystem.Instance;
-        float cellSize = grid != null ? grid.CellSize : 2f;
-        float minDist = (radius + 1) * cellSize;
-
-        var buildings = BuildingManager.Instance.GetTeamBuildings(teamId);
-        foreach (var b in buildings)
-        {
-            if (b == null) continue;
-            float dist = Vector3.Distance(position, b.transform.position);
-            if (dist < minDist)
-                return false;
-        }
-        return true;
     }
 
     private void LogGameSummary()

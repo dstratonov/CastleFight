@@ -1,6 +1,6 @@
 using UnityEngine;
 using Mirror;
-using System.Collections.Generic;
+using Pathfinding;
 
 [RequireComponent(typeof(Health))]
 public class Building : NetworkBehaviour, ISelectable, IAttackable
@@ -11,41 +11,45 @@ public class Building : NetworkBehaviour, ISelectable, IAttackable
     private BuildingData data;
     private Health health;
     private Spawner spawner;
-    private List<Vector2Int> occupiedCells = new();
 
     public BuildingData Data => data;
     public int TeamId => teamId;
     public int OwnerId => ownerId;
-    public IReadOnlyList<Vector2Int> OccupiedCells => occupiedCells;
     public string DisplayName => data != null ? data.buildingName : "Building";
     Health ISelectable.Health => health;
     Health IAttackable.Health => health;
     ArmorType IAttackable.ArmorType => data != null ? data.armorType : ArmorType.Fortified;
-    float IAttackable.TargetRadius => BoundsHelper.GetRadius(gameObject);
-    Vector2Int IAttackable.CurrentCell => GridSystem.Instance != null ? GridSystem.Instance.WorldToCell(transform.position) : Vector2Int.zero;
-    int IAttackable.FootprintSize => occupiedCells.Count > 0
-        ? Mathf.CeilToInt(Mathf.Sqrt(occupiedCells.Count)) : 1;
-    (Vector2Int min, Vector2Int max) IAttackable.FootprintBounds
+    // Position returns the VISUAL/COLLIDER center in world space (not the
+    // pivot). Building prefabs often have their BoxCollider offset from the
+    // transform pivot — FitFootprintCollider sets box.center = renderer center
+    // relative to pivot — so using transform.position would make units face
+    // the wrong spot.
+    Vector3 IAttackable.Position
     {
         get
         {
-            if (occupiedCells.Count == 0)
-                return FootprintHelper.GetRect(((IAttackable)this).CurrentCell, 1);
-            Vector2Int min = occupiedCells[0], max = occupiedCells[0];
-            for (int i = 1; i < occupiedCells.Count; i++)
+            var col = GetComponent<BoxCollider>();
+            if (col != null)
             {
-                min = Vector2Int.Min(min, occupiedCells[i]);
-                max = Vector2Int.Max(max, occupiedCells[i]);
+                var c = col.bounds.center;
+                c.y = transform.position.y; // keep facing horizontal
+                return c;
             }
-            return (min, max);
+            return transform.position;
+        }
+    }
+    float IAttackable.TargetRadius => 0f;  // bounds already encodes full size
+    Bounds IAttackable.WorldBounds
+    {
+        get
+        {
+            var col = GetComponent<BoxCollider>();
+            if (col != null) return col.bounds;
+            if (BoundsHelper.TryGetCombinedBounds(gameObject, out var b)) return b;
+            return new Bounds(transform.position, Vector3.one);
         }
     }
     TargetPriority IAttackable.Priority => TargetPriority.Building;
-
-    public void SetOccupiedCells(List<Vector2Int> cells)
-    {
-        occupiedCells = cells;
-    }
 
     private void Awake()
     {
@@ -76,6 +80,9 @@ public class Building : NetworkBehaviour, ISelectable, IAttackable
 
         if (data.footprintSize.x > 0 && data.footprintSize.y > 0)
             FitFootprintCollider(data.footprintSize);
+
+        // Add NavmeshCut to carve the A* Pro NavMesh around this building
+        SetupNavmeshCut();
 
         if (spawner != null && data.spawnedUnit != null)
         {
@@ -158,6 +165,37 @@ public class Building : NetworkBehaviour, ISelectable, IAttackable
         fpX = Mathf.Min(footprint.size.x, maxX);
         fpZ = Mathf.Min(footprint.size.z, maxZ);
         center = new Vector3(footprint.center.x, fullBounds.center.y, footprint.center.z);
+    }
+
+    private void SetupNavmeshCut()
+    {
+        var cut = GetComponent<NavmeshCut>();
+        if (cut == null) cut = gameObject.AddComponent<NavmeshCut>();
+
+        // Size from collider or data footprint.
+        // CRITICAL: BoxCollider.center is a local offset — it's common for
+        // building prefabs to have the collider offset from the pivot because
+        // FitFootprintCollider uses the renderer's visual center. We must
+        // mirror that offset in the NavmeshCut so the carved hole lands on
+        // the actual building footprint and not on the transform pivot.
+        var box = GetComponent<BoxCollider>();
+        if (box != null)
+        {
+            cut.type = NavmeshCut.MeshType.Rectangle;
+            // box.size and box.center are in the collider's local space;
+            // NavmeshCut.rectangleSize / .center use the same local space
+            // (both components share this GameObject's transform).
+            cut.rectangleSize = new Vector2(box.size.x, box.size.z);
+            cut.height = box.size.y;
+            cut.center = box.center;
+        }
+        else if (data != null && data.footprintSize.x > 0)
+        {
+            cut.type = NavmeshCut.MeshType.Rectangle;
+            cut.rectangleSize = new Vector2(data.footprintSize.x, data.footprintSize.y);
+            cut.height = 5f;
+            cut.center = Vector3.zero;
+        }
     }
 
     public override void OnStartClient()

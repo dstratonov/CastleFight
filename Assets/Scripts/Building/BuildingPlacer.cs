@@ -126,12 +126,13 @@ public class BuildingPlacer : NetworkBehaviour
         Ray ray = mainCamera.ScreenPointToRay(mouse.position.ReadValue());
         if (!Physics.Raycast(ray, out RaycastHit hit, 200f, groundLayer)) return;
 
-        var grid = GridSystem.Instance;
-        Vector3 snapped = grid != null ? grid.SnapToGrid(hit.point) : hit.point;
-        ghostObject.transform.position = snapped;
+        // Flat ground, place at cursor point (no grid snap).
+        Vector3 worldPos = hit.point;
+        worldPos.y = 0f;
+        ghostObject.transform.position = worldPos;
 
-        bool zoneValid = IsInValidZone(snapped);
-        bool inRange = heroBuilder != null && heroBuilder.IsInBuildRange(snapped);
+        bool zoneValid = IsInValidZone(worldPos);
+        bool inRange = heroBuilder != null && heroBuilder.IsInBuildRange(worldPos);
 
         if (!zoneValid)
             SetGhostMaterial(invalidPlacementMaterial);
@@ -146,24 +147,24 @@ public class BuildingPlacer : NetworkBehaviour
         var player = GetComponent<NetworkPlayer>();
         if (player == null) return false;
 
-        var grid = GridSystem.Instance;
-        if (grid == null) return false;
+        // Must be inside the player's build zone
+        if (!BuildZone.Contains(player.TeamId, position)) return false;
 
-        if (!grid.CanPlaceBuilding(position, player.TeamId)) return false;
-
+        // Precise overlap: use the ghost's actual BoxCollider.bounds if it
+        // has one. This accounts for the collider's local offset from the
+        // prefab pivot and matches how the server-side final check works.
         if (ghostObject != null)
         {
-            Bounds bounds = BuildingManager.ComputeBuildingBounds(ghostObject);
-            var cells = grid.GetCellsOverlappingBounds(bounds);
-            if (!grid.AreCellsEmpty(cells)) return false;
-
-            var unitPresence = UnitGridPresence.Instance;
-            if (unitPresence != null)
+            var ghostCol = ghostObject.GetComponent<BoxCollider>();
+            if (ghostCol != null)
             {
-                foreach (var cell in cells)
-                {
-                    if (unitPresence.IsOccupied(cell)) return false;
-                }
+                if (BuildingManager.IsBoundsBlocked(ghostCol.bounds, ghostObject.transform.rotation, ghostObject))
+                    return false;
+            }
+            else if (currentBuildingData != null &&
+                     BuildingManager.IsBuildingSpaceBlocked(currentBuildingData, position, ghostObject.transform.rotation))
+            {
+                return false;
             }
         }
 
@@ -279,8 +280,8 @@ public class BuildingPlacer : NetworkBehaviour
         if (ResourceManager.Instance == null) return;
         if (!ResourceManager.Instance.CanAfford(player, data.cost)) return;
 
-        var grid = GridSystem.Instance;
-        if (grid != null && !grid.CanPlaceBuilding(position, player.TeamId)) return;
+        if (!BuildZone.Contains(player.TeamId, position)) return;
+        if (BuildingManager.IsBuildingSpaceBlocked(data, position, rotation)) return;
 
         if (!ResourceManager.Instance.TrySpendGold(player, data.cost)) return;
 
@@ -294,8 +295,21 @@ public class BuildingPlacer : NetworkBehaviour
 
     private void DisableGhostFunctionality(GameObject ghost)
     {
+        // Keep the ghost's ROOT BoxCollider active (needed so we can read its
+        // world-space bounds for placement-overlap checks). Disabled colliders
+        // report Vector3.zero bounds. Set it to a trigger so it doesn't block
+        // Physics.Raycast / Physics.OverlapBox queries from the rest of the
+        // game — the overlap check explicitly ignores the ghost itself.
+        var rootBox = ghost.GetComponent<BoxCollider>();
         foreach (var collider in ghost.GetComponentsInChildren<Collider>())
+        {
+            if (collider == rootBox)
+            {
+                collider.isTrigger = true;
+                continue;
+            }
             collider.enabled = false;
+        }
         foreach (var mb in ghost.GetComponentsInChildren<MonoBehaviour>())
             mb.enabled = false;
         foreach (var rb in ghost.GetComponentsInChildren<Rigidbody>())

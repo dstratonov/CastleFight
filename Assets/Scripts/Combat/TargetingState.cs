@@ -43,8 +43,9 @@ public class TargetingState
             return false;
         }
 
-        // Soft lock — accept if same or higher priority
-        if (target.Priority >= Current.Priority)
+        // Soft lock — accept if strictly higher priority (consistent with hard lock).
+        // Equal-priority targets don't cause swaps to avoid thrashing.
+        if (target.Priority > Current.Priority)
         {
             Apply(target);
             return true;
@@ -82,8 +83,9 @@ public class TargetingState
             return false;
         }
 
-        // Unit targets have a leash range
-        if (Current.Priority == TargetPriority.Unit)
+        // Hard-locked targets (units and buildings) have a leash range.
+        // Castle (Default priority, soft lock) has no leash — it's the fallback objective.
+        if (Lock == TargetLock.Hard)
         {
             float dist = Vector3.Distance(myPosition, Current.gameObject.transform.position);
             if (dist > leashRange)

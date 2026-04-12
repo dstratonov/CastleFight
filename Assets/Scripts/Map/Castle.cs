@@ -1,6 +1,6 @@
 using UnityEngine;
 using Mirror;
-using System.Collections.Generic;
+using Pathfinding;
 
 [RequireComponent(typeof(Health))]
 public class Castle : NetworkBehaviour, ISelectable, IAttackable
@@ -14,29 +14,34 @@ public class Castle : NetworkBehaviour, ISelectable, IAttackable
     [SyncVar] private int teamId = -1;
 
     private Health health;
-    private List<Vector2Int> occupiedCells = new();
 
     public int TeamId => teamId;
     public Health Health => health;
     public string DisplayName => TeamId == 0 ? "Blue Castle" : "Red Castle";
     ArmorType IAttackable.ArmorType => ArmorType.Fortified;
-    float IAttackable.TargetRadius => BoundsHelper.GetRadius(gameObject);
-    Vector2Int IAttackable.CurrentCell => GridSystem.Instance != null ? GridSystem.Instance.WorldToCell(transform.position) : Vector2Int.zero;
-    int IAttackable.FootprintSize => occupiedCells.Count > 0
-        ? Mathf.CeilToInt(Mathf.Sqrt(occupiedCells.Count)) : 2;
-    (Vector2Int min, Vector2Int max) IAttackable.FootprintBounds
+    Vector3 IAttackable.Position
     {
         get
         {
-            if (occupiedCells.Count == 0)
-                return FootprintHelper.GetRect(((IAttackable)this).CurrentCell, 2);
-            Vector2Int min = occupiedCells[0], max = occupiedCells[0];
-            for (int i = 1; i < occupiedCells.Count; i++)
+            var col = GetComponent<BoxCollider>();
+            if (col != null)
             {
-                min = Vector2Int.Min(min, occupiedCells[i]);
-                max = Vector2Int.Max(max, occupiedCells[i]);
+                var c = col.bounds.center;
+                c.y = transform.position.y;
+                return c;
             }
-            return (min, max);
+            return transform.position;
+        }
+    }
+    float IAttackable.TargetRadius => 0f;  // bounds already encodes full size
+    Bounds IAttackable.WorldBounds
+    {
+        get
+        {
+            var col = GetComponent<BoxCollider>();
+            if (col != null) return col.bounds;
+            if (BoundsHelper.TryGetCombinedBounds(gameObject, out var b)) return b;
+            return new Bounds(transform.position, Vector3.one);
         }
     }
     TargetPriority IAttackable.Priority => TargetPriority.Default;
@@ -57,7 +62,7 @@ public class Castle : NetworkBehaviour, ISelectable, IAttackable
             Initialize(team, hp);
         }
 
-        RegisterGridCells();
+        SetupNavmeshCut();
     }
 
     private int FallbackDetectTeam()
@@ -75,17 +80,21 @@ public class Castle : NetworkBehaviour, ISelectable, IAttackable
         Debug.Log($"[Castle] {gameObject.name} initialized as team {team} with {maxHp} HP");
     }
 
-    [Server]
-    private void RegisterGridCells()
+    private void SetupNavmeshCut()
     {
-        var grid = GridSystem.Instance;
-        if (grid == null) return;
+        var cut = GetComponent<NavmeshCut>();
+        if (cut == null) cut = gameObject.AddComponent<NavmeshCut>();
 
-        Bounds bounds = BuildingManager.ComputeBuildingBounds(gameObject);
-        occupiedCells = grid.GetCellsOverlappingBounds(bounds);
-        grid.MarkCells(occupiedCells, CellState.Building);
-        Debug.Log($"[Castle] {gameObject.name} registered {occupiedCells.Count} grid cells " +
-            $"footprint=({bounds.size.x:F1}, {bounds.size.z:F1})");
+        var box = GetComponent<BoxCollider>();
+        if (box != null)
+        {
+            cut.type = NavmeshCut.MeshType.Rectangle;
+            // Mirror the box collider's LOCAL offset and size so the navmesh
+            // hole aligns with the actual castle footprint, not the pivot.
+            cut.rectangleSize = new Vector2(box.size.x, box.size.z);
+            cut.height = box.size.y;
+            cut.center = box.center;
+        }
     }
 
     public override void OnStartClient()
@@ -117,17 +126,24 @@ public class Castle : NetworkBehaviour, ISelectable, IAttackable
         Debug.Log($"[Castle] {gameObject.name} DESTROYED by {(killer != null ? killer.name : "unknown")}!");
         EventBus.Raise(new CastleDestroyedEvent(teamId));
 
-        var grid = GridSystem.Instance;
-        if (grid != null && occupiedCells.Count > 0)
-            grid.ClearCells(occupiedCells);
+        // Only the FIRST castle death triggers EndMatch. If we're already past
+        // GameOver, this is the losing side's second castle being mopped up
+        // after the match ended — don't re-report a winner.
+        if (GameManager.Instance == null)
+        {
+            Debug.LogError("[Castle] GameManager.Instance is NULL — cannot end match! Game will continue in broken state.");
+            return;
+        }
+        if (GameManager.Instance.CurrentState == GameState.GameOver)
+        {
+            Debug.Log($"[Castle] {gameObject.name} died after game already ended — ignoring.");
+            return;
+        }
 
         int winningTeam = TeamManager.Instance != null
             ? TeamManager.Instance.GetEnemyTeamId(teamId)
             : (teamId == 0 ? 1 : 0);
         Debug.Log($"[Castle] GAME OVER! Team {winningTeam} wins!");
-        if (GameManager.Instance != null)
-            GameManager.Instance.EndMatch(winningTeam);
-        else
-            Debug.LogError("[Castle] GameManager.Instance is NULL — cannot end match! Game will continue in broken state.");
+        GameManager.Instance.EndMatch(winningTeam);
     }
 }

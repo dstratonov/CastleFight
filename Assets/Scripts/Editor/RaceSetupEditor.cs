@@ -365,7 +365,8 @@ public static class RaceSetupEditor
         data.moveSpeed = def.moveSpeed;
         data.attackDamage = def.damage;
         data.attackSpeed = def.attackSpeed;
-        data.attackRangeCells = def.attackRangeCells;
+        // Convert legacy cell-based range (1 cell ≈ 2 world units)
+        data.attackRange = def.attackRangeCells * 2f;
         data.attackType = def.attackType;
         data.armorType = def.armorType;
         data.isRanged = def.isRanged;

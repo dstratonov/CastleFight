@@ -32,74 +32,56 @@ public class Unit : NetworkBehaviour, ISelectable, IAttackable
     Health ISelectable.Health => health;
     Health IAttackable.Health => health;
     ArmorType IAttackable.ArmorType => data != null ? data.armorType : ArmorType.Unarmored;
+    Vector3 IAttackable.Position => transform.position;
+    // TargetRadius is the round-body sphere radius used by distance checks.
+    // Non-zero on units signals to AttackRangeHelper.DistanceToTarget that
+    // it should use sphere math (centerDist - radius) instead of the cube
+    // ClosestPoint fallback — cube math over-reports reach on diagonal
+    // approaches and causes attackers to "in-range-lock" far from the
+    // correct kissing position, clumping them on one side of the target.
     float IAttackable.TargetRadius => EffectiveRadius;
-    Vector2Int IAttackable.CurrentCell => GridSystem.Instance != null ? GridSystem.Instance.WorldToCell(transform.position) : Vector2Int.zero;
-    int IAttackable.FootprintSize => FootprintSize;
-    (Vector2Int min, Vector2Int max) IAttackable.FootprintBounds => FootprintHelper.GetRect(((IAttackable)this).CurrentCell, FootprintSize);
+    Bounds IAttackable.WorldBounds
+    {
+        get
+        {
+            // Square body bounds sized to EffectiveRadius (the visual half-extent).
+            // Used by FindAttackPosition for extended-target perimeter math;
+            // for range checks DistanceToTarget now uses the sphere form
+            // via TargetRadius so the cube corners don't over-report reach.
+            float r = EffectiveRadius;
+            return new Bounds(transform.position, new Vector3(r * 2f, r * 2f, r * 2f));
+        }
+    }
     TargetPriority IAttackable.Priority => TargetPriority.Unit;
 
-    private const float MaxAutoRadius = 2f;
-    private const float MaxEffectiveRadius = 4f; // Large creatures (dragons, cyclops) need bigger footprints
-
+    /// <summary>
+    /// Full body half-extent in world units, used for target bounds and as the
+    /// attacker's own "reach origin" radius. NOT clamped to any max — large
+    /// creatures (dragons, cyclopes, hydras) keep their true visual size.
+    /// RVO / local-avoidance uses a separately clamped radius (see UnitMovement).
+    /// </summary>
     public float EffectiveRadius
     {
         get
         {
-            float r;
             if (data != null && data.unitRadius > 0f)
-                r = data.unitRadius;
-            else if (cachedRadius > 0f)
-                r = cachedRadius;
-            else
-            {
-                cachedRadius = ComputeRadiusFromBounds();
-                r = cachedRadius;
-            }
-            return Mathf.Min(r, MaxEffectiveRadius);
+                return data.unitRadius;
+            if (cachedRadius > 0f)
+                return cachedRadius;
+            cachedRadius = ComputeRadiusFromBounds();
+            return cachedRadius;
         }
-    }
-
-    private int cachedFootprint = -1;
-
-    /// <summary>
-    /// Grid footprint size (NxN cells). Auto-calculated from the unit's actual
-    /// renderer bounds, same approach as buildings. Cached after first computation.
-    /// </summary>
-    public int FootprintSize
-    {
-        get
-        {
-            if (cachedFootprint > 0) return cachedFootprint;
-            cachedFootprint = ComputeFootprintFromBounds();
-            return cachedFootprint;
-        }
-    }
-
-    private int ComputeFootprintFromBounds()
-    {
-        float cellSize = GridSystem.Instance != null ? GridSystem.Instance.CellSize : 2f;
-
-        // Try to get XZ size from renderer bounds
-        if (BoundsHelper.TryGetCombinedBounds(gameObject, out var bounds))
-        {
-            float maxXZ = Mathf.Max(bounds.size.x, bounds.size.z);
-            return Mathf.Clamp(Mathf.CeilToInt(maxXZ / cellSize), 1, 4);
-        }
-
-        // Fallback: derive from unitRadius
-        float radius = data != null ? data.unitRadius : 0.5f;
-        return Mathf.Clamp(Mathf.CeilToInt(radius * 2f / cellSize), 1, 4);
     }
 
     private float ComputeRadiusFromBounds()
     {
-        float raw = BoundsHelper.GetRadius(gameObject);
-        if (raw > MaxAutoRadius)
-        {
-            Debug.LogWarning($"[Unit] {gameObject.name} auto-radius {raw:F2} clamped to {MaxAutoRadius}. Set unitRadius in UnitData to override.");
-            raw = MaxAutoRadius;
-        }
-        return Mathf.Max(raw, 0.25f);
+        // Horizontal half-extent of the visible mesh. No upper clamp — data-driven
+        // values in UnitData are the primary source; this fallback only runs when
+        // unitRadius is missing or zero.
+        if (!BoundsHelper.TryGetCombinedBounds(gameObject, out var b))
+            return 0.5f;
+        float half = Mathf.Max(b.extents.x, b.extents.z);
+        return Mathf.Max(half, 0.25f);
     }
 
     private void Awake()
@@ -125,9 +107,12 @@ public class Unit : NetworkBehaviour, ISelectable, IAttackable
         Debug.Assert(health != null, $"[Unit] {gameObject.name} Initialize: health is null", this);
         health.Initialize(unitData.maxHealth, team);
 
+        if (movement != null)
+            movement.ConfigureFromData(unitData);
+
         if (GameDebug.UnitLifecycle)
             Debug.Log($"[Unit] INIT {gameObject.name} data={unitData.unitName} team={team} hp={unitData.maxHealth} " +
-                $"atk={unitData.attackDamage} spd={unitData.moveSpeed} rangeCells={unitData.attackRangeCells} " +
+                $"atk={unitData.attackDamage} spd={unitData.moveSpeed} range={unitData.attackRange:F1} " +
                 $"radius={unitData.unitRadius:F2} isRanged={unitData.isRanged}");
     }
 

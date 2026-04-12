@@ -2,35 +2,55 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using System.Collections.Generic;
 
+/// <summary>
+/// Runtime debug overlay for Castle Fight.
+///
+/// Uses a pool of <see cref="LineRenderer"/> GameObjects instead of GL
+/// immediate mode, so the overlay reliably shows up under URP and in every
+/// Game View screenshot — GL.Begin/End inside endCameraRendering callbacks
+/// silently no-ops under URP's render pass setup, which was making debug
+/// screenshots useless.
+///
+/// Overlays visualize:
+///  * Unit paths (line from unit to its WorldTarget)
+///  * Unit velocities (speed-colored arrows)
+///  * Attack ranges (effective radius + attack range circle per unit)
+///  * RVO agent radii (actual collision-avoidance circles)
+///  * Building physical footprints (real BoxCollider bounds)
+///  * Build zones
+///  * Attack slot claims (yellow diamond = in-flight claim, green = actively attacking)
+///
+/// All overlays are toggled at runtime via <see cref="PathfindingDebugToggle"/>.
+/// </summary>
 public class DebugOverlay : MonoBehaviour
 {
     public static DebugOverlay Instance { get; private set; }
 
-    public bool showGrid = true;
-    public bool showPaths = true;
+    public bool showNavMesh;              // F4 — deprecated (GL-based); keeps the F-key for API compat
+    public bool showPaths = true;         // F3 — unit path lines to destination
+    public bool showVelocities;           // F6 — movement velocity arrows
+    public bool showAttackRange;          // F5 — attack reach = unitRadius + attackRange
+    public bool showAggroRange;           // NEW — UnitData.aggroRadius (how far the unit scans for targets)
+    public bool showUnitRadius;           // unit.EffectiveRadius — the single unified physical radius (== RVO radius)
+    public bool showBuildingFootprints = true; // real BoxCollider bounds
     public bool showBuildZones;
-    public bool showNavMesh;
-    public bool showVelocities;
-    public bool showUnitCells = true;
-    public bool showAttackRange;
-
-    private Material lineMaterial;
-    private Camera cam;
+    public bool showAttackSlots;          // claimed attack positions
 
     private const float Y_OFFSET = 0.25f;
 
+    // LineRenderer pool — disabled LineRenderers are reused next frame.
+    private Transform poolParent;
+    private Material lineMat;
+    private readonly List<LineRenderer> pool = new();
+    private int poolCursor;
+
     private readonly List<Unit> unitBuffer = new(128);
 
-    private HeroController[] cachedHeroes;
-    private float heroCacheTime;
-    private readonly Dictionary<int, (HeroAutoAttack atk, HeroBuilder bld)> heroComponentCache = new();
-
+    private Building[] cachedBuildings;
+    private float buildingsCacheTime;
     private BuildZone[] cachedBuildZones;
     private float buildZoneCacheTime;
     private readonly Dictionary<int, BoxCollider> buildZoneColliderCache = new();
-
-    private readonly HashSet<int> stuckUnitIds = new();
-    private float stuckCacheTime;
 
     private void Awake()
     {
@@ -41,91 +61,44 @@ public class DebugOverlay : MonoBehaviour
     private void OnDestroy()
     {
         if (Instance == this) Instance = null;
-        RenderPipelineManager.endCameraRendering -= OnEndCameraRendering;
     }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    private static void ResetStatics()
-    {
-        Instance = null;
-    }
+    private static void ResetStatics() => Instance = null;
 
     private void Start()
     {
-        cam = GetComponent<Camera>();
-        if (cam == null) cam = Camera.main;
+        var go = new GameObject("DebugOverlayPool");
+        go.transform.SetParent(transform, false);
+        go.hideFlags = HideFlags.DontSave;
+        poolParent = go.transform;
+
+        // Sprites/Default handles alpha blending and works in both URP and
+        // built-in pipelines without any setup. It's the most portable
+        // material for debug lines.
+        var shader = Shader.Find("Sprites/Default");
+        lineMat = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
     }
 
-    private void OnEnable()
+    private void LateUpdate()
     {
-        RenderPipelineManager.endCameraRendering += OnEndCameraRendering;
-    }
-
-    private void OnDisable()
-    {
-        RenderPipelineManager.endCameraRendering -= OnEndCameraRendering;
-    }
-
-    private Material overlayMaterial;
-
-    private void EnsureMaterial()
-    {
-        if (lineMaterial != null) return;
-        var shader = Shader.Find("Hidden/Internal-Colored");
-
-        lineMaterial = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
-        lineMaterial.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
-        lineMaterial.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
-        lineMaterial.SetInt("_Cull", 0);
-        lineMaterial.SetInt("_ZWrite", 0);
-        lineMaterial.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
-
-        overlayMaterial = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
-        overlayMaterial.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
-        overlayMaterial.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
-        overlayMaterial.SetInt("_Cull", 0);
-        overlayMaterial.SetInt("_ZWrite", 0);
-        overlayMaterial.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.Always);
-    }
-
-    private void OnEndCameraRendering(ScriptableRenderContext context, Camera renderingCamera)
-    {
-        if (cam == null) cam = Camera.main;
-        if (renderingCamera != cam) return;
-        RenderOverlay();
-    }
-
-    private void OnPostRender()
-    {
-        RenderOverlay();
-    }
-
-    private void RenderOverlay()
-    {
-        EnsureMaterial();
-
-        GL.PushMatrix();
-        GL.MultMatrix(Matrix4x4.identity);
-
+        poolCursor = 0;
         RefreshUnitBuffer();
 
-        lineMaterial.SetPass(0);
-        if (showGrid) DrawGrid();
-        if (showPaths) DrawUnitPaths();
-
-        overlayMaterial.SetPass(0);
+        // Order matters for visual stacking: bottom-up.
         if (showBuildZones) DrawBuildZones();
-        if (showNavMesh) DrawNavMesh();
-        if (showVelocities) DrawVelocities();
-        if (showUnitCells) DrawUnitCells();
+        if (showBuildingFootprints) DrawBuildingFootprints();
+        if (showPaths) DrawUnitPaths();
+        if (showAggroRange) DrawAggroRange();
         if (showAttackRange) DrawAttackRange();
+        if (showUnitRadius) DrawUnitRadius();
+        if (showVelocities) DrawVelocities();
+        if (showAttackSlots) DrawAttackSlots();
 
-        GL.PopMatrix();
+        // Disable any LineRenderers we didn't use this frame.
+        for (int i = poolCursor; i < pool.Count; i++)
+            if (pool[i] != null) pool[i].enabled = false;
     }
-
-    // ================================================================
-    // UNIT BUFFER
-    // ================================================================
 
     private void RefreshUnitBuffer()
     {
@@ -134,332 +107,268 @@ public class DebugOverlay : MonoBehaviour
         for (int team = 0; team <= 1; team++)
         {
             var teamUnits = UnitManager.Instance.GetTeamUnits(team);
-            if (teamUnits != null)
-            {
-                for (int i = 0; i < teamUnits.Count; i++)
-                    unitBuffer.Add(teamUnits[i]);
-            }
+            if (teamUnits == null) continue;
+            for (int i = 0; i < teamUnits.Count; i++)
+                unitBuffer.Add(teamUnits[i]);
         }
     }
 
-    private void RefreshStuckCache()
+    // ================================================================
+    //  POOL / PRIMITIVES
+    // ================================================================
+
+    private LineRenderer GetLine(float width)
     {
-        if (Time.time - stuckCacheTime < 1f) return;
-        stuckCacheTime = Time.time;
-        stuckUnitIds.Clear();
+        while (poolCursor < pool.Count && pool[poolCursor] == null)
+            pool.RemoveAt(poolCursor);
 
-        for (int i = 0; i < unitBuffer.Count; i++)
+        if (poolCursor >= pool.Count)
         {
-            var unit = unitBuffer[i];
-            if (unit == null) continue;
-            var movement = unit.Movement;
-            if (movement == null) continue;
-            if (movement.IsDestinationUnreachable)
-                stuckUnitIds.Add(unit.GetInstanceID());
+            var go = new GameObject($"DbgLine_{pool.Count}");
+            go.transform.SetParent(poolParent, false);
+            go.hideFlags = HideFlags.DontSave;
+            var lr = go.AddComponent<LineRenderer>();
+            lr.material = lineMat;
+            lr.useWorldSpace = true;
+            lr.shadowCastingMode = ShadowCastingMode.Off;
+            lr.receiveShadows = false;
+            lr.numCapVertices = 0;
+            lr.numCornerVertices = 0;
+            lr.alignment = LineAlignment.View; // always face camera for readable thin lines
+            lr.generateLightingData = false;
+            pool.Add(lr);
         }
+        var line = pool[poolCursor++];
+        line.enabled = true;
+        line.startWidth = line.endWidth = width;
+        line.loop = false;
+        return line;
     }
 
-    // ================================================================
-    // GRID
-    // ================================================================
-
-    private void DrawGrid()
+    private void DrawLine(Vector3 a, Vector3 b, Color color, float width = 0.08f)
     {
-        var grid = GridSystem.Instance;
-        if (grid == null) return;
+        var lr = GetLine(width);
+        lr.positionCount = 2;
+        lr.SetPosition(0, a);
+        lr.SetPosition(1, b);
+        lr.startColor = lr.endColor = color;
+    }
 
-        float cs = grid.CellSize;
-        float y = grid.GridOrigin.y + Y_OFFSET;
-
-        GetVisibleCellRange(grid, out int minX, out int maxX, out int minZ, out int maxZ);
-
-        GL.Begin(GL.LINES);
-        for (int x = minX; x <= maxX; x++)
+    private void DrawCircle(Vector3 center, float radius, Color color, int segments = 24, float width = 0.06f)
+    {
+        var lr = GetLine(width);
+        lr.positionCount = segments + 1;
+        lr.startColor = lr.endColor = color;
+        float step = Mathf.PI * 2f / segments;
+        for (int i = 0; i <= segments; i++)
         {
-            for (int z = minZ; z <= maxZ; z++)
-            {
-                var cell = new Vector2Int(x, z);
-                Vector3 center = grid.CellToWorld(cell);
-                center.y = y;
-
-                CellState state = grid.GetCellState(cell);
-                if (state == CellState.Building)
-                {
-                    GL.Color(new Color(1f, 0.2f, 0.1f, 0.5f));
-                    DrawCellFill(center, cs * 0.45f);
-                }
-                else
-                {
-                    GL.Color(new Color(0.3f, 0.8f, 0.3f, 0.08f));
-                }
-
-                float half = cs * 0.5f;
-                Vector3 a = center + new Vector3(-half, 0, -half);
-                Vector3 b = center + new Vector3(half, 0, -half);
-                Vector3 c = center + new Vector3(half, 0, half);
-                Vector3 d = center + new Vector3(-half, 0, half);
-
-                GLLine(a, b); GLLine(b, c); GLLine(c, d); GLLine(d, a);
-            }
+            float a = step * i;
+            lr.SetPosition(i, new Vector3(
+                center.x + Mathf.Cos(a) * radius,
+                center.y,
+                center.z + Mathf.Sin(a) * radius));
         }
-        GL.End();
+    }
+
+    private void DrawBoundsRect(Bounds b, float y, Color color, float width = 0.08f)
+    {
+        var lr = GetLine(width);
+        lr.positionCount = 5;
+        lr.startColor = lr.endColor = color;
+        lr.SetPosition(0, new Vector3(b.min.x, y, b.min.z));
+        lr.SetPosition(1, new Vector3(b.max.x, y, b.min.z));
+        lr.SetPosition(2, new Vector3(b.max.x, y, b.max.z));
+        lr.SetPosition(3, new Vector3(b.min.x, y, b.max.z));
+        lr.SetPosition(4, new Vector3(b.min.x, y, b.min.z));
+    }
+
+    private void DrawDiamond(Vector3 center, float size, Color color, float width = 0.05f)
+    {
+        var lr = GetLine(width);
+        lr.positionCount = 5;
+        lr.startColor = lr.endColor = color;
+        lr.SetPosition(0, center + new Vector3(0, 0, size));
+        lr.SetPosition(1, center + new Vector3(size, 0, 0));
+        lr.SetPosition(2, center + new Vector3(0, 0, -size));
+        lr.SetPosition(3, center + new Vector3(-size, 0, 0));
+        lr.SetPosition(4, center + new Vector3(0, 0, size));
     }
 
     // ================================================================
-    // UNIT PATHS
+    //  DRAW METHODS
     // ================================================================
 
     private void DrawUnitPaths()
     {
-        if (unitBuffer.Count == 0) return;
-
-        RefreshStuckCache();
-
-        GL.Begin(GL.LINES);
-        var grid = GridSystem.Instance;
-        float y = grid != null ? grid.GridOrigin.y + Y_OFFSET : Y_OFFSET;
-
+        float y = Y_OFFSET;
         for (int u = 0; u < unitBuffer.Count; u++)
         {
             var unit = unitBuffer[u];
             if (unit == null) continue;
-            var movement = unit.Movement;
-            if (movement == null) continue;
+            var mov = unit.Movement;
+            if (mov == null || !mov.WorldTarget.HasValue) continue;
 
-            int id = unit.GetInstanceID();
-            bool unreachable = movement.IsDestinationUnreachable;
-            bool stuck = stuckUnitIds.Contains(id);
-
-            var wps = movement.Waypoints;
-            if (wps != null && wps.Count > 0)
-            {
-                int idx = movement.WaypointIndex;
-
-                Color pathColor;
-                if (unreachable)
-                    pathColor = new Color(1f, 0.15f, 0.15f, 0.7f);
-                else if (stuck)
-                    pathColor = new Color(1f, 0.8f, 0f, 0.7f);
-                else
-                    pathColor = unit.TeamId == 0
-                        ? new Color(0.2f, 0.9f, 0.5f, 0.6f)
-                        : new Color(0.9f, 0.5f, 0.2f, 0.6f);
-
-                GL.Color(pathColor);
-                Vector3 prev = unit.transform.position;
-                prev.y = y;
-                for (int i = idx; i < wps.Count; i++)
-                {
-                    Vector3 wp = wps[i];
-                    wp.y = y;
-                    GLLine(prev, wp);
-                    DrawSmallCross(wp, 0.2f);
-                    prev = wp;
-                }
-            }
-
-            if (movement.WorldTarget.HasValue)
-            {
-                GL.Color(unreachable
-                    ? new Color(1f, 0.2f, 0.2f, 0.8f)
-                    : new Color(1f, 1f, 0f, 0.8f));
-                Vector3 dest = movement.WorldTarget.Value;
-                dest.y = y;
-                DrawDiamond(dest, 0.5f);
-            }
-        }
-        GL.End();
-    }
-
-    // ================================================================
-    // VELOCITY VECTORS
-    // ================================================================
-
-    private void DrawVelocities()
-    {
-        if (unitBuffer.Count == 0) return;
-
-        float y = GridSystem.Instance != null ? GridSystem.Instance.GridOrigin.y + Y_OFFSET + 0.05f : Y_OFFSET;
-
-        GL.Begin(GL.LINES);
-        for (int i = 0; i < unitBuffer.Count; i++)
-        {
-            var unit = unitBuffer[i];
-            if (unit == null) continue;
-            var movement = unit.Movement;
-            if (movement == null || !movement.IsMoving) continue;
-
+            Vector3 dest = mov.WorldTarget.Value;
+            dest.y = y;
             Vector3 pos = unit.transform.position;
             pos.y = y;
 
-            Vector3 vel = pos - movement.PreviousPosition;
-            vel.y = 0f;
+            Color lineCol = unit.TeamId == 0
+                ? new Color(0.2f, 0.9f, 0.5f, 0.6f)
+                : new Color(0.9f, 0.5f, 0.2f, 0.6f);
+            DrawLine(pos, dest, lineCol);
 
+            Color diamondCol = mov.IsDestinationUnreachable
+                ? new Color(1f, 0.2f, 0.2f, 1f)
+                : new Color(1f, 1f, 0.3f, 1f);
+            DrawDiamond(dest, 0.35f, diamondCol);
+        }
+    }
+
+    private void DrawVelocities()
+    {
+        float y = Y_OFFSET + 0.05f;
+        for (int u = 0; u < unitBuffer.Count; u++)
+        {
+            var unit = unitBuffer[u];
+            if (unit == null) continue;
+            var mov = unit.Movement;
+            if (mov == null || !mov.IsMoving) continue;
+
+            Vector3 pos = unit.transform.position;
+            pos.y = y;
+            Vector3 vel = pos - mov.PreviousPosition;
+            vel.y = 0f;
             if (vel.sqrMagnitude < 0.0001f) continue;
 
             float speed = vel.magnitude / Mathf.Max(Time.deltaTime, 0.001f);
             float speedNorm = Mathf.Clamp01(speed / 5f);
-            GL.Color(new Color(1f - speedNorm, speedNorm, 0.3f, 0.7f));
+            Color c = new Color(1f - speedNorm, speedNorm, 0.3f, 1f);
 
-            Vector3 tip = pos + vel.normalized * 1.5f;
-            GLLine(pos, tip);
+            Vector3 dir = vel.normalized;
+            Vector3 tip = pos + dir * 1.5f;
+            DrawLine(pos, tip, c, 0.09f);
 
-            Vector3 right = Vector3.Cross(Vector3.up, vel.normalized) * 0.2f;
-            GLLine(tip, tip - vel.normalized * 0.4f + right);
-            GLLine(tip, tip - vel.normalized * 0.4f - right);
+            Vector3 right = Vector3.Cross(Vector3.up, dir) * 0.25f;
+            Vector3 arrowBase = tip - dir * 0.4f;
+            DrawLine(tip, arrowBase + right, c, 0.09f);
+            DrawLine(tip, arrowBase - right, c, 0.09f);
         }
-        GL.End();
     }
-
-    // ================================================================
-    // UNIT CELL PRESENCE
-    // ================================================================
-
-    private void DrawUnitCells()
-    {
-        var presence = UnitGridPresence.Instance;
-        var grid = GridSystem.Instance;
-        if (presence == null || grid == null || UnitManager.Instance == null) return;
-
-        float y = grid.GridOrigin.y + Y_OFFSET + 0.02f;
-        float cs = grid.CellSize;
-        float half = cs * 0.48f;
-
-        GetVisibleGroundBounds(out float viewMinX, out float viewMaxX, out float viewMinZ, out float viewMaxZ);
-
-        GL.Begin(GL.LINES);
-
-        var allUnits = UnitManager.Instance.AllUnits;
-        for (int u = 0; u < allUnits.Count; u++)
-        {
-            var unit = allUnits[u];
-            if (unit == null || unit.IsDead) continue;
-
-            var cells = presence.GetUnitCells(unit.GetInstanceID());
-            if (cells == null) continue;
-
-            Color cellColor = unit.TeamId == 0
-                ? new Color(0.2f, 0.4f, 1f, 0.4f)
-                : new Color(1f, 0.3f, 0.2f, 0.4f);
-            GL.Color(cellColor);
-
-            for (int c = 0; c < cells.Count; c++)
-            {
-                Vector3 center = grid.CellToWorld(cells[c]);
-                if (center.x + half < viewMinX || center.x - half > viewMaxX ||
-                    center.z + half < viewMinZ || center.z - half > viewMaxZ)
-                    continue;
-
-                DrawCellOutline(center, half, y);
-            }
-        }
-        GL.End();
-    }
-
-    // ================================================================
-    // ATTACK RANGE — grid-based expanded footprint
-    // ================================================================
 
     private void DrawAttackRange()
     {
-        var grid = GridSystem.Instance;
-        if (grid == null || unitBuffer.Count == 0) return;
-
-        float y = grid.GridOrigin.y + Y_OFFSET + 0.04f;
-        float cs = grid.CellSize;
-        float half = cs * 0.46f;
-
-        GetVisibleGroundBounds(out float viewMinX, out float viewMaxX, out float viewMinZ, out float viewMaxZ);
-
-        GL.Begin(GL.LINES);
-
+        float y = Y_OFFSET + 0.04f;
         for (int u = 0; u < unitBuffer.Count; u++)
         {
             var unit = unitBuffer[u];
             if (unit == null || unit.IsDead || unit.Data == null) continue;
+            float totalRange = unit.EffectiveRadius + unit.Data.attackRange;
+            if (totalRange <= 0f) continue;
 
-            Vector2Int unitCell = grid.WorldToCell(unit.transform.position);
-            var (atkMin, atkMax) = AttackRangeHelper.GetAttackRect(
-                unitCell, unit.FootprintSize, unit.Data.attackRangeCells);
-
-            // Yellow for attack range
-            Color rangeColor = unit.TeamId == 0
-                ? new Color(0.3f, 0.8f, 1f, 0.25f)
-                : new Color(1f, 0.8f, 0.2f, 0.25f);
-            GL.Color(rangeColor);
-
-            for (int x = atkMin.x; x <= atkMax.x; x++)
-            {
-                for (int z = atkMin.y; z <= atkMax.y; z++)
-                {
-                    // Skip cells that are part of the unit's own footprint
-                    var (fpMin, fpMax) = FootprintHelper.GetRect(unitCell, unit.FootprintSize);
-                    if (x >= fpMin.x && x <= fpMax.x && z >= fpMin.y && z <= fpMax.y)
-                        continue;
-
-                    Vector3 center = grid.CellToWorld(new Vector2Int(x, z));
-                    if (center.x + half < viewMinX || center.x - half > viewMaxX ||
-                        center.z + half < viewMinZ || center.z - half > viewMaxZ)
-                        continue;
-
-                    DrawCellOutline(center, half, y);
-                }
-            }
+            Color c = unit.TeamId == 0
+                ? new Color(0.3f, 0.8f, 1f, 0.55f)
+                : new Color(1f, 0.8f, 0.2f, 0.55f);
+            Vector3 center = unit.transform.position;
+            center.y = y;
+            DrawCircle(center, totalRange, c, 28, 0.04f);
         }
-        GL.End();
     }
 
-    // ================================================================
-    // GRID WALKABILITY
-    // ================================================================
-
-    private void DrawNavMesh()
+    /// <summary>
+    /// Draw each unit's unified physical radius — Unit.EffectiveRadius,
+    /// which equals its RVO/collision radius and its visual body half-extent.
+    /// This is THE ONE physical radius that governs both crowd avoidance
+    /// and slot spacing. White circle, team-tinted stroke.
+    /// </summary>
+    private void DrawUnitRadius()
     {
-        var grid = GridSystem.Instance;
-        if (grid == null) return;
-
-        float y = grid.GridOrigin.y + Y_OFFSET + 0.05f;
-        float cs = grid.CellSize;
-        float half = cs * 0.5f;
-
-        // Show what A* actually sees: buildings + unit obstacles
-        grid.WalkableTeamContext = -2;
-
-        GetVisibleGroundBounds(out float viewMinX, out float viewMaxX, out float viewMinZ, out float viewMaxZ);
-
-        GL.Begin(GL.LINES);
-
-        for (int gx = 0; gx < grid.Width; gx++)
+        float y = Y_OFFSET + 0.07f;
+        for (int u = 0; u < unitBuffer.Count; u++)
         {
-            for (int gy = 0; gy < grid.Height; gy++)
-            {
-                var cell = new Vector2Int(gx, gy);
-                if (grid.IsWalkable(cell)) continue;
-
-                Vector3 center = grid.CellToWorld(cell);
-                if (center.x + half < viewMinX || center.x - half > viewMaxX ||
-                    center.z + half < viewMinZ || center.z - half > viewMaxZ)
-                    continue;
-
-                // Red = building, magenta = unit obstacle
-                bool isBuilding = grid.GetCellState(cell) == CellState.Building;
-                GL.Color(isBuilding
-                    ? new Color(1f, 0.2f, 0.2f, 0.3f)
-                    : new Color(1f, 0.2f, 1f, 0.3f));
-
-                GLLine(new Vector3(center.x - half, y, center.z - half),
-                       new Vector3(center.x + half, y, center.z + half));
-                GLLine(new Vector3(center.x + half, y, center.z - half),
-                       new Vector3(center.x - half, y, center.z + half));
-            }
+            var unit = unitBuffer[u];
+            if (unit == null || unit.IsDead) continue;
+            float r = unit.EffectiveRadius;
+            if (r <= 0f) continue;
+            Color c = unit.TeamId == 0
+                ? new Color(0.4f, 0.9f, 1f, 0.95f)
+                : new Color(1f, 0.6f, 0.4f, 0.95f);
+            if (unit.Movement != null && !unit.Movement.IsMoving)
+                c = new Color(1f, 1f, 1f, 1f); // bright white when locked
+            Vector3 center = unit.transform.position;
+            center.y = y;
+            DrawCircle(center, r, c, 24, 0.07f);
         }
-        GL.End();
-        grid.WalkableTeamContext = -1;
     }
 
-    // ================================================================
-    // BUILD ZONES
-    // ================================================================
+    /// <summary>
+    /// Draw each unit's aggro scan radius (UnitData.aggroRadius) — the
+    /// distance it searches for enemies. Drawn as a translucent orange
+    /// ring so it's distinct from the attack range and unit radius.
+    /// </summary>
+    private void DrawAggroRange()
+    {
+        float y = Y_OFFSET + 0.045f;
+        for (int u = 0; u < unitBuffer.Count; u++)
+        {
+            var unit = unitBuffer[u];
+            if (unit == null || unit.IsDead || unit.Data == null) continue;
+            float r = unit.Data.aggroRadius;
+            if (r <= 0f) continue;
+            Color c = unit.TeamId == 0
+                ? new Color(0.3f, 0.9f, 0.6f, 0.35f)
+                : new Color(1f, 0.6f, 0.2f, 0.35f);
+            Vector3 center = unit.transform.position;
+            center.y = y;
+            DrawCircle(center, r, c, 32, 0.04f);
+        }
+    }
+
+    private void DrawBuildingFootprints()
+    {
+        if (cachedBuildings == null || Time.time - buildingsCacheTime > 2f)
+        {
+            cachedBuildings = Object.FindObjectsByType<Building>(FindObjectsSortMode.None);
+            buildingsCacheTime = Time.time;
+        }
+
+        float y = Y_OFFSET + 0.03f;
+
+        if (cachedBuildings != null)
+        {
+            foreach (var b in cachedBuildings)
+            {
+                if (b == null) continue;
+                var col = b.GetComponent<BoxCollider>();
+                if (col == null) continue;
+                Color c = b.TeamId == 0
+                    ? new Color(0.2f, 0.6f, 1f, 0.9f)
+                    : new Color(1f, 0.35f, 0.2f, 0.9f);
+                DrawBoundsRect(col.bounds, y, c);
+            }
+        }
+
+        // Castles — thicker lines with a diagonal cross
+        var castles = Object.FindObjectsByType<Castle>(FindObjectsSortMode.None);
+        foreach (var castle in castles)
+        {
+            if (castle == null) continue;
+            var col = castle.GetComponent<BoxCollider>();
+            if (col == null) continue;
+            Color color = castle.TeamId == 0
+                ? new Color(0.1f, 0.5f, 1f, 1f)
+                : new Color(1f, 0.2f, 0.1f, 1f);
+            DrawBoundsRect(col.bounds, y, color, 0.15f);
+            DrawLine(
+                new Vector3(col.bounds.min.x, y, col.bounds.min.z),
+                new Vector3(col.bounds.max.x, y, col.bounds.max.z),
+                color, 0.1f);
+            DrawLine(
+                new Vector3(col.bounds.max.x, y, col.bounds.min.z),
+                new Vector3(col.bounds.min.x, y, col.bounds.max.z),
+                color, 0.1f);
+        }
+    }
 
     private void DrawBuildZones()
     {
@@ -469,15 +378,12 @@ public class DebugOverlay : MonoBehaviour
             buildZoneCacheTime = Time.time;
             buildZoneColliderCache.Clear();
         }
-        if (cachedBuildZones == null || cachedBuildZones.Length == 0) return;
+        if (cachedBuildZones == null) return;
 
-        float y = GridSystem.Instance != null ? GridSystem.Instance.GridOrigin.y + Y_OFFSET : Y_OFFSET;
-
-        GL.Begin(GL.LINES);
+        float y = Y_OFFSET;
         foreach (var zone in cachedBuildZones)
         {
             if (zone == null) continue;
-
             int zid = zone.GetInstanceID();
             if (!buildZoneColliderCache.TryGetValue(zid, out var col))
             {
@@ -486,143 +392,42 @@ public class DebugOverlay : MonoBehaviour
             }
             if (col == null) continue;
 
-            Bounds b = col.bounds;
             Color c = zone.TeamId == 0
-                ? new Color(0.2f, 0.5f, 1f, 0.5f)
-                : new Color(1f, 0.3f, 0.3f, 0.5f);
-            GL.Color(c);
-
-            Vector3 a1 = new(b.min.x, y, b.min.z);
-            Vector3 b1 = new(b.max.x, y, b.min.z);
-            Vector3 c1 = new(b.max.x, y, b.max.z);
-            Vector3 d1 = new(b.min.x, y, b.max.z);
-
-            GLLine(a1, b1); GLLine(b1, c1); GLLine(c1, d1); GLLine(d1, a1);
-
-            GL.Color(new Color(c.r, c.g, c.b, 0.15f));
-            GLLine(a1, c1); GLLine(b1, d1);
+                ? new Color(0.2f, 0.5f, 1f, 0.6f)
+                : new Color(1f, 0.3f, 0.3f, 0.6f);
+            DrawBoundsRect(col.bounds, y, c);
         }
-        GL.End();
     }
 
-    // ================================================================
-    // GL HELPERS
-    // ================================================================
-
-    private static void GLLine(Vector3 a, Vector3 b)
+    /// <summary>
+    /// Show the attack position each unit has claimed (via UnitCombat.AttackPosition).
+    /// Yellow diamond = claimed, still moving to it. Green diamond = actively
+    /// attacking from that slot. Thin line from unit to its claimed slot so
+    /// you can see which attacker is going where.
+    /// </summary>
+    private void DrawAttackSlots()
     {
-        GL.Vertex3(a.x, a.y, a.z);
-        GL.Vertex3(b.x, b.y, b.z);
-    }
-
-    private static void DrawSmallCross(Vector3 center, float size)
-    {
-        GLLine(center + new Vector3(-size, 0, 0), center + new Vector3(size, 0, 0));
-        GLLine(center + new Vector3(0, 0, -size), center + new Vector3(0, 0, size));
-    }
-
-    private static void DrawDiamond(Vector3 center, float size)
-    {
-        Vector3 top = center + new Vector3(0, 0, size);
-        Vector3 right = center + new Vector3(size, 0, 0);
-        Vector3 bottom = center + new Vector3(0, 0, -size);
-        Vector3 left = center + new Vector3(-size, 0, 0);
-        GLLine(top, right); GLLine(right, bottom);
-        GLLine(bottom, left); GLLine(left, top);
-    }
-
-    private static void DrawCellFill(Vector3 center, float half)
-    {
-        Vector3 a = center + new Vector3(-half, 0, -half);
-        Vector3 b = center + new Vector3(half, 0, -half);
-        Vector3 c = center + new Vector3(half, 0, half);
-        Vector3 d = center + new Vector3(-half, 0, half);
-        GLLine(a, c); GLLine(b, d);
-    }
-
-    private static void DrawCellOutline(Vector3 center, float half, float y)
-    {
-        GLLine(new Vector3(center.x - half, y, center.z - half),
-               new Vector3(center.x + half, y, center.z - half));
-        GLLine(new Vector3(center.x + half, y, center.z - half),
-               new Vector3(center.x + half, y, center.z + half));
-        GLLine(new Vector3(center.x + half, y, center.z + half),
-               new Vector3(center.x - half, y, center.z + half));
-        GLLine(new Vector3(center.x - half, y, center.z + half),
-               new Vector3(center.x - half, y, center.z - half));
-    }
-
-    // ================================================================
-    // UTILITY
-    // ================================================================
-
-    private void GetVisibleGroundBounds(out float worldMinX, out float worldMaxX, out float worldMinZ, out float worldMaxZ)
-    {
-        worldMinX = worldMinZ = float.MaxValue;
-        worldMaxX = worldMaxZ = float.MinValue;
-
-        if (cam == null)
+        float y = Y_OFFSET + 0.08f;
+        for (int u = 0; u < unitBuffer.Count; u++)
         {
-            worldMinX = worldMinZ = float.MinValue;
-            worldMaxX = worldMaxZ = float.MaxValue;
-            return;
+            var unit = unitBuffer[u];
+            if (unit == null || unit.IsDead) continue;
+            var cmb = unit.Combat;
+            if (cmb == null || !cmb.AttackPosition.HasValue) continue;
+
+            Vector3 slot = cmb.AttackPosition.Value;
+            slot.y = y;
+
+            Color c = cmb.IsAttacking
+                ? new Color(0.3f, 1f, 0.3f, 1f)    // green — locked in and swinging
+                : new Color(1f, 0.9f, 0.3f, 1f);   // yellow — claim in flight
+
+            DrawDiamond(slot, 0.35f, c, 0.07f);
+
+            Vector3 pos = unit.transform.position;
+            pos.y = y;
+            Color lineCol = new Color(c.r, c.g, c.b, 0.5f);
+            DrawLine(pos, slot, lineCol, 0.04f);
         }
-
-        float groundY = GridSystem.Instance != null ? GridSystem.Instance.GridOrigin.y : 0f;
-        float padding = 15f;
-
-        Vector3[] viewportPoints = {
-            new(0, 0, 0), new(1, 0, 0), new(0, 1, 0), new(1, 1, 0),
-            new(0.5f, 0, 0), new(0.5f, 1, 0), new(0, 0.5f, 0), new(1, 0.5f, 0)
-        };
-
-        int hits = 0;
-        for (int i = 0; i < viewportPoints.Length; i++)
-        {
-            Ray ray = cam.ViewportPointToRay(viewportPoints[i]);
-            if (Mathf.Abs(ray.direction.y) < 0.001f) continue;
-
-            float t = (groundY - ray.origin.y) / ray.direction.y;
-            if (t < 0) t = cam.farClipPlane;
-
-            Vector3 hit = ray.origin + ray.direction * Mathf.Min(t, cam.farClipPlane);
-            worldMinX = Mathf.Min(worldMinX, hit.x);
-            worldMaxX = Mathf.Max(worldMaxX, hit.x);
-            worldMinZ = Mathf.Min(worldMinZ, hit.z);
-            worldMaxZ = Mathf.Max(worldMaxZ, hit.z);
-            hits++;
-        }
-
-        if (hits == 0)
-        {
-            worldMinX = worldMinZ = float.MinValue;
-            worldMaxX = worldMaxZ = float.MaxValue;
-            return;
-        }
-
-        worldMinX -= padding;
-        worldMaxX += padding;
-        worldMinZ -= padding;
-        worldMaxZ += padding;
-    }
-
-    private void GetVisibleCellRange(GridSystem grid, out int minX, out int maxX, out int minZ, out int maxZ)
-    {
-        GetVisibleGroundBounds(out float wMinX, out float wMaxX, out float wMinZ, out float wMaxZ);
-
-        if (wMinX == float.MinValue)
-        {
-            minX = 0; maxX = grid.Width - 1;
-            minZ = 0; maxZ = grid.Height - 1;
-            return;
-        }
-
-        Vector2Int cellMin = grid.WorldToCell(new Vector3(wMinX, 0, wMinZ));
-        Vector2Int cellMax = grid.WorldToCell(new Vector3(wMaxX, 0, wMaxZ));
-
-        minX = Mathf.Max(0, cellMin.x);
-        maxX = Mathf.Min(grid.Width - 1, cellMax.x);
-        minZ = Mathf.Max(0, cellMin.y);
-        maxZ = Mathf.Min(grid.Height - 1, cellMax.y);
     }
 }

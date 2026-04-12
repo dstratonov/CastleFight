@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 [CreateAssetMenu(menuName = "CastleFight/Unit Data")]
 public class UnitData : ScriptableObject
@@ -20,8 +21,8 @@ public class UnitData : ScriptableObject
     [Header("Combat")]
     public float attackDamage = 10f;
     public float attackSpeed = 1f;
-    [Tooltip("Attack range in grid cells. Expands the unit's footprint rectangle by this many cells in each direction. 1 = melee (adjacent cell).")]
-    public int attackRangeCells = 1;
+    [Tooltip("Attack range in WORLD UNITS, measured as extra reach beyond the attacker's radius. 0.5 = melee, 2 = short reach, 5+ = ranged. A target is in range when the distance between attackerPos and the closest point on the target's bounds is <= attackerRadius + attackRange.")]
+    public float attackRange = 0.5f;
     [Tooltip("Radius in world units for detecting and aggroing on enemies.")]
     public float aggroRadius = 8f;
     public AttackType attackType = AttackType.Normal;
@@ -29,6 +30,15 @@ public class UnitData : ScriptableObject
     public bool isRanged;
     public GameObject projectilePrefab;
     public float projectileSpeed = 10f;
+
+    // ---------- Legacy (pre-rework) ----------
+    // Old grid-cell-based range. Kept for asset migration — OnValidate copies
+    // its value into attackRange the first time this asset is loaded after
+    // the rework. Hidden from the inspector.
+    [HideInInspector]
+    [SerializeField]
+    [FormerlySerializedAs("attackRangeCells")]
+    private int legacyAttackRangeCells = -1;
 
     [Header("Economy")]
     public int goldBounty = 5;
@@ -39,9 +49,34 @@ public class UnitData : ScriptableObject
 #if UNITY_EDITOR
     private void OnValidate()
     {
-        attackRangeCells = Mathf.Clamp(attackRangeCells, 1, isRanged ? 6 : 2);
-        float rangeCellsWorld = attackRangeCells * 2f; // approx cellSize
-        aggroRadius = Mathf.Max(aggroRadius, rangeCellsWorld);
+        // Migrate old cell-based range into the new world-space value.
+        // Mapping: 1 cell = 2 world units (grid cellSize is 2f).
+        if (legacyAttackRangeCells > 0 && attackRange <= 0.01f)
+        {
+            attackRange = legacyAttackRangeCells * 2f;
+            legacyAttackRangeCells = 0; // consumed
+            UnityEditor.EditorUtility.SetDirty(this);
+        }
+
+        if (attackRange < 0f) attackRange = 0f;
+        // Aggro must at least cover attack range so ranged units can see targets
+        float minAggro = attackRange + 1f;
+        if (aggroRadius < minAggro) aggroRadius = minAggro;
+    }
+#endif
+
+    // Temporary compatibility shim for editor tools that still reference
+    // the old field name. Reads/writes go through legacyAttackRangeCells
+    // which is migrated to attackRange on next OnValidate.
+#if UNITY_EDITOR
+    public int attackRangeCells
+    {
+        get => legacyAttackRangeCells > 0 ? legacyAttackRangeCells : Mathf.RoundToInt(attackRange / 2f);
+        set
+        {
+            legacyAttackRangeCells = value;
+            attackRange = value * 2f;
+        }
     }
 #endif
 }

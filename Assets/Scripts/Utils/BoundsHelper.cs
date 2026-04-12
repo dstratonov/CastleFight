@@ -113,4 +113,14 @@ public static class BoundsHelper
 
         return go.transform.position;
     }
+
+    /// <summary>
+    /// Squared distance from a point to the closest point on the physical bounds.
+    /// Cheaper than ClosestPoint + Vector3.Distance for range comparisons.
+    /// </summary>
+    public static float ClosestPointDistanceSq(Vector3 from, GameObject go)
+    {
+        Vector3 closest = ClosestPoint(go, from);
+        return (closest - from).sqrMagnitude;
+    }
 }

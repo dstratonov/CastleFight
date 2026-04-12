@@ -1,5 +1,6 @@
 using UnityEngine;
 using Mirror;
+using Pathfinding;
 
 public class Spawner : NetworkBehaviour
 {
@@ -33,7 +34,7 @@ public class Spawner : NetworkBehaviour
 
     private void Update()
     {
-        if (!isServer || !initialized || unitData == null) return;
+        if (!isServer || !NetworkServer.active || !initialized || unitData == null) return;
         if (GameManager.Instance != null && GameManager.Instance.CurrentState == GameState.GameOver) return;
 
         spawnTimer -= Time.deltaTime;
@@ -56,35 +57,25 @@ public class Spawner : NetworkBehaviour
         Quaternion rot = spawnPoint != null ? spawnPoint.rotation : transform.rotation;
 
         Vector3 pos = basePos;
-        var grid = GridSystem.Instance;
         float unitRadius = unitData.unitRadius > 0 ? unitData.unitRadius : 0.5f;
         float spawnSpread = SpawnPositionFinder.ComputeSpawnSpread(unitRadius);
         bool foundValid = false;
 
+        // Find a valid spawn position using A* Pro NavMesh queries
         for (int attempt = 0; attempt < 20; attempt++)
         {
             float spread = spawnSpread + attempt * 0.5f;
             Vector3 offset = new Vector3(Random.Range(-spread, spread), 0, Random.Range(-spread, spread));
             Vector3 candidate = basePos + offset;
 
-            if (grid != null)
-            {
-                Vector2Int cell = grid.WorldToCell(candidate);
-                if (!grid.IsWalkable(cell)) continue;
+            // Check the candidate is on the NavMesh
+            var nearest = AstarPath.active != null
+                ? AstarPath.active.GetNearest(candidate, NearestNodeConstraint.Walkable)
+                : default;
+            if (nearest.node == null || !nearest.node.Walkable)
+                continue;
 
-                int cellRadius = Mathf.CeilToInt(unitRadius / grid.CellSize) + 1;
-                bool hasClearance = true;
-                for (int dx = -cellRadius; dx <= cellRadius && hasClearance; dx++)
-                {
-                    for (int dz = -cellRadius; dz <= cellRadius && hasClearance; dz++)
-                    {
-                        Vector2Int adj = new(cell.x + dx, cell.y + dz);
-                        if (!grid.IsInBounds(adj) || !grid.IsWalkable(adj))
-                            hasClearance = false;
-                    }
-                }
-                if (!hasClearance) continue;
-            }
+            candidate = nearest.position;
 
             if (!IsSpawnPositionClear(candidate, unitRadius))
                 continue;
@@ -94,35 +85,22 @@ public class Spawner : NetworkBehaviour
             break;
         }
 
-        if (!foundValid && grid != null)
+        if (!foundValid)
         {
-            pos = grid.FindNearestWalkablePosition(basePos, basePos);
-            if (!IsSpawnPositionClear(pos, unitRadius))
+            // Fallback: find nearest walkable point on NavMesh
+            if (AstarPath.active != null)
             {
-                for (int fallbackAttempt = 0; fallbackAttempt < 8; fallbackAttempt++)
-                {
-                    Vector3 fallbackOffset = SpawnPositionFinder.ComputeFallbackOffset(fallbackAttempt, spawnSpread);
-                    Vector3 candidate = basePos + fallbackOffset;
-                    Vector2Int candidateCell = grid.WorldToCell(candidate);
-                    if (grid.IsInBounds(candidateCell) && grid.IsWalkable(candidateCell)
-                        && IsSpawnPositionClear(candidate, unitRadius))
-                    {
-                        pos = candidate;
-                        foundValid = true;
-                        break;
-                    }
-                }
-                if (!foundValid)
-                {
-                    pos = grid.FindNearestWalkablePosition(basePos + Vector3.forward * spawnSpread, basePos);
-                    if (GameDebug.Spawning)
-                        Debug.LogWarning($"[Spawn] All fallback attempts failed for {unitData.unitName}, using nearest walkable {pos:F1}");
-                }
+                var nearest = AstarPath.active.GetNearest(basePos, NearestNodeConstraint.Walkable);
+                if (nearest.node != null)
+                    pos = nearest.position;
             }
+
+            if (GameDebug.Spawning)
+                Debug.LogWarning($"[Spawn] All attempts failed for {unitData.unitName}, using nearest NavMesh point {pos:F1}");
         }
 
-        if (grid != null)
-            pos.y = grid.GridOrigin.y;
+        // Flat ground at Y=0
+        pos.y = 0f;
 
         var unitObj = UnitManager.Instance?.SpawnUnit(unitData, pos, rot, teamId);
         if (unitObj != null)
