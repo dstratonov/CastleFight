@@ -22,13 +22,26 @@ public class UnitManager : NetworkBehaviour
 
     private void Awake()
     {
+        EnsureRuntimeState();
+    }
+
+    private void EnsureRuntimeState()
+    {
         if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
             return;
         }
+
         Instance = this;
-        spatialHash = new SpatialHashGrid(6f);
+
+        if (spatialHash == null)
+            spatialHash = new SpatialHashGrid(6f);
+
+        if (!teamUnits.ContainsKey(0))
+            teamUnits[0] = new List<Unit>();
+        if (!teamUnits.ContainsKey(1))
+            teamUnits[1] = new List<Unit>();
     }
 
     private void OnDestroy()
@@ -44,6 +57,7 @@ public class UnitManager : NetworkBehaviour
 
     private void OnEnable()
     {
+        EnsureRuntimeState();
         EventBus.Subscribe<UnitKilledEvent>(OnUnitKilled);
     }
 
@@ -136,6 +150,8 @@ public class UnitManager : NetworkBehaviour
 
     private void LateUpdate()
     {
+        EnsureRuntimeState();
+
         for (int i = allUnits.Count - 1; i >= 0; i--)
         {
             if (allUnits[i] == null)

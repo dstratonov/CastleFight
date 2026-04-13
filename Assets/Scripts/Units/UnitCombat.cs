@@ -31,7 +31,7 @@ public class UnitCombat : NetworkBehaviour
     // world units from where it was when we last set it.
     private const float TargetMoveThreshold = 1.0f;
     private Vector3 lastKnownTargetPos;
-    private const float AttackPositionRefreshInterval = 0.15f;
+    private const float AttackPositionRefreshInterval = 0.25f;
     private float attackPositionRefreshTimer;
     private float slotProgressTimer;
     private float bestAttackSlotDistance = float.PositiveInfinity;
@@ -209,21 +209,12 @@ public class UnitCombat : NetworkBehaviour
         float attackRange = unit.Data.attackRange;
         attackPositionRefreshTimer -= Time.deltaTime;
 
-        // In-range check — attack when ALL THREE are true:
-        //   1) the attacker's body can reach the target's body
-        //      (distance(attackerPos, targetBody) <= attackerRadius + attackRange)
-        //   2) we have arrived at our assigned ring slot (if any)
-        //      so hard-locked attackers settle at distinct angles and
-        //      don't pile up at whatever point first tripped (1).
-        //   3) for soft-lock targets (no assigned angle) we skip (2).
-        //
-        // Gate (2) is essential: without it, attackers approaching a
-        // unit target from the west would all reach "in range" while
-        // still on the west side of the target and hard-lock there in
-        // a clump, even though each one has a distinct angle pre-
-        // computed in Scan(). With the gate they keep walking along
-        // their curved path until they're at the assigned spot, and
-        // only then lock in.
+        // In-range check. The assigned attack slot is still used to guide
+        // movement, but it is no longer a hard veto once the unit is
+        // already standing at a valid frontline spot. This avoids the
+        // classic RTS failure mode where a unit is visibly in range yet
+        // keeps orbiting because its mathematically assigned point is on
+        // the far side of the target or temporarily blocked.
         bool inRange = AttackRangeHelper.IsTargetInRange(
             transform.position, myRadius, attackRange, target);
 
@@ -238,6 +229,14 @@ public class UnitCombat : NetworkBehaviour
                 slotTolerance = Mathf.Max(slotTolerance, structureTolerance);
             }
             atAssignedSlot = slotDistSq <= slotTolerance * slotTolerance;
+        }
+
+        if (!atAssignedSlot
+            && inRange
+            && AttackRangeHelper.TryGetCurrentFrontlinePosition(target, unit, out Vector3 frontlinePosition))
+        {
+            attackPosition = frontlinePosition;
+            atAssignedSlot = true;
         }
 
         if (!atAssignedSlot
@@ -313,7 +312,7 @@ public class UnitCombat : NetworkBehaviour
 
             if (slotProgressTimer >= SlotProgressGrace)
             {
-                FlipSlotSearchDirection(target);
+                slotSearchDirection = 0;
                 attackPosition = null;
                 attackPositionRefreshTimer = 0f;
                 slotProgressTimer = 0f;
@@ -371,16 +370,35 @@ public class UnitCombat : NetworkBehaviour
 
         // Walk toward the target.
         Vector3 targetPos = target.Position;
+        bool targetMoved = Vector3.Distance(targetPos, lastKnownTargetPos) > TargetMoveThreshold;
         bool needsRefresh =
             attackPositionRefreshTimer <= 0f
             || !movement.WorldTarget.HasValue
             || !attackPosition.HasValue
-            || Vector3.Distance(targetPos, lastKnownTargetPos) > TargetMoveThreshold
+            || targetMoved
             || movement.IsHardStopped;
 
         if (needsRefresh && !isDetouring)
         {
             lastKnownTargetPos = targetPos;
+
+            bool keepCurrentAttackPosition =
+                attackPosition.HasValue
+                && !targetMoved
+                && !movement.IsHardStopped
+                && AttackRangeHelper.ShouldKeepCurrentAttackPosition(target, unit, attackPosition.Value);
+
+            if (keepCurrentAttackPosition)
+            {
+                attackPositionRefreshTimer = AttackPositionRefreshInterval;
+                if (!movement.WorldTarget.HasValue
+                    || Vector3.Distance(movement.WorldTarget.Value, attackPosition.Value) > 0.35f)
+                {
+                    movement.SetDestinationWorld(attackPosition.Value, treatAsCombatApproach: true);
+                }
+                return;
+            }
+
             Vector3 dest = AttackRangeHelper.FindAttackPosition(
                 transform.position,
                 myRadius,
@@ -396,10 +414,14 @@ public class UnitCombat : NetworkBehaviour
                 || movement.IsHardStopped
                 || !movement.WorldTarget.HasValue;
 
-            attackPosition = dest;
             attackPositionRefreshTimer = AttackPositionRefreshInterval;
-            bestAttackSlotDistance = Vector3.Distance(transform.position, dest);
-            slotProgressTimer = 0f;
+
+            if (!attackPosition.HasValue || destinationChanged)
+            {
+                attackPosition = dest;
+                bestAttackSlotDistance = Vector3.Distance(transform.position, dest);
+                slotProgressTimer = 0f;
+            }
 
             if (destinationChanged)
                 movement.SetDestinationWorld(dest, treatAsCombatApproach: true);

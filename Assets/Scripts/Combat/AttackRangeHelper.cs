@@ -14,6 +14,14 @@ using UnityEngine;
 /// </summary>
 public static class AttackRangeHelper
 {
+    private enum StructureFace
+    {
+        South,
+        East,
+        North,
+        West
+    }
+
     private const float BandExtraReachStep = 1.5f;
     private const float MinSlotWidth = 0.8f;
     private const float MeleePreferredExtraReach = 0.15f;
@@ -22,6 +30,18 @@ public static class AttackRangeHelper
     private const float QueueOverflowBands = 2f;
     private const float SlotPaddingWorld = 0.05f;
     private const float ShapeEpsilon = 0.001f;
+
+    private static bool IsValidTargetReference(IAttackable target)
+    {
+        return target != null && (target as Object) != null;
+    }
+
+    private static bool TargetsMatch(IAttackable a, IAttackable b)
+    {
+        Object aObject = a as Object;
+        Object bObject = b as Object;
+        return aObject != null && bObject != null && aObject == bObject;
+    }
 
     // ================================================================
     //  RANGE CHECKS
@@ -46,6 +66,9 @@ public static class AttackRangeHelper
     /// </summary>
     public static float DistanceToTarget(Vector3 attackerPos, IAttackable target)
     {
+        if (!IsValidTargetReference(target))
+            return float.PositiveInfinity;
+
         if (target.TargetRadius > 0.01f)
         {
             // Round body — sphere distance.
@@ -72,7 +95,7 @@ public static class AttackRangeHelper
     public static bool IsTargetInRange(
         Vector3 attackerPos, float attackerRadius, float attackRange, IAttackable target)
     {
-        if (target == null || target.gameObject == null) return false;
+        if (!IsValidTargetReference(target)) return false;
         float dist = DistanceToTarget(attackerPos, target);
         return dist <= attackerRadius + attackRange + 0.05f;
     }
@@ -157,7 +180,7 @@ public static class AttackRangeHelper
     /// </summary>
     public static float GetArcOccupiedOn(IAttackable target, int attackerTeam)
     {
-        if (target == null || target.gameObject == null) return 0f;
+        if (!IsValidTargetReference(target)) return 0f;
         if (UnitManager.Instance == null) return 0f;
 
         float total = 0f;
@@ -169,8 +192,7 @@ public static class AttackRangeHelper
             var c = u.Combat;
             if (c == null) continue;
             var t = c.CurrentTarget;
-            if (t == null || t.gameObject == null) continue;
-            if (t.gameObject != target.gameObject) continue;
+            if (!TargetsMatch(t, target)) continue;
             total += GetArcRequiredFor(target, u.EffectiveRadius);
         }
         return total;
@@ -313,6 +335,35 @@ public static class AttackRangeHelper
         return Mathf.Clamp(softTolerance, 0.25f, 1.5f);
     }
 
+    /// <summary>
+    /// Returns true if the attacker can stably attack the target from its
+    /// current world position. This is intentionally softer than the
+    /// precomputed slot assignment: the assigned slot guides movement, but
+    /// once a unit is already standing at an open, in-range frontline spot
+    /// we let it settle there instead of orbiting toward a mathematically
+    /// cleaner point.
+    /// </summary>
+    public static bool TryGetCurrentFrontlinePosition(IAttackable target, Unit attacker, out Vector3 destination)
+    {
+        destination = Vector3.zero;
+        if (target == null || attacker == null || attacker.Data == null)
+            return false;
+
+        LayoutParticipant participant = CreateParticipant(target, attacker);
+        List<OccupiedReservation> occupied = CollectOccupiedReservations(target, attacker);
+        return TryUseCurrentPositionAsSlot(target, participant, attacker, occupied, out destination);
+    }
+
+    public static bool ShouldKeepCurrentAttackPosition(IAttackable target, Unit attacker, Vector3 slot)
+    {
+        if (!IsValidTargetReference(target) || attacker == null || attacker.Data == null)
+            return false;
+
+        LayoutParticipant participant = CreateParticipant(target, attacker);
+        List<OccupiedReservation> occupied = CollectOccupiedReservations(target, attacker);
+        return IsExistingSlotViable(target, participant, attacker.transform.position, slot, occupied);
+    }
+
     // ================================================================
     //  ATTACK POSITION — unified for units, buildings, castles
     // ================================================================
@@ -358,64 +409,96 @@ public static class AttackRangeHelper
         LayoutParticipant participant = CreateParticipant(target, attacker);
         List<OccupiedReservation> occupied = CollectOccupiedReservations(target, attacker);
         Vector3 referencePosition = attacker.transform.position;
-        float bestScore = float.PositiveInfinity;
-        bool found = false;
-        int effectiveSearchDirection = target.TargetRadius > 0.01f ? searchDirection : 0;
+        int effectiveSearchDirection = 0;
 
         if (TryUseCurrentPositionAsSlot(target, participant, attacker, occupied, out destination))
             return true;
 
         if (attacker.Combat != null
             && attacker.Combat.AttackPosition.HasValue
+            && ShouldPreferExistingSlotReference(
+                target,
+                attacker,
+                participant.SlotWidth,
+                attacker.Combat.AttackPosition.Value)
             && IsExistingSlotViable(target, participant, attacker.transform.position, attacker.Combat.AttackPosition.Value, occupied))
         {
             destination = attacker.Combat.AttackPosition.Value;
             return true;
         }
 
-        foreach (int bandIndex in EnumerateCandidateBands(participant, allowQueueOutsideRange))
+        int passCount = target.TargetRadius <= 0.01f ? 2 : 1;
+        for (int pass = 0; pass < passCount; pass++)
         {
-            float extraReach = ComputeExtraReachForBand(participant, bandIndex);
-            float centerSurfaceOffset = participant.Radius + extraReach;
-            float perimeter = GetShapePerimeter(target, centerSurfaceOffset);
-            if (perimeter <= ShapeEpsilon)
-                continue;
-
-            float sampleSpacing = Mathf.Max((participant.SlotWidth + SlotPaddingWorld) * 0.5f, 0.35f);
-            int sampleCount = Mathf.Clamp(Mathf.CeilToInt(perimeter / sampleSpacing), 12, 128);
-
-            for (int offset = 0; offset < sampleCount; offset++)
+            bool localStructurePass = target.TargetRadius <= 0.01f && pass == 0;
+            Bounds structureBounds = default;
+            StructureFace localStructureFace = StructureFace.West;
+            if (localStructurePass)
             {
-                float parameter = GetSampleParameter(participant.PreferredParameter, sampleCount, offset, effectiveSearchDirection);
-                Vector3 candidate = EvaluateAttackPosition(
-                    target,
-                    parameter,
-                    centerSurfaceOffset,
-                    attacker.transform.position.y);
-
-                if (!IsCandidateReachableForParticipant(target, participant, attacker.transform.position, candidate))
-                    continue;
-
-                if (!IsCandidateOpen(candidate, participant.Radius, occupied))
-                    continue;
-
-                float angularPenalty = GetSearchParameterDistance(parameter, participant.PreferredParameter, effectiveSearchDirection) * perimeter * 0.35f;
-                float bandPenalty = Mathf.Abs(bandIndex - participant.PreferredBand) * 0.6f;
-                float score = Vector3.Distance(referencePosition, candidate) + angularPenalty + bandPenalty;
-
-                if (score < bestScore)
-                {
-                    bestScore = score;
-                    destination = candidate;
-                    found = true;
-                }
+                structureBounds = target.WorldBounds;
+                localStructureFace = GetPreferredStructureFace(structureBounds, referencePosition);
             }
 
-            if (found && bandIndex == participant.PreferredBand)
-                break;
+            float bestScore = float.PositiveInfinity;
+            bool found = false;
+
+            foreach (int bandIndex in EnumerateCandidateBands(participant, allowQueueOutsideRange))
+            {
+                float extraReach = ComputeExtraReachForBand(participant, bandIndex);
+                float centerSurfaceOffset = participant.Radius + extraReach;
+                float perimeter = GetShapePerimeter(target, centerSurfaceOffset);
+                if (perimeter <= ShapeEpsilon)
+                    continue;
+
+                float localSearchWindow = localStructurePass
+                    ? GetStructureLocalSearchWindow(perimeter, participant)
+                    : float.PositiveInfinity;
+                float sampleSpacing = Mathf.Max((participant.SlotWidth + SlotPaddingWorld) * 0.5f, 0.35f);
+                int sampleCount = Mathf.Clamp(Mathf.CeilToInt(perimeter / sampleSpacing), 12, 128);
+
+                for (int offset = 0; offset < sampleCount; offset++)
+                {
+                    float parameter = GetSampleParameter(participant.PreferredParameter, sampleCount, offset, effectiveSearchDirection);
+                    float perimeterDistance = CircularParameterDistance(parameter, participant.PreferredParameter) * perimeter;
+                    if (perimeterDistance > localSearchWindow)
+                        continue;
+
+                    Vector3 candidate = EvaluateAttackPosition(
+                        target,
+                        parameter,
+                        centerSurfaceOffset,
+                        attacker.transform.position.y);
+
+                    if (localStructurePass && GetStructureFace(structureBounds, candidate) != localStructureFace)
+                        continue;
+
+                    if (!IsCandidateReachableForParticipant(target, participant, attacker.transform.position, candidate))
+                        continue;
+
+                    if (!IsCandidateOpen(candidate, participant.Radius, occupied))
+                        continue;
+
+                    float angularPenalty = GetSearchParameterDistance(parameter, participant.PreferredParameter, effectiveSearchDirection) * perimeter * 0.35f;
+                    float bandPenalty = Mathf.Abs(bandIndex - participant.PreferredBand) * 0.6f;
+                    float score = Vector3.Distance(referencePosition, candidate) + angularPenalty + bandPenalty;
+
+                    if (score < bestScore)
+                    {
+                        bestScore = score;
+                        destination = candidate;
+                        found = true;
+                    }
+                }
+
+                if (found && bandIndex == participant.PreferredBand)
+                    break;
+            }
+
+            if (found)
+                return true;
         }
 
-        return found;
+        return false;
     }
 
     private static bool TryResolveAttackSlot(
@@ -486,10 +569,7 @@ public static class AttackRangeHelper
             return true;
 
         IAttackable currentTarget = candidate.Combat.CurrentTarget;
-        return currentTarget != null
-            && currentTarget.gameObject != null
-            && target.gameObject != null
-            && currentTarget.gameObject == target.gameObject;
+        return TargetsMatch(currentTarget, target);
     }
 
     private static LayoutParticipant CreateParticipant(IAttackable target, Unit unit)
@@ -508,12 +588,11 @@ public static class AttackRangeHelper
         Vector3 referencePosition = unit.transform.position;
         if (unit.Combat != null
             && unit.Combat.CurrentTarget != null
-            && target.gameObject != null
-            && unit.Combat.CurrentTarget.gameObject == target.gameObject
+            && TargetsMatch(unit.Combat.CurrentTarget, target)
             && unit.Combat.AttackPosition.HasValue)
         {
             Vector3 existingSlot = unit.Combat.AttackPosition.Value;
-            if (ShouldKeepExistingSlotReference(target, unit, slotWidth, existingSlot))
+            if (ShouldPreferExistingSlotReference(target, unit, slotWidth, existingSlot))
                 referencePosition = existingSlot;
         }
 
@@ -702,7 +781,7 @@ public static class AttackRangeHelper
     private static List<OccupiedReservation> CollectOccupiedReservations(IAttackable target, Unit attacker)
     {
         var reservations = new List<OccupiedReservation>();
-        if (attacker == null || target == null || UnitManager.Instance == null)
+        if (attacker == null || !IsValidTargetReference(target) || UnitManager.Instance == null)
             return reservations;
 
         foreach (Unit candidate in UnitManager.Instance.GetTeamUnits(attacker.TeamId))
@@ -711,7 +790,7 @@ public static class AttackRangeHelper
                 continue;
 
             IAttackable currentTarget = candidate.Combat.CurrentTarget;
-            if (currentTarget == null || currentTarget.gameObject == null || target.gameObject == null || currentTarget.gameObject != target.gameObject)
+            if (!TargetsMatch(currentTarget, target))
                 continue;
 
             if (!ShouldReserveSlot(candidate))
@@ -799,11 +878,7 @@ public static class AttackRangeHelper
         if (surfaceDistance < participant.Radius - 0.1f || surfaceDistance > maxDistance)
             return false;
 
-        if (!RequiresTightSlotStickiness(target, participant.Unit, participant.IsRanged))
-            return true;
-
-        return Vector3.Distance(attackerPosition, existingSlot)
-            <= GetExistingSlotStickDistance(participant.Unit, participant.SlotWidth);
+        return true;
     }
 
     private static bool TryUseCurrentPositionAsSlot(
@@ -815,12 +890,6 @@ public static class AttackRangeHelper
     {
         destination = Vector3.zero;
         if (target == null || attacker == null)
-            return false;
-
-        // Buildings and castles are wide footprints, so an attacker that is
-        // already standing at an open in-range spot should settle there
-        // instead of orbiting toward a sampled perimeter coordinate.
-        if (target.TargetRadius > 0.01f)
             return false;
 
         Vector3 candidate = attacker.transform.position;
@@ -849,11 +918,34 @@ public static class AttackRangeHelper
         if (target == null || unit == null)
             return false;
 
-        if (!RequiresTightSlotStickiness(target, unit, IsRangedAttacker(unit, unit.Data.attackRange)))
+        float attackRange = unit.Data != null ? unit.Data.attackRange : 0f;
+        float maxDistance = unit.EffectiveRadius + attackRange + BandExtraReachStep * QueueOverflowBands + 0.25f;
+        float surfaceDistance = DistanceToTarget(existingSlot, target);
+        return surfaceDistance >= unit.EffectiveRadius - 0.1f && surfaceDistance <= maxDistance;
+    }
+
+    private static bool ShouldPreferExistingSlotReference(
+        IAttackable target,
+        Unit unit,
+        float slotWidth,
+        Vector3 existingSlot)
+    {
+        if (!ShouldKeepExistingSlotReference(target, unit, slotWidth, existingSlot))
+            return false;
+
+        if (target == null || unit == null || target.TargetRadius > 0.01f)
             return true;
 
-        return Vector3.Distance(unit.transform.position, existingSlot)
-            <= GetExistingSlotStickDistance(unit, slotWidth);
+        if (unit.Combat != null && unit.Combat.IsAttacking)
+            return true;
+
+        float attackRange = unit.Data != null ? unit.Data.attackRange : 0f;
+        float nearTargetThreshold = unit.EffectiveRadius + attackRange + Mathf.Max(2.5f, slotWidth * 1.5f);
+        if (DistanceToTarget(unit.transform.position, target) <= nearTargetThreshold)
+            return true;
+
+        float stickDistance = Mathf.Max(GetExistingSlotStickDistance(unit, slotWidth), slotWidth * 2f);
+        return Vector3.Distance(unit.transform.position, existingSlot) <= stickDistance;
     }
 
     private static bool RequiresTightSlotStickiness(IAttackable target, Unit unit, bool isRanged)
@@ -865,6 +957,13 @@ public static class AttackRangeHelper
             return true;
 
         return !isRanged && unit.Data != null && unit.Data.attackRange <= 1.25f;
+    }
+
+    private static float GetStructureLocalSearchWindow(float perimeter, LayoutParticipant participant)
+    {
+        float slotSpan = participant.SlotWidth + SlotPaddingWorld;
+        float preferredWindow = Mathf.Max(6f, slotSpan * 5.25f);
+        return Mathf.Min(perimeter * 0.25f, preferredWindow);
     }
 
     private static float GetExistingSlotStickDistance(Unit unit, float slotWidth)
@@ -1267,6 +1366,36 @@ public static class AttackRangeHelper
             return GetBaseRectPerimeter(bounds);
 
         return 2f * (bounds.size.x + bounds.size.z) + 2f * Mathf.PI * buffer;
+    }
+
+    private static StructureFace GetStructureFace(Bounds bounds, Vector3 sample)
+    {
+        Vector3 perimeterPoint = ClosestPointOnRectPerimeter(bounds, sample);
+        float south = Mathf.Abs(perimeterPoint.z - bounds.min.z);
+        float east = Mathf.Abs(perimeterPoint.x - bounds.max.x);
+        float north = Mathf.Abs(perimeterPoint.z - bounds.max.z);
+        float west = Mathf.Abs(perimeterPoint.x - bounds.min.x);
+
+        float best = Mathf.Min(Mathf.Min(south, east), Mathf.Min(north, west));
+        if (best == south)
+            return StructureFace.South;
+        if (best == east)
+            return StructureFace.East;
+        if (best == north)
+            return StructureFace.North;
+        return StructureFace.West;
+    }
+
+    private static StructureFace GetPreferredStructureFace(Bounds bounds, Vector3 sample)
+    {
+        Vector3 delta = sample - bounds.center;
+        float xScore = Mathf.Abs(delta.x) / Mathf.Max(0.1f, bounds.extents.x);
+        float zScore = Mathf.Abs(delta.z) / Mathf.Max(0.1f, bounds.extents.z);
+
+        if (xScore >= zScore)
+            return delta.x >= 0f ? StructureFace.East : StructureFace.West;
+
+        return delta.z >= 0f ? StructureFace.North : StructureFace.South;
     }
 
     private static Vector3 GetRoundedRectPerimeterPoint(Bounds bounds, float t, float buffer)

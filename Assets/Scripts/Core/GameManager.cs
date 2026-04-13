@@ -25,12 +25,23 @@ public class GameManager : NetworkBehaviour
 
     private void Awake()
     {
+        EnsureSingleton();
+    }
+
+    private void EnsureSingleton()
+    {
         if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
             return;
         }
+
         Instance = this;
+    }
+
+    private void OnEnable()
+    {
+        EnsureSingleton();
     }
 
     private void OnDestroy()

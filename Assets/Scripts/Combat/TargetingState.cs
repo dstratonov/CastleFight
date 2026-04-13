@@ -15,7 +15,19 @@ public class TargetingState
 {
     public IAttackable Current { get; private set; }
     public TargetLock Lock { get; private set; }
-    public bool HasTarget => Current != null && Current.Health != null && !Current.Health.IsDead && Current.gameObject != null;
+    public bool HasTarget
+    {
+        get
+        {
+            if (Current == null)
+                return false;
+
+            if ((Current as Object) == null)
+                return false;
+
+            return Current.Health != null && !Current.Health.IsDead;
+        }
+    }
 
     /// <summary>
     /// Try to assign a new target. Returns true if target was accepted.
