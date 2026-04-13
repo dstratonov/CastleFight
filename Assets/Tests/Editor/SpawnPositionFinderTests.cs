@@ -217,3 +217,32 @@ public class SpawnPositionFinderTests
         Assert.AreEqual(6f, SpawnPositionFinder.ComputeSpawnSpread(2.0f), 0.01f);
     }
 }
+
+[TestFixture]
+public class UnitPathingProfileTests
+{
+    [TestCase(0.2f, 0.5f)]
+    [TestCase(0.5f, 0.5f)]
+    [TestCase(0.8f, 1.0f)]
+    [TestCase(1.5f, 1.0f)]
+    [TestCase(1.7f, 2.0f)]
+    [TestCase(3.2f, 2.0f)]
+    [TestCase(6.5f, 2.0f)]
+    [TestCase(10.1f, 2.0f)]
+    public void GetGraphRadiusForUnit_UsesSmallestContainingGraph(float unitRadius, float expectedGraphRadius)
+    {
+        float graphRadius = UnitPathingProfile.GetGraphRadiusForUnit(unitRadius);
+        Assert.AreEqual(expectedGraphRadius, graphRadius, 0.001f);
+    }
+
+    [Test]
+    public void SupportedGraphNames_AreUnique()
+    {
+        var names = new HashSet<string>();
+        foreach (float radius in UnitPathingProfile.SupportedGraphRadii)
+        {
+            string graphName = UnitPathingProfile.GetGraphName(radius);
+            Assert.IsTrue(names.Add(graphName), $"Duplicate graph name generated: {graphName}");
+        }
+    }
+}

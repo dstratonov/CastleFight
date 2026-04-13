@@ -17,6 +17,7 @@ public class UnitMovement : NetworkBehaviour
     private IAstarAI ai;
     private RVOController rvo;
     private Seeker seeker;
+    private float pathingGraphRadius = UnitPathingProfile.DefaultGraphRadius;
 
     private bool isStopped;
 
@@ -131,13 +132,19 @@ public class UnitMovement : NetworkBehaviour
         {
             ai.maxSpeed = unit.Data.moveSpeed;
             float dataRadius = unit.Data.unitRadius > 0 ? unit.Data.unitRadius : 0.5f;
+            pathingGraphRadius = UnitPathingProfile.GetGraphRadiusForUnit(dataRadius);
             rvo.radius = Mathf.Max(0.3f, dataRadius);
+            ConfigureLocomotion(richAI, unit.Data.moveSpeed);
         }
         else
         {
             ai.maxSpeed = 3.5f;
+            pathingGraphRadius = UnitPathingProfile.DefaultGraphRadius;
             rvo.radius = 0.3f;
+            ConfigureLocomotion(richAI, ai.maxSpeed);
         }
+
+        ApplyGraphMask();
 
         // Crowd-friendly RVO tuning.
         //
@@ -198,9 +205,16 @@ public class UnitMovement : NetworkBehaviour
     /// </summary>
     public void ConfigureFromData(UnitData data)
     {
+        pathingGraphRadius = UnitPathingProfile.GetGraphRadiusForUnit(data.unitRadius);
+        ApplyGraphMask();
+
         if (ai != null)
         {
             ai.maxSpeed = data.moveSpeed;
+        }
+        if (ai is RichAI richAI)
+        {
+            ConfigureLocomotion(richAI, data.moveSpeed);
         }
         if (rvo != null)
         {
@@ -246,8 +260,11 @@ public class UnitMovement : NetworkBehaviour
         // Check arrival
         if (ai.reachedDestination && !wasAtDestination && WorldTarget.HasValue)
         {
-            ArriveAtDestination();
-            return;
+            if (!IsCombatApproachDestination())
+            {
+                ArriveAtDestination();
+                return;
+            }
         }
         wasAtDestination = ai.reachedDestination;
 
@@ -261,13 +278,15 @@ public class UnitMovement : NetworkBehaviour
     // ================================================================
 
     [Server]
-    public void SetDestinationWorld(Vector3 target)
+    public void SetDestinationWorld(Vector3 target, bool treatAsCombatApproach = false)
     {
         if (ai == null) return;
 
         // Wait for A* Pro graph to be available
         if (AstarPath.active == null || AstarPath.active.data.graphs == null || AstarPath.active.data.graphs.Length == 0)
             return;
+
+        ApplyGraphMask();
 
         // Skip if already heading to same destination
         if (WorldTarget.HasValue && Vector3.Distance(target, WorldTarget.Value) < 0.5f)
@@ -276,7 +295,7 @@ public class UnitMovement : NetworkBehaviour
         // Already at destination — use a small fixed threshold so big units
         // (dragons, hydras) don't spuriously report arrival from far away
         // just because their visual body is huge.
-        if (Vector3.Distance(transform.position, target) < 0.5f)
+        if (!treatAsCombatApproach && Vector3.Distance(transform.position, target) < 0.5f)
         {
             WorldTarget = target;
             ArriveAtDestination();
@@ -293,6 +312,7 @@ public class UnitMovement : NetworkBehaviour
         // Hand rotation back to RichAI so it faces the next waypoint along
         // the path (this was disabled by Stop() while attacking).
         ai.updateRotation = true;
+        ai.SearchPath();
 
         // Unlock RVO — we're moving again. Without this a unit that fought,
         // its target died, and got a new destination would stay hard-locked.
@@ -304,11 +324,11 @@ public class UnitMovement : NetworkBehaviour
     }
 
     [Server]
-    public void ForceSetDestinationWorld(Vector3 target)
+    public void ForceSetDestinationWorld(Vector3 target, bool treatAsCombatApproach = false)
     {
         // Clear previous target so SetDestinationWorld doesn't skip as duplicate
         WorldTarget = null;
-        SetDestinationWorld(target);
+        SetDestinationWorld(target, treatAsCombatApproach);
     }
 
     [Server]
@@ -329,7 +349,7 @@ public class UnitMovement : NetworkBehaviour
 
         // Just aim at the castle. A* routes to the nearest walkable
         // point, RVO prevents overlap, combat attacks when in range.
-        Vector3 target = castle.transform.position;
+        Vector3 target = ((IAttackable)castle).Position;
 
         strategicDestination = target;
         ForceSetDestinationWorld(target);
@@ -433,9 +453,11 @@ public class UnitMovement : NetworkBehaviour
 
         if (WorldTarget.HasValue && ai != null)
         {
+            ApplyGraphMask();
             ai.isStopped = false;
             ai.destination = WorldTarget.Value;
             ai.updateRotation = true;
+            ai.SearchPath();
         }
 
         // Unlock RVO and drop back to default priority while on the march
@@ -479,6 +501,45 @@ public class UnitMovement : NetworkBehaviour
     {
         if (ai != null)
             ai.SetPath(null);
+    }
+
+    private void ApplyGraphMask()
+    {
+        if (seeker == null)
+            return;
+
+        if (AstarPath.active != null && UnitPathingProfile.TryGetGraphMask(AstarPath.active, pathingGraphRadius, out GraphMask graphMask))
+            seeker.graphMask = graphMask;
+        else
+            seeker.graphMask = GraphMask.everything;
+    }
+
+    private void ConfigureLocomotion(RichAI richAI, float moveSpeed)
+    {
+        if (richAI == null)
+            return;
+
+        richAI.acceleration = Mathf.Max(18f, moveSpeed * 8f);
+        richAI.slowdownTime = 0.1f;
+        richAI.endReachedDistance = 0.15f;
+        richAI.funnelSimplification = true;
+        richAI.slowWhenNotFacingTarget = false;
+        richAI.preventMovingBackwards = false;
+        richAI.autoRepath.mode = AutoRepathPolicy.Mode.Dynamic;
+        richAI.autoRepath.sensitivity = 18f;
+        richAI.autoRepath.maximumPeriod = 0.35f;
+    }
+
+    private bool IsCombatApproachDestination()
+    {
+        if (unit == null || unit.Combat == null || unit.Combat.CurrentTarget == null || !WorldTarget.HasValue)
+            return false;
+
+        if (!strategicDestination.HasValue)
+            return true;
+
+        float threshold = Mathf.Max(1f, unit.EffectiveRadius * 0.5f);
+        return Vector3.Distance(WorldTarget.Value, strategicDestination.Value) > threshold;
     }
 
     // ================================================================

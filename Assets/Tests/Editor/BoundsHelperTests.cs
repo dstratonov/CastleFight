@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using UnityEngine;
+using Mirror;
 
 /// <summary>
 /// Tests BoundsHelper with REAL GameObjects, Colliders, and Renderers.
@@ -382,5 +383,226 @@ public class BoundsHelperTests
                 "Unit inside renderer but outside collider must NOT report distance=0. " +
                 "This was the 'total mess' bug — units everywhere inside the renderer AABB were considered in-range.");
         }
+    }
+}
+
+[TestFixture]
+public class TargetingStateTests
+{
+    private GameObject targetObject;
+    private Health targetHealth;
+    private TargetingState targetingState;
+
+    [SetUp]
+    public void SetUp()
+    {
+        targetObject = new GameObject("PivotTarget");
+        targetObject.AddComponent<NetworkIdentity>();
+        targetHealth = targetObject.AddComponent<Health>();
+        targetingState = new TargetingState();
+    }
+
+    [TearDown]
+    public void TearDown()
+    {
+        if (targetObject != null)
+            Object.DestroyImmediate(targetObject);
+    }
+
+    [Test]
+    public void Validate_HardTarget_UsesPhysicalBoundsInsteadOfPivot()
+    {
+        var target = new DummyAttackable(
+            targetObject,
+            targetHealth,
+            new Vector3(10f, 0f, 0f),
+            new Bounds(new Vector3(10f, 0f, 0f), new Vector3(4f, 4f, 4f)),
+            TargetPriority.Building);
+
+        targetingState.ForceSetTarget(target);
+
+        bool valid = targetingState.Validate(new Vector3(7f, 0f, 0f), 2f);
+
+        Assert.IsTrue(valid, "Leash should measure to the building body, not the pivot.");
+        Assert.IsTrue(targetingState.HasTarget, "Target should remain locked when still near the target footprint.");
+    }
+
+    [Test]
+    public void Validate_HardTarget_ClearsWhenOutsidePhysicalBoundsLeash()
+    {
+        var target = new DummyAttackable(
+            targetObject,
+            targetHealth,
+            new Vector3(10f, 0f, 0f),
+            new Bounds(new Vector3(10f, 0f, 0f), new Vector3(4f, 4f, 4f)),
+            TargetPriority.Building);
+
+        targetingState.ForceSetTarget(target);
+
+        bool valid = targetingState.Validate(new Vector3(4f, 0f, 0f), 2f);
+
+        Assert.IsFalse(valid);
+        Assert.IsFalse(targetingState.HasTarget);
+    }
+
+    private sealed class DummyAttackable : IAttackable
+    {
+        public DummyAttackable(GameObject gameObject, Health health, Vector3 position, Bounds worldBounds, TargetPriority priority)
+        {
+            this.gameObject = gameObject;
+            Health = health;
+            Position = position;
+            WorldBounds = worldBounds;
+            Priority = priority;
+        }
+
+        public GameObject gameObject { get; }
+        public Health Health { get; }
+        public int TeamId => 1;
+        public ArmorType ArmorType => ArmorType.Fortified;
+        public Vector3 Position { get; }
+        public float TargetRadius => 0f;
+        public Bounds WorldBounds { get; }
+        public TargetPriority Priority { get; }
+    }
+}
+
+[TestFixture]
+public class AttackRangeHelperFindAttackPositionTests
+{
+    [Test]
+    public void FindAttackPosition_RectStructure_UsesClosestPerimeterAndPathingStandOff()
+    {
+        var targetObject = new GameObject("StructureTarget");
+        try
+        {
+            var target = new DummyStructureAttackable(
+                targetObject,
+                new Bounds(Vector3.zero, new Vector3(10f, 4f, 10f)));
+
+            Vector3 destination = AttackRangeHelper.FindAttackPosition(
+                new Vector3(20f, 0f, 0f),
+                1.015f,
+                0.5f,
+                target,
+                attackerUnitId: 7);
+
+            Assert.AreEqual(6.17f, destination.x, 0.1f);
+            Assert.AreEqual(0f, destination.z, 0.05f);
+        }
+        finally
+        {
+            Object.DestroyImmediate(targetObject);
+        }
+    }
+
+    [Test]
+    public void FindAttackPosition_RangedStructure_UsesOuterFiringBand()
+    {
+        var targetObject = new GameObject("RangedStructureTarget");
+        try
+        {
+            var target = new DummyStructureAttackable(
+                targetObject,
+                new Bounds(Vector3.zero, new Vector3(10f, 4f, 10f)));
+
+            Vector3 destination = AttackRangeHelper.FindAttackPosition(
+                new Vector3(25f, 0f, 0f),
+                0.5f,
+                6f,
+                target,
+                attackerUnitId: 13);
+
+            Assert.AreEqual(10f, destination.x, 0.1f);
+            Assert.AreEqual(0f, destination.z, 0.05f);
+        }
+        finally
+        {
+            Object.DestroyImmediate(targetObject);
+        }
+    }
+
+    [Test]
+    public void RoundedStructurePerimeter_CornerUsesArcInsteadOfSharpCorner()
+    {
+        var method = typeof(AttackRangeHelper).GetMethod(
+            "GetRoundedRectPerimeterPoint",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+
+        Assert.NotNull(method, "Rounded structure perimeter helper should exist.");
+
+        Bounds bounds = new(Vector3.zero, new Vector3(10f, 4f, 10f));
+        float buffer = 2f;
+        float t = bounds.size.x + 0.25f * Mathf.PI * buffer;
+        Vector3 point = (Vector3)method.Invoke(null, new object[] { bounds, t, buffer });
+
+        Assert.Greater(point.x, bounds.max.x + 0.1f, "Rounded corner should bulge out past the east wall.");
+        Assert.Less(point.z, bounds.min.z - 0.1f, "Rounded corner should bulge out past the south wall.");
+        Assert.Less(point.x, bounds.max.x + buffer - 0.1f, "Corner point should sit on an arc, not snap to the extreme box corner.");
+        Assert.Greater(point.z, bounds.min.z - buffer + 0.1f, "Corner point should sit on an arc, not snap to the extreme box corner.");
+    }
+
+    [Test]
+    public void FindAttackPosition_RoundTarget_StaysOnApproachSide()
+    {
+        var targetObject = new GameObject("RoundTarget");
+        try
+        {
+            var target = new DummyRoundAttackable(
+                targetObject,
+                Vector3.zero,
+                1f);
+
+            Vector3 destination = AttackRangeHelper.FindAttackPosition(
+                new Vector3(8f, 0f, 0f),
+                0.3f,
+                0.5f,
+                target,
+                attackerUnitId: 5);
+
+            Assert.Greater(destination.x, 1.3f);
+            Assert.AreEqual(0f, destination.z, 0.05f);
+        }
+        finally
+        {
+            Object.DestroyImmediate(targetObject);
+        }
+    }
+
+    private sealed class DummyStructureAttackable : IAttackable
+    {
+        public DummyStructureAttackable(GameObject gameObject, Bounds worldBounds)
+        {
+            this.gameObject = gameObject;
+            WorldBounds = worldBounds;
+        }
+
+        public GameObject gameObject { get; }
+        public Health Health => null;
+        public int TeamId => 1;
+        public ArmorType ArmorType => ArmorType.Fortified;
+        public Vector3 Position => WorldBounds.center;
+        public float TargetRadius => 0f;
+        public Bounds WorldBounds { get; }
+        public TargetPriority Priority => TargetPriority.Building;
+    }
+
+    private sealed class DummyRoundAttackable : IAttackable
+    {
+        public DummyRoundAttackable(GameObject gameObject, Vector3 position, float radius)
+        {
+            this.gameObject = gameObject;
+            Position = position;
+            TargetRadius = radius;
+        }
+
+        public GameObject gameObject { get; }
+        public Health Health => null;
+        public int TeamId => 1;
+        public ArmorType ArmorType => ArmorType.Medium;
+        public Vector3 Position { get; }
+        public float TargetRadius { get; }
+        public Bounds WorldBounds => new(Position, Vector3.one * TargetRadius * 2f);
+        public TargetPriority Priority => TargetPriority.Unit;
     }
 }

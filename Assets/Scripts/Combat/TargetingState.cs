@@ -87,7 +87,7 @@ public class TargetingState
         // Castle (Default priority, soft lock) has no leash — it's the fallback objective.
         if (Lock == TargetLock.Hard)
         {
-            float dist = Vector3.Distance(myPosition, Current.gameObject.transform.position);
+            float dist = AttackRangeHelper.DistanceToTarget(myPosition, Current);
             if (dist > leashRange)
             {
                 Clear();

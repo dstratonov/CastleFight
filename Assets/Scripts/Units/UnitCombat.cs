@@ -5,26 +5,11 @@ using Mirror;
 /// Server-side combat component. Delegates target selection to TargetingState
 /// and TargetingService. Handles chase, attack, and target lifecycle.
 ///
-/// Combat positioning model — fully delegated to A* Pro's built-in
-/// <c>RVODestinationCrowdedBehavior</c>:
-///
-///   When this unit aggros a target it sets its destination directly to
-///   the target's world position. A* Pro's <c>rvoDensityBehavior</c>
-///   (enabled by default on every AIBase) detects when the area around
-///   that destination is more than ~60% packed with other agents and
-///   automatically halts this agent at whatever position it reached.
-///   Stopped agents have their RVO priority reduced to 0.1 and
-///   flowFollowingStrength raised to 1.0, so newcomers approaching the
-///   same target can push past them naturally. This is the same crowd
-///   model used by StarCraft 2 and is the recommended A* Pro pattern
-///   for this scenario.
-///
-///   There are no slots, no claims, no patience timer, no blacklist, no
-///   manual stop commands during combat. UnitCombat's only job is:
-///     1. Scan for targets.
-///     2. When a target exists, point movement at target.Position.
-///     3. When in attack range, play the attack animation and apply damage.
-///   Crowd packing emerges entirely from the RVO simulation.
+/// Combat uses geometry-aware engagement slots instead of "everyone rushes
+/// the same point". Attackers are distributed around unit rings and
+/// structure perimeters based on body radius and attack range. Melee
+/// attackers hard-lock once they reach a slot; ranged attackers keep a
+/// softer hold so outer firing bands stay fluid.
 /// </summary>
 public class UnitCombat : NetworkBehaviour
 {
@@ -46,27 +31,30 @@ public class UnitCombat : NetworkBehaviour
     // world units from where it was when we last set it.
     private const float TargetMoveThreshold = 1.0f;
     private Vector3 lastKnownTargetPos;
-    // Kept purely for debug visualisation — DebugOverlay reads this to
-    // show a "aim point" marker. In the density-based model there are
-    // no real slot claims.
+    private const float AttackPositionRefreshInterval = 0.15f;
+    private float attackPositionRefreshTimer;
+    private float slotProgressTimer;
+    private float bestAttackSlotDistance = float.PositiveInfinity;
+    private const float SlotProgressGrace = 0.6f;
+    private const float SlotProgressDriftThreshold = 0.35f;
+    private int slotSearchDirection;
+
+    // Stuck detection: when velocity ≈ 0 while walking (not attacking),
+    // the unit is blocked by a large locked agent that RVO can't
+    // navigate around. After StuckDuration seconds, offset the
+    // destination perpendicular to the approach direction — the
+    // Warcraft II approach: "if a unit cannot slide past, repath an
+    // alternate route."
+    private float stuckTimer;
+    private bool isDetouring;
+    private const float StuckDuration = 0.4f;
+    private const float DetourDistance = 4f;
+    private const float MaxDetourDuration = 1.0f;
+    private const float DetourArriveDistance = 0.75f;
+    private float detourTimer;
+    private Vector3 detourDestination;
+    // Kept for debug visualisation and slot-arrival gating.
     private Vector3? attackPosition;
-
-    // Tracks whether this unit reached attack range of its current target
-    // at least once. Kept as a debug/introspection flag — the capacity
-    // check in Scan is what actually prevents over-commitment, so we no
-    // longer need this to gate overflow. Reset on target change.
-    private bool reachedAttackRangeThisTarget;
-
-    // Assigned attack angle around the current hard-lock target. Computed
-    // in Scan() at commit time based on how much of the target's kissing
-    // ring is already occupied — each committer is placed at the next
-    // unoccupied arc slice, so locked attackers are guaranteed distinct
-    // angles and their bodies cannot overlap. Measured in radians;
-    // 0 = +X axis, π/2 = +Z axis. Only meaningful when
-    // <see cref="hasAssignedAngle"/> is true (never true for soft-lock
-    // castle targets — those use perimeter-closest-point instead).
-    private float assignedAttackAngle;
-    private bool hasAssignedAngle;
 
     // Tracks whether we've called movement.LockForAttack for the current
     // attack swing. Single source of truth so we lock-on-enter and
@@ -81,6 +69,49 @@ public class UnitCombat : NetworkBehaviour
         if (movement == null) return;
         if (locked) movement.LockForAttack();
         else movement.UnlockAfterAttack();
+    }
+
+    private void ResetDetourState(bool clearAttackPosition = false)
+    {
+        stuckTimer = 0f;
+        detourTimer = 0f;
+        isDetouring = false;
+        detourDestination = Vector3.zero;
+        attackPositionRefreshTimer = 0f;
+        slotProgressTimer = 0f;
+        bestAttackSlotDistance = float.PositiveInfinity;
+
+        if (clearAttackPosition)
+            attackPosition = null;
+    }
+
+    private int EnsureSlotSearchDirection(IAttackable target)
+    {
+        if (slotSearchDirection != 0)
+            return slotSearchDirection;
+
+        int targetId = target != null && target.gameObject != null ? target.gameObject.GetInstanceID() : 0;
+        slotSearchDirection = ((unit.GetInstanceID() ^ targetId) & 1) == 0 ? 1 : -1;
+        return slotSearchDirection;
+    }
+
+    private void FlipSlotSearchDirection(IAttackable target)
+    {
+        int current = EnsureSlotSearchDirection(target);
+        slotSearchDirection = -current;
+    }
+
+    private void BeginDetour(Vector3 detour)
+    {
+        if (movement == null)
+            return;
+
+        detourDestination = detour;
+        detourTimer = 0f;
+        stuckTimer = 0f;
+        isDetouring = true;
+        attackPosition = null;
+        movement.ForceSetDestinationWorld(detour);
     }
 
     /// <summary>
@@ -117,6 +148,7 @@ public class UnitCombat : NetworkBehaviour
         // Release any attack lock so the unit doesn't sit frozen as an
         // RVO obstacle after combat is disabled (pooling, teardown,
         // scenario cleanup). Safe to call even if not locked.
+        ResetDetourState(clearAttackPosition: true);
         if (attackLockActive)
             SetAttackLock(false);
     }
@@ -130,6 +162,8 @@ public class UnitCombat : NetworkBehaviour
         // and play-mode cleanup.
         if (GameManager.Instance != null && GameManager.Instance.CurrentState == GameState.GameOver)
         {
+            ResetDetourState(clearAttackPosition: true);
+            slotSearchDirection = 0;
             IsAttacking = false;
             SetAttackLock(false);
             return;
@@ -143,9 +177,8 @@ public class UnitCombat : NetworkBehaviour
             float leashRange = unit.Data.aggroRadius * LeashMultiplier;
             if (!targeting.Validate(transform.position, leashRange))
             {
-                attackPosition = null;
-                reachedAttackRangeThisTarget = false;
-                hasAssignedAngle = false;
+                ResetDetourState(clearAttackPosition: true);
+                slotSearchDirection = 0;
                 SetAttackLock(false);
                 targeting.Clear();
             }
@@ -164,6 +197,8 @@ public class UnitCombat : NetworkBehaviour
 
         if (!targeting.HasTarget)
         {
+            ResetDetourState(clearAttackPosition: true);
+            slotSearchDirection = 0;
             IsAttacking = false;
             SetAttackLock(false);
             return;
@@ -172,6 +207,7 @@ public class UnitCombat : NetworkBehaviour
         var target = targeting.Current;
         float myRadius = unit.EffectiveRadius;
         float attackRange = unit.Data.attackRange;
+        attackPositionRefreshTimer -= Time.deltaTime;
 
         // In-range check — attack when ALL THREE are true:
         //   1) the attacker's body can reach the target's body
@@ -191,30 +227,42 @@ public class UnitCombat : NetworkBehaviour
         bool inRange = AttackRangeHelper.IsTargetInRange(
             transform.position, myRadius, attackRange, target);
 
-        bool atAssignedSlot = true;
-        if (hasAssignedAngle && attackPosition.HasValue)
+        bool atAssignedSlot = false;
+        if (attackPosition.HasValue)
         {
             float slotDistSq = (transform.position - attackPosition.Value).sqrMagnitude;
-            // 30% of body radius — tight enough that locked attackers are
-            // at their assigned angle (so the arc-padding margin isn't
-            // eaten by lock-position drift), but loose enough that RVO
-            // convergence always reaches the gate before the unit would
-            // otherwise orbit forever.
-            float slotTolerance = myRadius * 0.3f;
+            float slotTolerance = AttackRangeHelper.GetAttackSlotTolerance(unit);
+            if (target.TargetRadius <= 0.01f)
+            {
+                float structureTolerance = Mathf.Clamp(unit.EffectiveRadius * 1.1f, 0.45f, 1.5f);
+                slotTolerance = Mathf.Max(slotTolerance, structureTolerance);
+            }
             atAssignedSlot = slotDistSq <= slotTolerance * slotTolerance;
+        }
+
+        if (!atAssignedSlot
+            && inRange
+            && target.TargetRadius <= 0.01f
+            && movement != null
+            && movement.WorldTarget.HasValue)
+        {
+            float localStopDistance = Vector3.Distance(transform.position, movement.WorldTarget.Value);
+            if (localStopDistance <= 0.4f)
+                atAssignedSlot = true;
         }
 
         if (inRange && atAssignedSlot)
         {
+            ResetDetourState();
             bool justArrived = !IsAttacking;
             IsAttacking = true;
-            reachedAttackRangeThisTarget = true;
+            bool hardLock = AttackRangeHelper.ShouldHardLock(unit);
             // Lock the RVO agent in place so the incoming crowd can't push
             // us out of attack range mid-swing. Once locked, we're a static
             // obstacle to other agents — they accumulate arc behind us and
             // either fit into a remaining slot or are rejected by the
             // capacity check in Scan() and walk to the castle instead.
-            SetAttackLock(true);
+            SetAttackLock(hardLock);
 
             if (justArrived)
             {
@@ -239,29 +287,122 @@ public class UnitCombat : NetworkBehaviour
         IsAttacking = false;
         SetAttackLock(false);
 
-        // Walk toward the target. Call SetDestinationWorld every frame if:
-        //   * attackPosition is stale (null, target moved, or movement was
-        //     hard-stopped by ArriveAtDestination and needs wake-up).
-        //
-        // A hard-stop (ArriveAtDestination clears WorldTarget and sets
-        // isStopped=true) on a stationary target would never satisfy the
-        // "moved > threshold" condition by itself, so the IsHardStopped
-        // clause is required to wake the unit back up for continued chase.
-        // SetDestinationWorld has an internal dedup that makes same-dest
-        // calls cheap for the normal case.
+        // Stuck detection: if velocity ≈ 0 while walking, the unit is
+        // blocked by a large locked agent. Offset destination
+        // perpendicular to approach direction to route around.
+        var richAI = movement != null ? unit.GetComponent<Pathfinding.RichAI>() : null;
+        float vel = richAI != null ? richAI.velocity.magnitude : 999f;
+
+        if (attackPosition.HasValue && !isDetouring)
+        {
+            float slotDistance = Vector3.Distance(transform.position, attackPosition.Value);
+            if (slotDistance + 0.1f < bestAttackSlotDistance)
+            {
+                bestAttackSlotDistance = slotDistance;
+                slotProgressTimer = 0f;
+            }
+            else
+            {
+                bool driftingAway = slotDistance > bestAttackSlotDistance + SlotProgressDriftThreshold;
+                bool stalledOnSlot = vel < 0.2f;
+                if (driftingAway || stalledOnSlot)
+                    slotProgressTimer += Time.deltaTime;
+                else
+                    slotProgressTimer = Mathf.Max(0f, slotProgressTimer - Time.deltaTime * 0.5f);
+            }
+
+            if (slotProgressTimer >= SlotProgressGrace)
+            {
+                FlipSlotSearchDirection(target);
+                attackPosition = null;
+                attackPositionRefreshTimer = 0f;
+                slotProgressTimer = 0f;
+                bestAttackSlotDistance = float.PositiveInfinity;
+            }
+        }
+        else
+        {
+            slotProgressTimer = 0f;
+            bestAttackSlotDistance = float.PositiveInfinity;
+        }
+
+        if (isDetouring)
+        {
+            detourTimer += Time.deltaTime;
+
+            bool reachedDetour = Vector3.Distance(transform.position, detourDestination) <= DetourArriveDistance;
+            bool targetShifted = Vector3.Distance(target.Position, lastKnownTargetPos) > TargetMoveThreshold;
+            bool detourExpired = detourTimer >= MaxDetourDuration;
+
+            if (reachedDetour || targetShifted || detourExpired || movement.IsHardStopped)
+            {
+                ResetDetourState(clearAttackPosition: true);
+            }
+        }
+
+        if (!isDetouring)
+        {
+            if (vel < 0.15f && !movement.IsHardStopped)
+            {
+                stuckTimer += Time.deltaTime;
+                if (stuckTimer > StuckDuration)
+                {
+                    // Pick a perpendicular detour point
+                    Vector3 toTarget = target.Position - transform.position;
+                    toTarget.y = 0f;
+                    if (toTarget.sqrMagnitude > 0.01f)
+                    {
+                        toTarget.Normalize();
+                        Vector3 perp = new Vector3(-toTarget.z, 0f, toTarget.x);
+                        float side = (unit.GetInstanceID() % 2 == 0) ? 1f : -1f;
+                        Vector3 detour = transform.position + perp * side * DetourDistance
+                                       + toTarget * 1f; // slight forward bias
+                        BeginDetour(detour);
+                    }
+
+                    stuckTimer = 0f;
+                }
+            }
+            else
+            {
+                stuckTimer = 0f;
+            }
+        }
+
+        // Walk toward the target.
         Vector3 targetPos = target.Position;
         bool needsRefresh =
-            !attackPosition.HasValue
+            attackPositionRefreshTimer <= 0f
+            || !movement.WorldTarget.HasValue
+            || !attackPosition.HasValue
             || Vector3.Distance(targetPos, lastKnownTargetPos) > TargetMoveThreshold
             || movement.IsHardStopped;
 
-        if (needsRefresh)
+        if (needsRefresh && !isDetouring)
         {
             lastKnownTargetPos = targetPos;
             Vector3 dest = AttackRangeHelper.FindAttackPosition(
-                transform.position, myRadius, attackRange, target, unit.GetInstanceID(), unit);
+                transform.position,
+                myRadius,
+                attackRange,
+                target,
+                unit.GetInstanceID(),
+                unit,
+                allowQueueOutsideRange: target.Priority == TargetPriority.Default,
+                searchDirection: EnsureSlotSearchDirection(target));
+
+            bool destinationChanged = !attackPosition.HasValue
+                || Vector3.Distance(dest, attackPosition.Value) > 0.35f
+                || movement.IsHardStopped
+                || !movement.WorldTarget.HasValue;
+
             attackPosition = dest;
-            movement.SetDestinationWorld(dest);
+            attackPositionRefreshTimer = AttackPositionRefreshInterval;
+            bestAttackSlotDistance = Vector3.Distance(transform.position, dest);
+            slotProgressTimer = 0f;
+
+            if (destinationChanged)
+                movement.SetDestinationWorld(dest, treatAsCombatApproach: true);
         }
     }
 
@@ -280,26 +421,15 @@ public class UnitCombat : NetworkBehaviour
         // Don't re-acquire the same target
         if (targeting.HasTarget && found.gameObject == targeting.Current.gameObject) return;
 
-        // CAPACITY CHECK — each hard-lock target's kissing ring has exactly
-        // 2π radians of usable arc. Each committed attacker occupies an
-        // arc slice proportional to its own body radius (big troll = big
-        // slice, small footman = small slice). If adding this unit would
-        // push the total past 2π, the ring is full and we don't commit.
-        //
-        // Soft-lock targets (Default priority = castle) have no cap —
-        // the castle IS the strategic destination and we always want
-        // multiple attackers there simultaneously.
-        float existingArc = 0f;
+        // Hard targets only accept new commitments if we can assign a
+        // valid engagement slot. Soft-lock defaults (castle) are allowed
+        // to queue in outer bands outside attack range until space opens.
         if (found.Priority != TargetPriority.Default)
         {
-            existingArc = AttackRangeHelper.GetArcOccupiedOn(found, unit.TeamId);
-            float required = AttackRangeHelper.GetArcRequiredFor(found, unit.EffectiveRadius);
-            const float FullArc = 2f * Mathf.PI;
-            if (existingArc + required > FullArc + 0.001f)
+            if (!AttackRangeHelper.CanCommitToTarget(found, unit))
             {
                 if (GameDebug.Combat)
-                    Debug.Log($"[Combat] {gameObject.name} skip {found.gameObject.name} " +
-                        $"(arc {existingArc:F2}+{required:F2} > {FullArc:F2})");
+                    Debug.Log($"[Combat] {gameObject.name} skip {found.gameObject.name} (no engagement slot)");
                 return;
             }
         }
@@ -307,17 +437,11 @@ public class UnitCombat : NetworkBehaviour
         bool accepted = targeting.TrySetTarget(found);
         if (accepted)
         {
-            attackPosition = null;
+            ResetDetourState(clearAttackPosition: true);
+            slotSearchDirection = 0;
             lastKnownTargetPos = found.Position;
-            reachedAttackRangeThisTarget = false;
             SetAttackLock(false);
-
-            // No angle assignment. All targets use FindAttackPosition
-            // which returns target.Position. A* routes to nearest
-            // walkable point, RVO packs attackers naturally, combat
-            // attacks the moment they're in range. Same approach for
-            // units, buildings, and castles.
-            hasAssignedAngle = false;
+            attackPositionRefreshTimer = 0f;
 
             if (GameDebug.Combat)
                 Debug.Log($"[Combat] {gameObject.name} aggro -> {found.gameObject.name} " +

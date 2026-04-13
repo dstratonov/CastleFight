@@ -68,14 +68,8 @@ public class Spawner : NetworkBehaviour
             Vector3 offset = new Vector3(Random.Range(-spread, spread), 0, Random.Range(-spread, spread));
             Vector3 candidate = basePos + offset;
 
-            // Check the candidate is on the NavMesh
-            var nearest = AstarPath.active != null
-                ? AstarPath.active.GetNearest(candidate, NearestNodeConstraint.Walkable)
-                : default;
-            if (nearest.node == null || !nearest.node.Walkable)
+            if (!TrySnapToSpawnSurface(candidate, unitRadius, out candidate))
                 continue;
-
-            candidate = nearest.position;
 
             if (!IsSpawnPositionClear(candidate, unitRadius))
                 continue;
@@ -88,12 +82,8 @@ public class Spawner : NetworkBehaviour
         if (!foundValid)
         {
             // Fallback: find nearest walkable point on NavMesh
-            if (AstarPath.active != null)
-            {
-                var nearest = AstarPath.active.GetNearest(basePos, NearestNodeConstraint.Walkable);
-                if (nearest.node != null)
-                    pos = nearest.position;
-            }
+            if (TrySnapToSpawnSurface(basePos, unitRadius, out Vector3 snapped))
+                pos = snapped;
 
             if (GameDebug.Spawning)
                 Debug.LogWarning($"[Spawn] All attempts failed for {unitData.unitName}, using nearest NavMesh point {pos:F1}");
@@ -116,6 +106,20 @@ public class Spawner : NetworkBehaviour
         {
             Debug.LogWarning($"[Spawn] FAILED to spawn {unitData.unitName} at {pos:F1}");
         }
+    }
+
+    private bool TrySnapToSpawnSurface(Vector3 candidate, float unitRadius, out Vector3 snapped)
+    {
+        snapped = candidate;
+        if (AstarPath.active == null)
+            return false;
+
+        var nearest = AstarPath.active.GetNearest(candidate, UnitPathingProfile.BuildWalkableConstraint(AstarPath.active, unitRadius));
+        if (nearest.node == null || !nearest.node.Walkable)
+            return false;
+
+        snapped = nearest.position;
+        return true;
     }
 
     private bool IsSpawnPositionClear(Vector3 position, float radius)
